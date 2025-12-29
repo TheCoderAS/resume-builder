@@ -2,10 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import html2pdf from "html2pdf.js";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
+import EmptyState from "../components/EmptyState.jsx";
+import ErrorBanner from "../components/ErrorBanner.jsx";
 import Input from "../components/Input.jsx";
+import LoadingSkeleton from "../components/LoadingSkeleton.jsx";
 import ResumePreview from "../components/ResumePreview.jsx";
 import SectionHeader from "../components/SectionHeader.jsx";
+import Snackbar from "../components/Snackbar.jsx";
 import VisibilityToggle from "../components/VisibilityToggle.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
@@ -41,6 +46,7 @@ export default function ExportPublish() {
   const [copyMessage, setCopyMessage] = useState("Copy link");
   const [downloadMessage, setDownloadMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(null);
 
   const resumeId = useMemo(
     () => window.localStorage.getItem("activeResumeId"),
@@ -120,8 +126,18 @@ export default function ExportPublish() {
         },
         publicSlug: nextSlug,
       }));
+      setToast({
+        message: nextPublic
+          ? "Public link enabled."
+          : "Public link disabled.",
+        variant: "success",
+      });
     } catch (error) {
       setStatusMessage("We couldn't update your public link.");
+      setToast({
+        message: "Unable to update your public link.",
+        variant: "error",
+      });
     } finally {
       setSaving(false);
     }
@@ -155,20 +171,20 @@ export default function ExportPublish() {
         .from(previewRef.current)
         .save();
       setDownloadMessage("");
+      setToast({ message: "PDF exported successfully.", variant: "success" });
     } catch (error) {
       setDownloadMessage("Unable to generate PDF.");
+      setToast({ message: "PDF export failed.", variant: "error" });
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 px-6 py-12 text-slate-100">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
+    <AppShell>
+      <div className="flex w-full flex-col gap-8">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-100">
-              Export & publish
-            </h1>
-            <p className="mt-1 text-sm text-slate-300">
+            <h1 className="app-title">Export & publish</h1>
+            <p className="app-subtitle">
               Download your PDF or enable a shareable public link.
             </p>
           </div>
@@ -183,29 +199,41 @@ export default function ExportPublish() {
         </header>
 
         {!resumeId ? (
-          <div className="rounded-[24px] border border-amber-500/40 bg-amber-500/10 p-5 text-sm text-amber-100">
-            Start a resume draft before exporting.
-          </div>
+          <EmptyState
+            title="No resume draft available"
+            description="Start a resume draft before exporting or publishing."
+            action={
+              <Button onClick={() => navigate("/app/resume")}>
+                Build a resume
+              </Button>
+            }
+          />
         ) : null}
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-          <section className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
+          <section className="app-card">
             <SectionHeader
               title="PDF preview"
               description="Review the layout that will be exported."
             />
             <div className="mt-6 flex justify-center">
-              <div
-                ref={previewRef}
-                className="w-full max-w-[720px] overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_20px_40px_rgba(15,23,42,0.3)]"
-              >
-                <ResumePreview
-                  profile={resume.profile}
-                  resumeData={resume.resumeData}
-                  sectionOrder={resume.sectionOrder}
-                  styles={resume.templateStyles}
-                />
-              </div>
+              {loading ? (
+                <div className="w-full max-w-[720px] rounded-[22px] border border-slate-800 bg-slate-950/60 p-4">
+                  <LoadingSkeleton variant="panel" />
+                </div>
+              ) : (
+                <div
+                  ref={previewRef}
+                  className="w-full max-w-[720px] overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_20px_40px_rgba(15,23,42,0.3)]"
+                >
+                  <ResumePreview
+                    profile={resume.profile}
+                    resumeData={resume.resumeData}
+                    sectionOrder={resume.sectionOrder}
+                    styles={resume.templateStyles}
+                  />
+                </div>
+              )}
             </div>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Button onClick={handleDownload} disabled={!resumeId}>
@@ -218,50 +246,60 @@ export default function ExportPublish() {
           </section>
 
           <aside className="flex flex-col gap-6">
-            <section className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
+            <section className="app-card">
               <SectionHeader
                 title="Public link"
                 description="Share a read-only version of your resume."
               />
-              <div className="mt-6 grid gap-4">
-                <VisibilityToggle
-                  enabled={resume.visibility?.isPublic}
-                  onChange={handleTogglePublic}
-                />
-                <Input
-                  label="Shareable link"
-                  value={publicLink}
-                  readOnly
-                  className="text-xs"
-                />
-                <Button
-                  variant="ghost"
-                  onClick={handleCopyLink}
-                  disabled={!resume.visibility?.isPublic || !publicLink}
-                >
-                  {copyMessage}
-                </Button>
-                <p className="text-xs text-slate-400">
-                  {resume.visibility?.isPublic
-                    ? "Anyone with the link can view your resume."
-                    : "Enable the toggle to create a public link."}
-                </p>
-              </div>
+              {loading ? (
+                <LoadingSkeleton variant="block" className="mt-6" />
+              ) : (
+                <div className="mt-6 grid gap-4">
+                  <VisibilityToggle
+                    enabled={resume.visibility?.isPublic}
+                    onChange={handleTogglePublic}
+                  />
+                  <Input
+                    label="Shareable link"
+                    value={publicLink}
+                    readOnly
+                    className="text-xs"
+                  />
+                  <Button
+                    variant="ghost"
+                    onClick={handleCopyLink}
+                    disabled={!resume.visibility?.isPublic || !publicLink}
+                  >
+                    {copyMessage}
+                  </Button>
+                  <p className="text-xs text-slate-400">
+                    {resume.visibility?.isPublic
+                      ? "Anyone with the link can view your resume."
+                      : "Enable the toggle to create a public link."}
+                  </p>
+                </div>
+              )}
             </section>
 
-            <section className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6 text-xs text-slate-300">
+            <section className="app-card text-xs text-slate-300">
               {loading
                 ? "Loading resume data..."
-                : statusMessage || "Your PDF export uses the latest saved draft."}
+                : "Your PDF export uses the latest saved draft."}
               {saving ? (
                 <div className="mt-2 text-emerald-200">
                   Saving visibility settings...
                 </div>
               ) : null}
             </section>
+            {statusMessage ? <ErrorBanner message={statusMessage} /> : null}
           </aside>
         </div>
       </div>
-    </div>
+      <Snackbar
+        message={toast?.message}
+        variant={toast?.variant}
+        onDismiss={() => setToast(null)}
+      />
+    </AppShell>
   );
 }

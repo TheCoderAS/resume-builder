@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
+import ErrorBanner from "../components/ErrorBanner.jsx";
 import Input from "../components/Input.jsx";
+import Snackbar from "../components/Snackbar.jsx";
 import ResumePreview from "../components/ResumePreview.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
@@ -98,6 +101,7 @@ export default function TemplatePlayground() {
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [toast, setToast] = useState(null);
 
   const { fontFamily, fontSize, spacing, sectionLayout, colors, tokens } =
     templateStyles;
@@ -322,25 +326,25 @@ export default function TemplatePlayground() {
         updatedAt: serverTimestamp(),
       });
       setStatusMessage("Template saved to Firestore.");
+      setToast({ message: "Template saved to Firestore.", variant: "success" });
     } catch (error) {
       setErrorMessage("Unable to save template right now.");
+      setToast({ message: "Template save failed.", variant: "error" });
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    <AppShell>
+      <div className="flex w-full flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-200">
               Template playground
             </p>
-            <h1 className="text-2xl font-semibold text-slate-100">
-              Build a new resume template
-            </h1>
-            <p className="mt-1 text-sm text-slate-300">
+            <h1 className="app-title">Build a new resume template</h1>
+            <p className="app-subtitle">
               Configure blocks, typography, and layout before saving.
             </p>
           </div>
@@ -350,7 +354,7 @@ export default function TemplatePlayground() {
         </header>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
+          <div className="app-card">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-lg font-semibold text-slate-100">Canvas</h2>
               <span className="text-xs text-slate-400">
@@ -375,7 +379,7 @@ export default function TemplatePlayground() {
           </div>
 
           <aside className="flex flex-col gap-4">
-            <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-5">
+            <div className="app-card">
               <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
                 Inspector
               </h3>
@@ -591,7 +595,7 @@ export default function TemplatePlayground() {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-5">
+            <div className="app-card">
               <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
                 Canvas blocks
               </h3>
@@ -613,7 +617,7 @@ export default function TemplatePlayground() {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-5">
+            <div className="app-card">
               <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
                 Save template
               </h3>
@@ -621,8 +625,8 @@ export default function TemplatePlayground() {
                 Templates must include a header and at least one section.
               </p>
               {errorMessage ? (
-                <div className="mt-3 rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-xs text-rose-200">
-                  {errorMessage}
+                <div className="mt-3">
+                  <ErrorBanner message={errorMessage} />
                 </div>
               ) : null}
               {statusMessage ? (
@@ -641,6 +645,11 @@ export default function TemplatePlayground() {
           </aside>
         </div>
       </div>
-    </div>
+      <Snackbar
+        message={toast?.message}
+        variant={toast?.variant}
+        onDismiss={() => setToast(null)}
+      />
+    </AppShell>
   );
 }

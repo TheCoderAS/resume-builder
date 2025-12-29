@@ -1,14 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   collection,
+  deleteDoc,
   doc,
   getDocs,
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import {
+  FiArchive,
+  FiCheckCircle,
+  FiEdit3,
+  FiMoreVertical,
+  FiStar,
+  FiTrash2,
+} from "react-icons/fi";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import EmptyState from "../components/EmptyState.jsx";
@@ -19,7 +29,12 @@ import Snackbar from "../components/Snackbar.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
 
-const FILTER_OPTIONS = ["All", "Professional", "Creative", "Minimal", "ATS"];
+const FILTER_OPTIONS = [
+  { label: "All", value: "all" },
+  { label: "Admin", value: "admin" },
+  { label: "My templates", value: "mine" },
+  { label: "Archived", value: "archived" },
+];
 
 const getTemplateCategory = (template) =>
   template.category ?? template.tags?.[0] ?? "Professional";
@@ -28,11 +43,12 @@ export default function TemplateGallery() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [templates, setTemplates] = useState([]);
-  const [filter, setFilter] = useState("All");
+  const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState(null);
+  const [menuOpenId, setMenuOpenId] = useState(null);
   const [toast, setToast] = useState(null);
 
   const resumeId = useMemo(
@@ -95,8 +111,16 @@ export default function TemplateGallery() {
     const queryValue = search.trim().toLowerCase();
     return templates.filter((template) => {
       const category = getTemplateCategory(template);
-      const matchesFilter =
-        filter === "All" || category.toLowerCase() === filter.toLowerCase();
+      const status = template.status ?? "active";
+      const isAdminTemplate = template.type === "admin";
+      const isUserTemplate = user && template.ownerId === user.uid;
+      const matchesFilter = (() => {
+        if (filter === "all") return true;
+        if (filter === "admin") return isAdminTemplate;
+        if (filter === "mine") return isUserTemplate;
+        if (filter === "archived") return status === "archived";
+        return category.toLowerCase() === filter.toLowerCase();
+      })();
       const name = template.name ?? "Untitled template";
       const creator = template.creatorName ?? "Resume Studio";
       const matchesSearch =
@@ -105,7 +129,7 @@ export default function TemplateGallery() {
         creator.toLowerCase().includes(queryValue);
       return matchesFilter && matchesSearch;
     });
-  }, [filter, search, templates]);
+  }, [filter, search, templates, user]);
 
   const handleSelectTemplate = async (template) => {
     if (!resumeId || !user) return;
@@ -136,6 +160,53 @@ export default function TemplateGallery() {
     }
   };
 
+  const handleSetDefault = (templateId) => {
+    window.localStorage.setItem("defaultTemplateId", templateId);
+    setToast({ message: "Default template updated.", variant: "success" });
+    setMenuOpenId(null);
+  };
+
+  const handleToggleArchive = async (template) => {
+    const nextStatus = template.status === "archived" ? "active" : "archived";
+    try {
+      await updateDoc(doc(db, "templates", template.id), {
+        status: nextStatus,
+        updatedAt: serverTimestamp(),
+      });
+      setTemplates((prev) =>
+        prev.map((item) =>
+          item.id === template.id ? { ...item, status: nextStatus } : item
+        )
+      );
+      setToast({
+        message:
+          nextStatus === "archived"
+            ? "Template archived."
+            : "Template restored.",
+        variant: "success",
+      });
+    } catch (error) {
+      setToast({
+        message: "Unable to update template status.",
+        variant: "error",
+      });
+    } finally {
+      setMenuOpenId(null);
+    }
+  };
+
+  const handleDeleteTemplate = async (template) => {
+    try {
+      await deleteDoc(doc(db, "templates", template.id));
+      setTemplates((prev) => prev.filter((item) => item.id !== template.id));
+      setToast({ message: "Template deleted.", variant: "success" });
+    } catch (error) {
+      setToast({ message: "Unable to delete template.", variant: "error" });
+    } finally {
+      setMenuOpenId(null);
+    }
+  };
+
   return (
     <AppShell>
       <div className="flex w-full flex-col gap-6">
@@ -146,7 +217,9 @@ export default function TemplateGallery() {
               Pick a layout and style to finish your resume.
             </p>
           </div>
-          <Button variant="ghost" onClick={() => navigate("/app/resume")}>Back to editor</Button>
+          <Button onClick={() => navigate("/app/template-playground")}>
+            New template
+          </Button>
         </header>
 
         {!resumeId ? (
@@ -166,16 +239,16 @@ export default function TemplateGallery() {
             <div className="flex flex-wrap gap-2">
               {FILTER_OPTIONS.map((option) => (
                 <button
-                  key={option}
+                  key={option.value}
                   type="button"
-                  onClick={() => setFilter(option)}
+                  onClick={() => setFilter(option.value)}
                   className={`app-pill ${
-                    filter === option
+                    filter === option.value
                       ? "border-emerald-300 bg-emerald-400/10 text-emerald-100"
                       : "border-slate-700 text-slate-300 hover:border-slate-500"
                   }`}
                 >
-                  {option}
+                  {option.label}
                 </button>
               ))}
             </div>
@@ -200,6 +273,11 @@ export default function TemplateGallery() {
               <EmptyState
                 title="No templates match yet"
                 description="Try clearing filters or changing your search."
+                action={
+                  <Button onClick={() => navigate("/app/template-playground")}>
+                    Create a new template
+                  </Button>
+                }
               />
             </div>
           ) : null}
@@ -209,15 +287,87 @@ export default function TemplateGallery() {
                 const usage = template.usageCount ?? 0;
                 const thumbnail = template.thumbnailUrl;
                 const isSaving = savingId === template.id;
+                const isAdminTemplate = template.type === "admin";
+                const isUserTemplate = user && template.ownerId === user.uid;
+                const status = template.status ?? "active";
 
                 return (
-                  <button
+                  <div
                     key={template.id}
-                    type="button"
-                    onClick={() => handleSelectTemplate(template)}
-                    disabled={!resumeId || isSaving}
-                    className="flex h-full flex-col gap-4 rounded-[28px] border border-slate-800 bg-slate-900/60 p-5 text-left transition hover:-translate-y-0.5 hover:border-emerald-400/60 hover:shadow-[0_16px_32px_rgba(15,23,42,0.45)] disabled:cursor-not-allowed disabled:opacity-70"
+                    className="relative flex h-full flex-col gap-4 overflow-hidden rounded-[28px] border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-5 text-left shadow-[0_18px_40px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-emerald-400/60"
                   >
+                    {isAdminTemplate ? (
+                      <div className="absolute right-5 top-5 flex items-center gap-1 rounded-full border border-emerald-400/60 bg-emerald-400/10 px-2 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-emerald-100">
+                        <FiStar className="h-3 w-3" />
+                        Featured
+                      </div>
+                    ) : null}
+                    {isUserTemplate ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setMenuOpenId((current) =>
+                            current === template.id ? null : template.id
+                          );
+                        }}
+                        className="absolute right-5 top-5 rounded-full border border-slate-800 bg-slate-950/70 p-2 text-slate-300 transition hover:border-emerald-400/60 hover:text-emerald-100"
+                        aria-label="Open template menu"
+                      >
+                        <FiMoreVertical className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                    {menuOpenId === template.id && isUserTemplate ? (
+                      <div className="absolute right-5 top-14 z-20 w-48 rounded-2xl border border-slate-800 bg-slate-950/95 p-2 text-sm shadow-[0_18px_40px_rgba(15,23,42,0.6)]">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleSetDefault(template.id);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-emerald-100 transition hover:bg-emerald-400/10"
+                        >
+                          <FiCheckCircle className="h-4 w-4" />
+                          Set as default
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            navigate("/app/template-playground", {
+                              state: { templateId: template.id },
+                            });
+                            setMenuOpenId(null);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-slate-200 transition hover:bg-slate-800"
+                        >
+                          <FiEdit3 className="h-4 w-4" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleToggleArchive(template);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-slate-200 transition hover:bg-slate-800"
+                        >
+                          <FiArchive className="h-4 w-4" />
+                          {status === "archived" ? "Unarchive" : "Archive"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDeleteTemplate(template);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-rose-200 transition hover:bg-rose-500/10"
+                        >
+                          <FiTrash2 className="h-4 w-4" />
+                          Delete
+                        </button>
+                      </div>
+                    ) : null}
                     <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
                       <div className="aspect-[4/3] w-full">
                         {thumbnail ? (
@@ -227,13 +377,16 @@ export default function TemplateGallery() {
                             className="h-full w-full object-cover"
                           />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-xs uppercase tracking-[0.4em] text-slate-500">
-                            {category}
+                          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-xs uppercase tracking-[0.4em] text-slate-400">
+                            <span>{category}</span>
+                            <span className="text-[0.55rem] text-slate-500">
+                              Template preview
+                            </span>
                           </div>
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-1 flex-col gap-2">
+                    <div className="flex flex-1 flex-col gap-3">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wide text-emerald-200">
                           {category}
@@ -245,14 +398,21 @@ export default function TemplateGallery() {
                           Created by {template.creatorName ?? "Resume Studio"}
                         </p>
                       </div>
-                      <div className="mt-auto flex items-center justify-between text-sm text-slate-300">
+                      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
                         <span>{usage.toLocaleString()} uses</span>
-                        <span className="text-xs font-semibold text-emerald-200">
-                          {isSaving ? "Applying..." : "Select template"}
+                        <span className="rounded-full border border-slate-800 px-3 py-1 text-[0.6rem] uppercase tracking-[0.3em] text-slate-400">
+                          {status}
                         </span>
                       </div>
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSelectTemplate(template)}
+                        disabled={!resumeId || isSaving}
+                      >
+                        {isSaving ? "Applying..." : "Use template"}
+                      </Button>
                     </div>
-                  </button>
+                  </div>
                 );
               })
             : null}

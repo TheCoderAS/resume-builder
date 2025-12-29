@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
@@ -87,7 +86,6 @@ const SAMPLE_RESUME_DATA = {
 const SAMPLE_SECTION_ORDER = ["experience", "skills", "education"];
 
 export default function TemplatePlayground() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const canvasRef = useRef(null);
   const [templateName, setTemplateName] = useState("Modern Executive");
@@ -335,7 +333,7 @@ export default function TemplatePlayground() {
   return (
     <AppShell>
       <div className="flex w-full flex-col gap-6">
-        <header className="flex flex-wrap items-center justify-between gap-4">
+        <header>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-200">
               Template playground
@@ -345,9 +343,6 @@ export default function TemplatePlayground() {
               Configure blocks, typography, and layout before saving.
             </p>
           </div>
-          <Button variant="ghost" onClick={() => navigate("/app")}>
-            Back to dashboard
-          </Button>
         </header>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">

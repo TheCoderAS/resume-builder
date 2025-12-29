@@ -94,14 +94,11 @@ export default function Drafts() {
   return (
     <AppShell>
       <div className="flex w-full flex-col gap-6">
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="app-title">Drafts</h1>
-            <p className="app-subtitle">
-              {draftCount} saved resume{draftCount === 1 ? "" : "s"}
-            </p>
-          </div>
-          <Button onClick={() => navigate("/app/resume")}>New resume</Button>
+        <header>
+          <h1 className="app-title">Resumes</h1>
+          <p className="app-subtitle">
+            {draftCount} saved resume{draftCount === 1 ? "" : "s"}
+          </p>
         </header>
 
         {error ? <ErrorBanner message={error} /> : null}
@@ -118,7 +115,7 @@ export default function Drafts() {
 
         {!loading && drafts.length === 0 ? (
           <EmptyState
-            title="No drafts yet"
+            title="No resumes yet"
             description="Start a new resume to see it here."
             action={<Button onClick={() => navigate("/app/resume")}>Start now</Button>}
           />

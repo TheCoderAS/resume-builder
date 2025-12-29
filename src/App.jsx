@@ -11,6 +11,7 @@ import TemplatePlayground from "./pages/TemplatePlayground.jsx";
 import ExportPublish from "./pages/ExportPublish.jsx";
 import PublicResume from "./pages/PublicResume.jsx";
 import AdminTemplates from "./pages/AdminTemplates.jsx";
+import Profile from "./pages/Profile.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import useAnalyticsPageView from "./hooks/useAnalyticsPageView.js";
 
@@ -76,6 +77,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ExportPublish />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         }
       />

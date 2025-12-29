@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import Button from "../components/Button.jsx";
 import LoaderOverlay from "../components/LoaderOverlay.jsx";
@@ -6,6 +7,7 @@ import PromptModal from "../components/PromptModal.jsx";
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -71,18 +73,23 @@ export default function Dashboard() {
               Quick actions
             </h2>
             <div className="mt-4 grid gap-3 text-sm text-slate-200">
-              {[
-                "Start a new resume",
-                "Import LinkedIn profile",
-                "Invite a collaborator",
-              ].map((action) => (
-                <div
-                  key={action}
-                  className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3"
-                >
-                  {action}
-                </div>
-              ))}
+              <button
+                type="button"
+                onClick={() => navigate("/app/resume")}
+                className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-left transition hover:border-emerald-400/60"
+              >
+                Start a new resume
+              </button>
+              {["Import LinkedIn profile", "Invite a collaborator"].map(
+                (action) => (
+                  <div
+                    key={action}
+                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3"
+                  >
+                    {action}
+                  </div>
+                )
+              )}
             </div>
           </div>
         </section>

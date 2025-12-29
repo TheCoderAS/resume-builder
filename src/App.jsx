@@ -4,6 +4,8 @@ import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import ResumeEditor from "./pages/ResumeEditor.jsx";
+import TemplateSelection from "./pages/TemplateSelection.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import useAnalyticsPageView from "./hooks/useAnalyticsPageView.js";
 
@@ -21,6 +23,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/resume"
+        element={
+          <ProtectedRoute>
+            <ResumeEditor />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/templates"
+        element={
+          <ProtectedRoute>
+            <TemplateSelection />
           </ProtectedRoute>
         }
       />

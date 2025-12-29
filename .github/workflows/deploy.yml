@@ -1,0 +1,53 @@
+name: Deploy to Firebase Hosting
+run-name: Deploy to Firebase Hosting
+
+on:
+  push:
+    branches: 
+      - main
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+      - name: Install dependencies
+        run: npm install
+      - name: Build
+        run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{secrets.VITE_FIREBASE_API_KEY}}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{secrets.VITE_FIREBASE_AUTH_DOMAIN}}
+          VITE_FIREBASE_PROJECT_ID: ${{secrets.VITE_FIREBASE_PROJECT_ID}}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{secrets.VITE_FIREBASE_STORAGE_BUCKET}}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{secrets.VITE_FIREBASE_MESSAGING_SENDER_ID}}
+          VITE_FIREBASE_APP_ID: ${{secrets.VITE_FIREBASE_APP_ID}}
+
+      - name: Deploy to Firebase
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          channelId: live
+        env:
+          VITE_FIREBASE_API_KEY: ${{secrets.VITE_FIREBASE_API_KEY}}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{secrets.VITE_FIREBASE_AUTH_DOMAIN}}
+          VITE_FIREBASE_PROJECT_ID: ${{secrets.VITE_FIREBASE_PROJECT_ID}}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{secrets.VITE_FIREBASE_STORAGE_BUCKET}}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{secrets.VITE_FIREBASE_MESSAGING_SENDER_ID}}
+          VITE_FIREBASE_APP_ID: ${{secrets.VITE_FIREBASE_APP_ID}}

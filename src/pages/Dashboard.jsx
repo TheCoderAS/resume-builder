@@ -80,6 +80,13 @@ export default function Dashboard() {
               >
                 Start a new resume
               </button>
+              <button
+                type="button"
+                onClick={() => navigate("/app/template-playground")}
+                className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-left transition hover:border-emerald-400/60"
+              >
+                Build a template
+              </button>
               {["Import LinkedIn profile", "Invite a collaborator"].map(
                 (action) => (
                   <div

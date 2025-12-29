@@ -7,6 +7,8 @@ import Dashboard from "./pages/Dashboard.jsx";
 import ResumeEditor from "./pages/ResumeEditor.jsx";
 import TemplateGallery from "./pages/TemplateGallery.jsx";
 import TemplatePlayground from "./pages/TemplatePlayground.jsx";
+import ExportPublish from "./pages/ExportPublish.jsx";
+import PublicResume from "./pages/PublicResume.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import useAnalyticsPageView from "./hooks/useAnalyticsPageView.js";
 
@@ -51,6 +53,15 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/app/export"
+        element={
+          <ProtectedRoute>
+            <ExportPublish />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/r/:slug" element={<PublicResume />} />
       <Route path="*" element={<Landing />} />
     </Routes>
   );

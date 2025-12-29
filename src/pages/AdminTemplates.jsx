@@ -9,7 +9,6 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
@@ -44,7 +43,6 @@ const parseJsonField = (value, label) => {
 
 export default function AdminTemplates() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -192,14 +190,9 @@ export default function AdminTemplates() {
               Approve, reject, feature, and upload templates for the gallery.
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Button variant="ghost" onClick={() => navigate("/app")}>
-              Back to dashboard
-            </Button>
-            <Button variant="ghost" onClick={loadTemplates}>
-              Refresh
-            </Button>
-          </div>
+          <Button variant="ghost" onClick={loadTemplates}>
+            Refresh
+          </Button>
         </header>
 
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">

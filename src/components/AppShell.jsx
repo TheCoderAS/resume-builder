@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { FiEdit3, FiFileText, FiHome, FiLayout, FiUpload } from "react-icons/fi";
+import { FiFileText, FiHome, FiLayout, FiUpload, FiUser } from "react-icons/fi";
 import Button from "./Button.jsx";
 
 const NAV_ITEMS = [
@@ -10,14 +10,8 @@ const NAV_ITEMS = [
     icon: FiHome,
   },
   {
-    label: "Editor",
-    description: "Build your resume",
-    to: "/app/resume",
-    icon: FiEdit3,
-  },
-  {
-    label: "Drafts",
-    description: "Saved resumes",
+    label: "Resumes",
+    description: "Saved drafts",
     to: "/app/drafts",
     icon: FiFileText,
   },
@@ -32,6 +26,12 @@ const NAV_ITEMS = [
     description: "Publish & download",
     to: "/app/export",
     icon: FiUpload,
+  },
+  {
+    label: "Profile",
+    description: "Account settings",
+    to: "/app/profile",
+    icon: FiUser,
   },
 ];
 
@@ -51,14 +51,6 @@ export default function AppShell({ children }) {
               alt="Resumiate"
               className="h-9 w-auto object-contain"
             />
-            <div>
-              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-emerald-200">
-                Resume studio
-              </p>
-              <p className="text-sm font-semibold text-slate-100">
-                Creative workspace
-              </p>
-            </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="ghost" onClick={() => navigate("/app/templates")}>

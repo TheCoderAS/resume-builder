@@ -5,7 +5,7 @@ import Signup from "./pages/Signup.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import ResumeEditor from "./pages/ResumeEditor.jsx";
-import TemplateSelection from "./pages/TemplateSelection.jsx";
+import TemplateGallery from "./pages/TemplateGallery.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import useAnalyticsPageView from "./hooks/useAnalyticsPageView.js";
 
@@ -38,7 +38,7 @@ function AppRoutes() {
         path="/app/templates"
         element={
           <ProtectedRoute>
-            <TemplateSelection />
+            <TemplateGallery />
           </ProtectedRoute>
         }
       />

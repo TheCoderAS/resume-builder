@@ -1,22 +1,27 @@
-:root {
-  font-family: "Inter", system-ui, sans-serif;
-  color: #0f172a;
-  background-color: #f8fafc;
-  line-height: 1.5;
-}
+@import "tailwindcss";
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+@layer base {
+  :root {
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    color: #e2e8f0;
+    background-color: #020617;
+    line-height: 1.5;
+  }
 
-body {
-  min-height: 100vh;
-  background: #f8fafc;
-}
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 
-code {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 0.9rem;
+  body {
+    min-height: 100vh;
+    background: #020617;
+    color: #e2e8f0;
+  }
+
+  code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.9rem;
+  }
 }

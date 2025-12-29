@@ -9,8 +9,13 @@ import {
   where,
 } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
+import EmptyState from "../components/EmptyState.jsx";
+import ErrorBanner from "../components/ErrorBanner.jsx";
 import Input from "../components/Input.jsx";
+import LoadingSkeleton from "../components/LoadingSkeleton.jsx";
+import Snackbar from "../components/Snackbar.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
 
@@ -28,6 +33,7 @@ export default function TemplateGallery() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const resumeId = useMemo(
     () => window.localStorage.getItem("activeResumeId"),
@@ -103,6 +109,10 @@ export default function TemplateGallery() {
         },
         { merge: true }
       );
+      setToast({
+        message: `Template "${template.name ?? "Untitled"}" applied.`,
+        variant: "success",
+      });
       navigate("/app/resume");
     } finally {
       setSavingId(null);
@@ -110,14 +120,12 @@ export default function TemplateGallery() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 px-6 py-12 text-slate-100">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    <AppShell>
+      <div className="flex w-full flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-100">
-              Template gallery
-            </h1>
-            <p className="mt-1 text-sm text-slate-300">
+            <h1 className="app-title">Template gallery</h1>
+            <p className="app-subtitle">
               Pick a layout and style to finish your resume.
             </p>
           </div>
@@ -130,7 +138,7 @@ export default function TemplateGallery() {
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-4 rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
+        <div className="app-card flex flex-col gap-4">
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
             <Input
               label="Search templates"
@@ -144,7 +152,7 @@ export default function TemplateGallery() {
                   key={option}
                   type="button"
                   onClick={() => setFilter(option)}
-                  className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide transition ${
+                  className={`app-pill ${
                     filter === option
                       ? "border-emerald-300 bg-emerald-400/10 text-emerald-100"
                       : "border-slate-700 text-slate-300 hover:border-slate-500"
@@ -158,19 +166,24 @@ export default function TemplateGallery() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {loading ? (
-            <div className="col-span-full rounded-[24px] border border-slate-800 bg-slate-900/60 p-6 text-sm text-slate-300">
-              Loading templates...
-            </div>
-          ) : null}
+          {loading
+            ? Array.from({ length: 6 }).map((_, index) => (
+                <div key={`skeleton-${index}`} className="app-card">
+                  <LoadingSkeleton />
+                </div>
+              ))
+            : null}
           {!loading && error ? (
-            <div className="col-span-full rounded-[24px] border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-100">
-              {error}
+            <div className="col-span-full">
+              <ErrorBanner message={error} />
             </div>
           ) : null}
           {!loading && !error && filteredTemplates.length === 0 ? (
-            <div className="col-span-full rounded-[24px] border border-slate-800 bg-slate-900/60 p-6 text-sm text-slate-300">
-              No templates match your search yet.
+            <div className="col-span-full">
+              <EmptyState
+                title="No templates match yet"
+                description="Try clearing filters or changing your search."
+              />
             </div>
           ) : null}
           {!loading && !error
@@ -228,6 +241,11 @@ export default function TemplateGallery() {
             : null}
         </div>
       </div>
-    </div>
+      <Snackbar
+        message={toast?.message}
+        variant={toast?.variant}
+        onDismiss={() => setToast(null)}
+      />
+    </AppShell>
   );
 }

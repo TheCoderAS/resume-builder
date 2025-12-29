@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import EntryEditor from "../components/EntryEditor.jsx";
 import EntryList from "../components/EntryList.jsx";
 import Input from "../components/Input.jsx";
 import ResumePreview from "../components/ResumePreview.jsx";
 import SectionHeader from "../components/SectionHeader.jsx";
+import Snackbar from "../components/Snackbar.jsx";
 import VisibilityToggle from "../components/VisibilityToggle.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
@@ -112,6 +114,8 @@ export default function ResumeEditor() {
   const [templateStyles, setTemplateStyles] = useState(DEFAULT_TEMPLATE_STYLES);
   const [draggingKey, setDraggingKey] = useState(null);
   const [dragOverKey, setDragOverKey] = useState(null);
+  const [toast, setToast] = useState(null);
+  const lastAutosaveStatus = useRef("idle");
 
   const currentStep = useMemo(() => STEPS[stepIndex], [stepIndex]);
   const orderedSections = useMemo(
@@ -272,15 +276,24 @@ export default function ResumeEditor() {
     return "Draft ready";
   }, [autosaveStatus]);
 
+  useEffect(() => {
+    if (autosaveStatus === lastAutosaveStatus.current) return;
+    if (autosaveStatus === "saved") {
+      setToast({ message: "Resume saved successfully.", variant: "success" });
+    }
+    if (autosaveStatus === "error") {
+      setToast({ message: "Autosave failed. Try again soon.", variant: "error" });
+    }
+    lastAutosaveStatus.current = autosaveStatus;
+  }, [autosaveStatus]);
+
   return (
-    <div className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    <AppShell>
+      <div className="flex w-full flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-100">
-              Resume Builder
-            </h1>
-            <p className="mt-1 text-sm text-slate-300">
+            <h1 className="app-title">Resume Builder</h1>
+            <p className="app-subtitle">
               {currentStep} · {autosaveLabel}
             </p>
           </div>
@@ -317,7 +330,7 @@ export default function ResumeEditor() {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
           <div className="flex flex-col gap-6">
             {stepIndex === 0 ? (
-              <section className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
+              <section className="app-card">
                 <SectionHeader
                   title="Profile"
                   description="Set the headline details that show on your resume."
@@ -394,10 +407,7 @@ export default function ResumeEditor() {
             {stepIndex === 1 ? (
               <section className="grid gap-6">
                 {orderedSections.map((section) => (
-                  <div
-                    key={section.key}
-                    className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6"
-                  >
+                  <div key={section.key} className="app-card">
                     <SectionHeader
                       title={section.title}
                       description={section.description}
@@ -439,7 +449,7 @@ export default function ResumeEditor() {
             ) : null}
 
             {stepIndex === 2 ? (
-              <section className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
+              <section className="app-card">
                 <SectionHeader
                   title="Visibility"
                   description="Control who can view your resume link."
@@ -483,7 +493,7 @@ export default function ResumeEditor() {
           </div>
 
           <aside className="flex flex-col gap-6">
-            <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-5">
+            <div className="app-card">
               <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
                 Section order
               </h3>
@@ -522,7 +532,7 @@ export default function ResumeEditor() {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-5">
+            <div className="app-card">
               <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
                 Style tokens
               </h3>
@@ -745,7 +755,7 @@ export default function ResumeEditor() {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-5">
+            <div className="app-card">
               <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
                 Live preview
               </h3>
@@ -761,6 +771,11 @@ export default function ResumeEditor() {
           </aside>
         </div>
       </div>
-    </div>
+      <Snackbar
+        message={toast?.message}
+        variant={toast?.variant}
+        onDismiss={() => setToast(null)}
+      />
+    </AppShell>
   );
 }

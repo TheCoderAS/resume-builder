@@ -1,16 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
+import EmptyState from "../components/EmptyState.jsx";
 import LoaderOverlay from "../components/LoaderOverlay.jsx";
+import LoadingSkeleton from "../components/LoadingSkeleton.jsx";
 import PromptModal from "../components/PromptModal.jsx";
 
 export default function Dashboard() {
-  const { user, signOut, isAdmin } = useAuth();
+  const { signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const drafts = [];
 
   useEffect(() => {
     const timeout = setTimeout(() => setLoading(false), 700);
@@ -28,50 +32,58 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 px-6 py-12 text-slate-100">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+    <AppShell>
+      <div className="flex flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-4">
-          <img
-            src="/resumiate.png"
-            alt="Resumiate"
-            className="h-[55px] w-auto object-contain"
-          />
+          <div>
+            <h1 className="app-title">Dashboard</h1>
+            <p className="app-subtitle">
+              Track drafts, templates, and next steps in one space.
+            </p>
+          </div>
           <Button onClick={() => setConfirmOpen(true)} variant="ghost">
             Sign out
           </Button>
         </header>
 
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
-            <h2 className="text-lg font-semibold text-slate-100">
-              Drafts in progress
-            </h2>
-            <p className="mt-2 text-sm text-slate-300">
-              Connect Firestore to load drafts here. This panel is ready for your
-              data.
+          <div className="app-card">
+            <h2 className="app-section-title">Drafts in progress</h2>
+            <p className="app-subtitle">
+              Pick up where you left off or start a new draft.
             </p>
             <div className="mt-6 grid gap-4">
-              {["Product Manager", "Frontend Engineer", "Operations Lead"].map(
-                (title) => (
+              {loading ? (
+                <LoadingSkeleton variant="panel" />
+              ) : drafts.length === 0 ? (
+                <EmptyState
+                  title="No active drafts yet"
+                  description="Create a resume draft to see it listed here."
+                  action={
+                    <Button onClick={() => navigate("/app/resume")}>
+                      Start a new resume
+                    </Button>
+                  }
+                />
+              ) : (
+                drafts.map((draft) => (
                   <article
-                    key={title}
+                    key={draft.id}
                     className="rounded-2xl border border-slate-800 bg-slate-950/70 px-5 py-4"
                   >
                     <p className="text-sm font-semibold text-slate-100">
-                      {title}
+                      {draft.title}
                     </p>
                     <p className="mt-1 text-xs text-slate-400">
-                      Last edited 2 hours ago
+                      Last edited {draft.updatedAt}
                     </p>
                   </article>
-                )
+                ))
               )}
             </div>
           </div>
-          <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
-            <h2 className="text-lg font-semibold text-slate-100">
-              Quick actions
-            </h2>
+          <div className="app-card">
+            <h2 className="app-section-title">Quick actions</h2>
             <div className="mt-4 grid gap-3 text-sm text-slate-200">
               <button
                 type="button"
@@ -121,6 +133,6 @@ export default function Dashboard() {
         onCancel={() => setConfirmOpen(false)}
         busy={signingOut}
       />
-    </div>
+    </AppShell>
   );
 }

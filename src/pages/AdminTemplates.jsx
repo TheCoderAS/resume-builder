@@ -8,8 +8,11 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
+import ErrorBanner from "../components/ErrorBanner.jsx";
 import Input from "../components/Input.jsx";
+import LoadingSkeleton from "../components/LoadingSkeleton.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
 
@@ -171,14 +174,12 @@ export default function AdminTemplates() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 px-6 py-12 text-slate-100">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
+    <AppShell>
+      <div className="flex w-full flex-col gap-8">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-100">
-              Admin templates
-            </h1>
-            <p className="mt-1 text-sm text-slate-300">
+            <h1 className="app-title">Admin templates</h1>
+            <p className="app-subtitle">
               Approve, reject, feature, and upload templates for the gallery.
             </p>
           </div>
@@ -193,11 +194,9 @@ export default function AdminTemplates() {
         </header>
 
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
-            <h2 className="text-lg font-semibold text-slate-100">
-              Upload or edit a template
-            </h2>
-            <p className="mt-1 text-sm text-slate-300">
+          <div className="app-card">
+            <h2 className="app-section-title">Upload or edit a template</h2>
+            <p className="app-subtitle">
               Paste template JSON from the playground or upload a new layout.
             </p>
             <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
@@ -268,11 +267,7 @@ export default function AdminTemplates() {
                   className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-100"
                 />
               </label>
-              {formError ? (
-                <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-                  {formError}
-                </div>
-              ) : null}
+              <ErrorBanner message={formError} />
               <div className="flex flex-wrap gap-3">
                 <Button type="submit" disabled={saving}>
                   {saving
@@ -288,10 +283,8 @@ export default function AdminTemplates() {
             </form>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
-            <h2 className="text-lg font-semibold text-slate-100">
-              Status overview
-            </h2>
+          <div className="app-card">
+            <h2 className="app-section-title">Status overview</h2>
             <div className="grid gap-3 text-sm text-slate-200">
               {Object.keys(statusSummary).length === 0 ? (
                 <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-300">
@@ -313,18 +306,14 @@ export default function AdminTemplates() {
         </section>
 
         <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-slate-100">
-            Template moderation
-          </h2>
+          <h2 className="app-section-title">Template moderation</h2>
           {loading ? (
-            <div className="rounded-[24px] border border-slate-800 bg-slate-900/60 p-6 text-sm text-slate-300">
-              Loading templates...
+            <div className="rounded-[24px] border border-slate-800 bg-slate-900/60 p-6">
+              <LoadingSkeleton variant="block" />
             </div>
           ) : null}
           {!loading && error ? (
-            <div className="rounded-[24px] border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-100">
-              {error}
-            </div>
+            <ErrorBanner message={error} />
           ) : null}
           {!loading && !error && templates.length === 0 ? (
             <div className="rounded-[24px] border border-slate-800 bg-slate-900/60 p-6 text-sm text-slate-300">
@@ -404,6 +393,6 @@ export default function AdminTemplates() {
           ) : null}
         </section>
       </div>
-    </div>
+    </AppShell>
   );
 }

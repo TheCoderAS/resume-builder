@@ -111,6 +111,7 @@ export default function ResumeEditor() {
     if (!user) return;
     const docRef = doc(collection(db, "resumes"));
     setResumeId(docRef.id);
+    window.localStorage.setItem("activeResumeId", docRef.id);
     setDoc(
       docRef,
       {

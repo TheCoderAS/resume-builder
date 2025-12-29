@@ -25,6 +25,7 @@ import EmptyState from "../components/EmptyState.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 import Input from "../components/Input.jsx";
 import LoadingSkeleton from "../components/LoadingSkeleton.jsx";
+import PromptModal from "../components/PromptModal.jsx";
 import Snackbar from "../components/Snackbar.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
@@ -48,7 +49,12 @@ export default function TemplateGallery() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState(null);
+  const [defaultTemplateId, setDefaultTemplateId] = useState(() =>
+    window.localStorage.getItem("defaultTemplateId")
+  );
   const [menuOpenId, setMenuOpenId] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [confirming, setConfirming] = useState(false);
   const [toast, setToast] = useState(null);
 
   const resumeId = useMemo(
@@ -107,6 +113,18 @@ export default function TemplateGallery() {
     };
   }, [user]);
 
+  useEffect(() => {
+    if (!menuOpenId) return;
+    const handleClick = (event) => {
+      if (event.target.closest("[data-template-menu='true']")) return;
+      setMenuOpenId(null);
+    };
+    document.addEventListener("click", handleClick);
+    return () => {
+      document.removeEventListener("click", handleClick);
+    };
+  }, [menuOpenId]);
+
   const filteredTemplates = useMemo(() => {
     const queryValue = search.trim().toLowerCase();
     return templates.filter((template) => {
@@ -162,6 +180,7 @@ export default function TemplateGallery() {
 
   const handleSetDefault = (templateId) => {
     window.localStorage.setItem("defaultTemplateId", templateId);
+    setDefaultTemplateId(templateId);
     setToast({ message: "Default template updated.", variant: "success" });
     setMenuOpenId(null);
   };
@@ -196,6 +215,13 @@ export default function TemplateGallery() {
   };
 
   const handleDeleteTemplate = async (template) => {
+    if (template.id === defaultTemplateId) {
+      setToast({
+        message: "Default templates can't be deleted.",
+        variant: "error",
+      });
+      return;
+    }
     try {
       await deleteDoc(doc(db, "templates", template.id));
       setTemplates((prev) => prev.filter((item) => item.id !== template.id));
@@ -204,6 +230,21 @@ export default function TemplateGallery() {
       setToast({ message: "Unable to delete template.", variant: "error" });
     } finally {
       setMenuOpenId(null);
+    }
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return;
+    setConfirming(true);
+    try {
+      if (confirmAction.type === "delete") {
+        await handleDeleteTemplate(confirmAction.template);
+      } else {
+        await handleToggleArchive(confirmAction.template);
+      }
+    } finally {
+      setConfirming(false);
+      setConfirmAction(null);
     }
   };
 
@@ -290,6 +331,8 @@ export default function TemplateGallery() {
                 const isAdminTemplate = template.type === "admin";
                 const isUserTemplate = user && template.ownerId === user.uid;
                 const status = template.status ?? "active";
+                const isDefaultTemplate =
+                  defaultTemplateId && defaultTemplateId === template.id;
 
                 return (
                   <div
@@ -313,22 +356,27 @@ export default function TemplateGallery() {
                         }}
                         className="absolute right-5 top-5 rounded-full border border-slate-800 bg-slate-950/70 p-2 text-slate-300 transition hover:border-emerald-400/60 hover:text-emerald-100"
                         aria-label="Open template menu"
+                        data-template-menu="true"
                       >
                         <FiMoreVertical className="h-4 w-4" />
                       </button>
                     ) : null}
                     {menuOpenId === template.id && isUserTemplate ? (
-                      <div className="absolute right-5 top-14 z-20 w-48 rounded-2xl border border-slate-800 bg-slate-950/95 p-2 text-sm shadow-[0_18px_40px_rgba(15,23,42,0.6)]">
+                      <div
+                        className="absolute right-5 top-14 z-20 w-48 rounded-2xl border border-slate-800 bg-slate-950/95 p-2 text-sm shadow-[0_18px_40px_rgba(15,23,42,0.6)]"
+                        data-template-menu="true"
+                      >
                         <button
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
                             handleSetDefault(template.id);
                           }}
-                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-emerald-100 transition hover:bg-emerald-400/10"
+                          disabled={isDefaultTemplate}
+                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-emerald-100 transition hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <FiCheckCircle className="h-4 w-4" />
-                          Set as default
+                          {isDefaultTemplate ? "Default template" : "Set as default"}
                         </button>
                         <button
                           type="button"
@@ -348,7 +396,11 @@ export default function TemplateGallery() {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleToggleArchive(template);
+                            setConfirmAction({
+                              type: status === "archived" ? "unarchive" : "archive",
+                              template,
+                            });
+                            setMenuOpenId(null);
                           }}
                           className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-slate-200 transition hover:bg-slate-800"
                         >
@@ -359,13 +411,20 @@ export default function TemplateGallery() {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleDeleteTemplate(template);
+                            setConfirmAction({ type: "delete", template });
+                            setMenuOpenId(null);
                           }}
-                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-rose-200 transition hover:bg-rose-500/10"
+                          disabled={isDefaultTemplate}
+                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-rose-200 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <FiTrash2 className="h-4 w-4" />
                           Delete
                         </button>
+                        {isDefaultTemplate ? (
+                          <p className="px-3 pb-2 pt-1 text-xs text-emerald-200">
+                            Default templates can’t be deleted.
+                          </p>
+                        ) : null}
                       </div>
                     ) : null}
                     <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
@@ -394,6 +453,11 @@ export default function TemplateGallery() {
                         <h2 className="text-lg font-semibold text-slate-100">
                           {template.name ?? "Untitled template"}
                         </h2>
+                        {isDefaultTemplate ? (
+                          <span className="mt-2 inline-flex items-center rounded-full border border-emerald-400/50 bg-emerald-400/10 px-2 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-emerald-100">
+                            Default
+                          </span>
+                        ) : null}
                         <p className="text-sm text-slate-400">
                           Created by {template.creatorName ?? "Resume Studio"}
                         </p>
@@ -418,6 +482,31 @@ export default function TemplateGallery() {
             : null}
         </div>
       </div>
+      <PromptModal
+        open={Boolean(confirmAction)}
+        title={
+          confirmAction?.type === "delete"
+            ? "Delete template?"
+            : confirmAction?.type === "archive"
+              ? "Archive template?"
+              : "Restore template?"
+        }
+        description={
+          confirmAction?.type === "delete"
+            ? "This action cannot be undone."
+            : "You can change this later from the template menu."
+        }
+        confirmLabel={
+          confirmAction?.type === "delete"
+            ? "Delete"
+            : confirmAction?.type === "archive"
+              ? "Archive"
+              : "Restore"
+        }
+        onConfirm={handleConfirmAction}
+        onCancel={() => setConfirmAction(null)}
+        busy={confirming}
+      />
       <Snackbar
         message={toast?.message}
         variant={toast?.variant}

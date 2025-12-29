@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
@@ -128,12 +135,19 @@ export default function ResumeEditor() {
 
   useEffect(() => {
     if (!user) return;
-    const docRef = doc(collection(db, "resumes"));
-    setResumeId(docRef.id);
-    window.localStorage.setItem("activeResumeId", docRef.id);
-    setDoc(
-      docRef,
-      {
+    let isMounted = true;
+
+    const ensureResume = async () => {
+      const storedOwner = window.localStorage.getItem("activeResumeOwner");
+      if (storedOwner && storedOwner !== user.uid) {
+        window.localStorage.removeItem("activeResumeId");
+        window.localStorage.removeItem("activeResumeOwner");
+      }
+      const storedId =
+        storedOwner === user.uid
+          ? window.localStorage.getItem("activeResumeId")
+          : null;
+      const payload = {
         userId: user.uid,
         profile,
         resumeData,
@@ -142,10 +156,58 @@ export default function ResumeEditor() {
         templateStyles,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-    initialSave.current = false;
+      };
+
+      try {
+        if (storedId) {
+          const snapshot = await getDoc(doc(db, "resumes", storedId));
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            if (isMounted) {
+              setProfile((prev) => ({ ...prev, ...(data.profile ?? {}) }));
+              setResumeData((prev) => ({ ...prev, ...(data.resumeData ?? {}) }));
+              setVisibility((prev) => ({ ...prev, ...(data.visibility ?? {}) }));
+              setSectionOrder(
+                data.sectionOrder ?? SECTION_CONFIGS.map((section) => section.key)
+              );
+              setTemplateStyles(data.templateStyles ?? DEFAULT_TEMPLATE_STYLES);
+              setResumeId(storedId);
+              initialSave.current = false;
+            }
+            return;
+          }
+          await setDoc(doc(db, "resumes", storedId), payload, { merge: true });
+          if (isMounted) {
+            setResumeId(storedId);
+            window.localStorage.setItem("activeResumeOwner", user.uid);
+            initialSave.current = false;
+          }
+          return;
+        }
+
+        const docRef = await addDoc(collection(db, "resumes"), {
+          ...payload,
+          createdAt: serverTimestamp(),
+        });
+        if (isMounted) {
+          setResumeId(docRef.id);
+          window.localStorage.setItem("activeResumeId", docRef.id);
+          window.localStorage.setItem("activeResumeOwner", user.uid);
+          initialSave.current = false;
+        }
+      } catch (error) {
+        console.error(error);
+        if (isMounted) {
+          setAutosaveStatus("error");
+        }
+      }
+    };
+
+    ensureResume();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
   useEffect(() => {
@@ -168,6 +230,7 @@ export default function ResumeEditor() {
         );
         setAutosaveStatus("saved");
       } catch (error) {
+        console.error(error);
         setAutosaveStatus("error");
       }
     }, 800);
@@ -278,9 +341,6 @@ export default function ResumeEditor() {
 
   useEffect(() => {
     if (autosaveStatus === lastAutosaveStatus.current) return;
-    if (autosaveStatus === "saved") {
-      setToast({ message: "Resume saved successfully.", variant: "success" });
-    }
     if (autosaveStatus === "error") {
       setToast({ message: "Autosave failed. Try again soon.", variant: "error" });
     }

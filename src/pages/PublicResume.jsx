@@ -1,19 +1,16 @@
 import { useEffect, useState } from "react";
-import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
+import {
+  FieldPath,
+  collection,
+  getDocs,
+  limit,
+  query,
+  where,
+} from "firebase/firestore";
 import { useParams } from "react-router-dom";
 import ResumePreview from "../components/ResumePreview.jsx";
 import { db } from "../firebase.js";
 import { DEFAULT_TEMPLATE_STYLES } from "../utils/resumePreview.js";
-
-const resolveResumeSnapshot = (snapshot) => {
-  if (!snapshot.exists()) return null;
-  const data = snapshot.data();
-  if (!data?.visibility?.isPublic) return null;
-  return {
-    ...data,
-    templateStyles: data.templateStyles ?? DEFAULT_TEMPLATE_STYLES,
-  };
-};
 
 export default function PublicResume() {
   const { slug } = useParams();
@@ -25,11 +22,21 @@ export default function PublicResume() {
     const loadResume = async () => {
       setStatus("loading");
       try {
-        const directSnapshot = await getDoc(doc(db, "resumes", slug));
-        const directResume = resolveResumeSnapshot(directSnapshot);
-        if (directResume) {
+        const byIdQuery = query(
+          collection(db, "resumes"),
+          where(FieldPath.documentId(), "==", slug),
+          where("visibility.isPublic", "==", true),
+          limit(1)
+        );
+        const byIdSnapshot = await getDocs(byIdQuery);
+        const byIdResume = byIdSnapshot.docs[0]?.data() ?? null;
+        if (byIdResume) {
           if (isMounted) {
-            setResume(directResume);
+            setResume({
+              ...byIdResume,
+              templateStyles:
+                byIdResume.templateStyles ?? DEFAULT_TEMPLATE_STYLES,
+            });
             setStatus("ready");
           }
           return;

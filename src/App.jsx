@@ -6,6 +6,7 @@ import ForgotPassword from "./pages/ForgotPassword.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import ResumeEditor from "./pages/ResumeEditor.jsx";
 import TemplateGallery from "./pages/TemplateGallery.jsx";
+import TemplatePlayground from "./pages/TemplatePlayground.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import useAnalyticsPageView from "./hooks/useAnalyticsPageView.js";
 
@@ -39,6 +40,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <TemplateGallery />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/template-playground"
+        element={
+          <ProtectedRoute>
+            <TemplatePlayground />
           </ProtectedRoute>
         }
       />

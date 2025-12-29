@@ -85,6 +85,8 @@ export default function Dashboard() {
     0;
   const topLocation = publishedResume?.analytics?.topLocation ?? "Collecting";
   const topDevice = publishedResume?.analytics?.topDevice ?? "Collecting";
+  const showAnalyticsHint =
+    visitCount === 0 && topLocation === "Collecting" && topDevice === "Collecting";
 
   return (
     <AppShell>
@@ -212,10 +214,12 @@ export default function Dashboard() {
                   <span>Top device</span>
                   <span className="text-slate-100">{topDevice}</span>
                 </div>
-                <p className="text-xs text-slate-500">
-                  Connect Google Analytics or enable server-side tracking for
-                  richer attribution, device, and referral insights.
-                </p>
+                {showAnalyticsHint ? (
+                  <p className="text-xs text-slate-500">
+                    Connect Google Analytics or enable server-side tracking for
+                    richer attribution, device, and referral insights.
+                  </p>
+                ) : null}
               </div>
             )}
           </div>

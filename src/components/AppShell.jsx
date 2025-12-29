@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { FiFileText, FiHome, FiLayout, FiUpload, FiUser } from "react-icons/fi";
+import { FiFileText, FiHome, FiLayout, FiUser } from "react-icons/fi";
 import Button from "./Button.jsx";
 
 const NAV_ITEMS = [
@@ -22,12 +22,6 @@ const NAV_ITEMS = [
     icon: FiLayout,
   },
   {
-    label: "Export",
-    description: "Publish & download",
-    to: "/app/export",
-    icon: FiUpload,
-  },
-  {
     label: "Profile",
     description: "Account settings",
     to: "/app/profile",
@@ -37,6 +31,8 @@ const NAV_ITEMS = [
 
 const linkBase =
   "group flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold transition";
+const mobileLinkBase =
+  "group flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-[0.6rem] font-semibold uppercase tracking-wide transition";
 
 export default function AppShell({ children }) {
   const navigate = useNavigate();
@@ -49,33 +45,44 @@ export default function AppShell({ children }) {
             <img
               src="/resumiate.png"
               alt="Resumiate"
-              className="h-9 w-auto object-contain"
+              className="h-9 w-auto shrink-0 object-contain"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="ghost" onClick={() => navigate("/app/templates")}>
-              Browse templates
+          <div className="flex flex-nowrap items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/app/templates")}
+              className="whitespace-nowrap px-3 py-2 text-xs sm:px-5 sm:py-3 sm:text-sm"
+            >
+              <span className="sm:hidden">Templates</span>
+              <span className="hidden sm:inline">Browse templates</span>
             </Button>
-            <Button onClick={() => navigate("/app/resume")}>New resume</Button>
+            <Button
+              onClick={() => navigate("/app/resume")}
+              className="whitespace-nowrap px-3 py-2 text-xs sm:px-5 sm:py-3 sm:text-sm"
+            >
+              <span className="sm:hidden">Resume</span>
+              <span className="hidden sm:inline">New resume</span>
+            </Button>
           </div>
         </div>
         <div className="app-topbar-nav lg:hidden">
-          <nav className="flex gap-2 overflow-x-auto px-6 pb-4">
+          <nav className="flex w-full items-center justify-around gap-2 px-4 py-3">
             {NAV_ITEMS.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.to === "/app"}
                 className={({ isActive }) =>
-                  `${linkBase} whitespace-nowrap ${
+                  `${mobileLinkBase} ${
                     isActive
-                      ? "border-emerald-400/60 bg-emerald-400/10 text-emerald-100"
-                      : "border-slate-800 bg-slate-950/60 text-slate-300 hover:border-slate-600"
+                      ? "bg-emerald-400/10 text-emerald-100"
+                      : "text-slate-300 hover:bg-slate-900/60"
                   }`
                 }
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                <span>{item.label}</span>
               </NavLink>
             ))}
           </nav>

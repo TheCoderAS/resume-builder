@@ -6,7 +6,7 @@ import LoaderOverlay from "../components/LoaderOverlay.jsx";
 import PromptModal from "../components/PromptModal.jsx";
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -87,6 +87,15 @@ export default function Dashboard() {
               >
                 Build a template
               </button>
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => navigate("/app/admin/templates")}
+                  className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-left transition hover:border-emerald-400/60"
+                >
+                  Review admin templates
+                </button>
+              ) : null}
               {["Import LinkedIn profile", "Invite a collaborator"].map(
                 (action) => (
                   <div

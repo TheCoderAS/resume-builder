@@ -5,6 +5,7 @@ import Signup from "./pages/Signup.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import ResumeEditor from "./pages/ResumeEditor.jsx";
+import Drafts from "./pages/Drafts.jsx";
 import TemplateGallery from "./pages/TemplateGallery.jsx";
 import TemplatePlayground from "./pages/TemplatePlayground.jsx";
 import ExportPublish from "./pages/ExportPublish.jsx";
@@ -35,6 +36,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ResumeEditor />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/drafts"
+        element={
+          <ProtectedRoute>
+            <Drafts />
           </ProtectedRoute>
         }
       />

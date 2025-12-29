@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { FiEdit3, FiHome, FiLayout, FiUpload } from "react-icons/fi";
+import { FiEdit3, FiFileText, FiHome, FiLayout, FiUpload } from "react-icons/fi";
 import Button from "./Button.jsx";
 
 const NAV_ITEMS = [
@@ -14,6 +14,12 @@ const NAV_ITEMS = [
     description: "Build your resume",
     to: "/app/resume",
     icon: FiEdit3,
+  },
+  {
+    label: "Drafts",
+    description: "Saved resumes",
+    to: "/app/drafts",
+    icon: FiFileText,
   },
   {
     label: "Templates",
@@ -67,6 +73,7 @@ export default function AppShell({ children }) {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.to === "/app"}
                 className={({ isActive }) =>
                   `${linkBase} whitespace-nowrap ${
                     isActive
@@ -92,6 +99,7 @@ export default function AppShell({ children }) {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.to === "/app"}
                 className={({ isActive }) =>
                   `${linkBase} ${
                     isActive

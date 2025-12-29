@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import html2pdf from "html2pdf.js";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
@@ -8,6 +7,7 @@ import EmptyState from "../components/EmptyState.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 import Input from "../components/Input.jsx";
 import LoadingSkeleton from "../components/LoadingSkeleton.jsx";
+import LoaderOverlay from "../components/LoaderOverlay.jsx";
 import ResumePreview from "../components/ResumePreview.jsx";
 import SectionHeader from "../components/SectionHeader.jsx";
 import Snackbar from "../components/Snackbar.jsx";
@@ -46,6 +46,7 @@ export default function ExportPublish() {
   const [copyMessage, setCopyMessage] = useState("Copy link");
   const [downloadMessage, setDownloadMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState(null);
 
   const resumeId = useMemo(
@@ -57,6 +58,11 @@ export default function ExportPublish() {
     let isMounted = true;
     const loadResume = async () => {
       if (!resumeId) {
+        setLoading(false);
+        return;
+      }
+      if (!user) {
+        setStatusMessage("Sign in to access this resume.");
         setLoading(false);
         return;
       }
@@ -91,7 +97,7 @@ export default function ExportPublish() {
     return () => {
       isMounted = false;
     };
-  }, [resumeId]);
+  }, [resumeId, user]);
 
   const publicLink =
     resume.publicSlug || resumeId
@@ -157,24 +163,77 @@ export default function ExportPublish() {
 
   const handleDownload = async () => {
     if (!previewRef.current) return;
-    setDownloadMessage("Generating PDF...");
+    setDownloadMessage("Opening print dialog...");
+    setExporting(true);
     try {
-      const filename = `${resume.profile?.fullName || "resume"}.pdf`;
-      await html2pdf()
-        .set({
-          margin: 16,
-          filename,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
-          jsPDF: { unit: "pt", format: "a4", orientation: "portrait" },
-        })
-        .from(previewRef.current)
-        .save();
-      setDownloadMessage("");
-      setToast({ message: "PDF exported successfully.", variant: "success" });
+      const sourceNode = previewRef.current;
+      const cloned = sourceNode.cloneNode(true);
+      const sourceNodes = sourceNode.querySelectorAll("*");
+      const clonedNodes = cloned.querySelectorAll("*");
+      const props = [
+        "color",
+        "backgroundColor",
+        "borderTopColor",
+        "borderRightColor",
+        "borderBottomColor",
+        "borderLeftColor",
+        "outlineColor",
+        "textDecorationColor",
+        "fontFamily",
+        "fontSize",
+        "fontWeight",
+        "lineHeight",
+      ];
+      clonedNodes.forEach((node, index) => {
+        const source = sourceNodes[index];
+        if (!source) return;
+        const computed = window.getComputedStyle(source);
+        props.forEach((prop) => {
+          const value = computed[prop];
+          if (value) {
+            node.style[prop] = value;
+          }
+        });
+      });
+
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.setAttribute("aria-hidden", "true");
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentWindow?.document;
+      if (!doc) {
+        throw new Error("Print frame unavailable");
+      }
+      doc.open();
+      doc.write(
+        `<!doctype html><html><head><title>Resume PDF</title></head><body style="margin:0;background:#fff;"></body></html>`
+      );
+      doc.close();
+      doc.body.appendChild(cloned);
+
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          iframe.remove();
+        }, 1000);
+      }, 300);
+      setToast({
+        message: "Print dialog opened. Save as PDF to download.",
+        variant: "success",
+      });
     } catch (error) {
-      setDownloadMessage("Unable to generate PDF.");
+      console.error(error);
+      setDownloadMessage("Unable to open print dialog.");
       setToast({ message: "PDF export failed.", variant: "error" });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -224,6 +283,7 @@ export default function ExportPublish() {
               ) : (
                 <div
                   ref={previewRef}
+                  data-export-preview="true"
                   className="w-full max-w-[720px] overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_20px_40px_rgba(15,23,42,0.3)]"
                 >
                   <ResumePreview
@@ -236,8 +296,11 @@ export default function ExportPublish() {
               )}
             </div>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Button onClick={handleDownload} disabled={!resumeId}>
-                Download PDF
+              <Button
+                onClick={handleDownload}
+                disabled={!resumeId || exporting}
+              >
+                Print PDF
               </Button>
               <span className="text-xs text-slate-400">
                 {downloadMessage || "Print-ready A4 export."}
@@ -300,6 +363,7 @@ export default function ExportPublish() {
         variant={toast?.variant}
         onDismiss={() => setToast(null)}
       />
+      {exporting ? <LoaderOverlay label="Preparing your PDF..." /> : null}
     </AppShell>
   );
 }

@@ -98,7 +98,6 @@ export default function TemplatePlayground() {
     list: true,
     columns: true,
   });
-  const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState(null);
@@ -285,7 +284,6 @@ export default function TemplatePlayground() {
 
   const handleSave = async () => {
     setErrorMessage("");
-    setStatusMessage("");
     const validationError = validateTemplate();
     if (validationError) {
       setErrorMessage(validationError);
@@ -325,7 +323,6 @@ export default function TemplatePlayground() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-      setStatusMessage("Template saved to Firestore.");
       setToast({ message: "Template saved to Firestore.", variant: "success" });
     } catch (error) {
       setErrorMessage("Unable to save template right now.");
@@ -629,17 +626,12 @@ export default function TemplatePlayground() {
                   <ErrorBanner message={errorMessage} />
                 </div>
               ) : null}
-              {statusMessage ? (
-                <div className="mt-3 rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-xs text-emerald-100">
-                  {statusMessage}
-                </div>
-              ) : null}
               <Button
                 className="mt-4 w-full"
                 onClick={handleSave}
                 disabled={isSaving}
               >
-                {isSaving ? "Saving..." : "Save to Firestore"}
+                {isSaving ? "Saving..." : "Save template"}
               </Button>
             </div>
           </aside>

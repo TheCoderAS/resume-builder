@@ -4,8 +4,10 @@ import {
   collection,
   doc,
   getDocs,
+  query,
   serverTimestamp,
   updateDoc,
+  where,
 } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
@@ -64,7 +66,14 @@ export default function AdminTemplates() {
     setLoading(true);
     setError("");
     try {
-      const snapshot = await getDocs(collection(db, "templates"));
+      if (!user) {
+        setError("Sign in to manage templates.");
+        setTemplates([]);
+        return;
+      }
+      const snapshot = await getDocs(
+        query(collection(db, "templates"), where("ownerId", "==", user.uid))
+      );
       const nextTemplates = snapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data(),
@@ -79,7 +88,7 @@ export default function AdminTemplates() {
 
   useEffect(() => {
     loadTemplates();
-  }, []);
+  }, [user]);
 
   const handleStatusChange = async (templateId, status) => {
     setStatusUpdatingId(templateId);

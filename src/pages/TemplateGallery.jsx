@@ -48,16 +48,28 @@ export default function TemplateGallery() {
       setError("");
       try {
         const templatesRef = collection(db, "templates");
-        const templatesQuery = query(
+        const publicQuery = query(
           templatesRef,
           where("type", "==", "admin"),
-          where("ownerId", "==", "user")
+          where("status", "==", "active")
         );
-        const snapshot = await getDocs(templatesQuery);
-        const nextTemplates = snapshot.docs.map((docSnap) => ({
+        const [publicSnapshot, userSnapshot] = await Promise.all([
+          getDocs(publicQuery),
+          user
+            ? getDocs(query(templatesRef, where("ownerId", "==", user.uid)))
+            : Promise.resolve(null),
+        ]);
+        const publicTemplates = publicSnapshot.docs.map((docSnap) => ({
           id: docSnap.id,
           ...docSnap.data(),
         }));
+        const userTemplates = userSnapshot
+          ? userSnapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            }))
+          : [];
+        const nextTemplates = [...publicTemplates, ...userTemplates];
         if (isMounted) {
           setTemplates(nextTemplates);
         }
@@ -77,7 +89,7 @@ export default function TemplateGallery() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user]);
 
   const filteredTemplates = useMemo(() => {
     const queryValue = search.trim().toLowerCase();
@@ -114,6 +126,11 @@ export default function TemplateGallery() {
         variant: "success",
       });
       navigate("/app/resume");
+    } catch (error) {
+      setToast({
+        message: "Unable to apply this template.",
+        variant: "error",
+      });
     } finally {
       setSavingId(null);
     }

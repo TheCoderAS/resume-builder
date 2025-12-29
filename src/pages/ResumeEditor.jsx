@@ -5,10 +5,12 @@ import Button from "../components/Button.jsx";
 import EntryEditor from "../components/EntryEditor.jsx";
 import EntryList from "../components/EntryList.jsx";
 import Input from "../components/Input.jsx";
+import ResumePreview from "../components/ResumePreview.jsx";
 import SectionHeader from "../components/SectionHeader.jsx";
 import VisibilityToggle from "../components/VisibilityToggle.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
+import { DEFAULT_TEMPLATE_STYLES, FONT_OPTIONS } from "../utils/resumePreview.js";
 
 const STEPS = ["Profile", "Resume Data", "Visibility"];
 
@@ -104,8 +106,21 @@ export default function ResumeEditor() {
   });
   const [visibility, setVisibility] = useState({ isPublic: false });
   const [activeEditor, setActiveEditor] = useState(null);
+  const [sectionOrder, setSectionOrder] = useState(
+    SECTION_CONFIGS.map((section) => section.key)
+  );
+  const [templateStyles, setTemplateStyles] = useState(DEFAULT_TEMPLATE_STYLES);
+  const [draggingKey, setDraggingKey] = useState(null);
+  const [dragOverKey, setDragOverKey] = useState(null);
 
   const currentStep = useMemo(() => STEPS[stepIndex], [stepIndex]);
+  const orderedSections = useMemo(
+    () =>
+      sectionOrder
+        .map((key) => SECTION_CONFIGS.find((section) => section.key === key))
+        .filter(Boolean),
+    [sectionOrder]
+  );
 
   useEffect(() => {
     if (!user) return;
@@ -119,6 +134,8 @@ export default function ResumeEditor() {
         profile,
         resumeData,
         visibility,
+        sectionOrder,
+        templateStyles,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       },
@@ -139,6 +156,8 @@ export default function ResumeEditor() {
             profile,
             resumeData,
             visibility,
+            sectionOrder,
+            templateStyles,
             updatedAt: serverTimestamp(),
           },
           { merge: true }
@@ -150,7 +169,15 @@ export default function ResumeEditor() {
     }, 800);
 
     return () => clearTimeout(timeout);
-  }, [profile, resumeData, visibility, resumeId, user]);
+  }, [
+    profile,
+    resumeData,
+    sectionOrder,
+    templateStyles,
+    visibility,
+    resumeId,
+    user,
+  ]);
 
   const handleStartEntry = (sectionKey, index = null) => {
     const section = SECTION_CONFIGS.find((item) => item.key === sectionKey);
@@ -184,6 +211,52 @@ export default function ResumeEditor() {
     });
   };
 
+  const handleDragStart = (sectionKey) => {
+    setDraggingKey(sectionKey);
+  };
+
+  const handleDragOver = (event, sectionKey) => {
+    event.preventDefault();
+    if (sectionKey !== draggingKey) {
+      setDragOverKey(sectionKey);
+    }
+  };
+
+  const handleDrop = (sectionKey) => {
+    if (!draggingKey) return;
+    setSectionOrder((prev) => {
+      const nextOrder = [...prev];
+      const fromIndex = nextOrder.indexOf(draggingKey);
+      const toIndex = nextOrder.indexOf(sectionKey);
+      if (fromIndex === -1 || toIndex === -1) return prev;
+      nextOrder.splice(fromIndex, 1);
+      nextOrder.splice(toIndex, 0, draggingKey);
+      return nextOrder;
+    });
+    setDraggingKey(null);
+    setDragOverKey(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingKey(null);
+    setDragOverKey(null);
+  };
+
+  const updateTemplateStyles = (updates) => {
+    setTemplateStyles((prev) => ({
+      ...prev,
+      ...updates,
+      colors: {
+        ...prev.colors,
+        ...(updates.colors ?? {}),
+      },
+      tokens: {
+        ...prev.tokens,
+        ...(updates.tokens ?? {}),
+      },
+    }));
+  };
+
   const handleNextStep = () => {
     if (stepIndex < STEPS.length - 1) {
       setStepIndex((current) => current + 1);
@@ -201,7 +274,7 @@ export default function ResumeEditor() {
 
   return (
     <div className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-slate-100">
@@ -236,157 +309,451 @@ export default function ResumeEditor() {
           ))}
         </div>
 
-        {stepIndex === 0 ? (
-          <section className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
-            <SectionHeader
-              title="Profile"
-              description="Set the headline details that show on your resume."
-            />
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <Input
-                label="Full name"
-                placeholder="Jordan Taylor"
-                value={profile.fullName}
-                onChange={(event) =>
-                  setProfile((prev) => ({ ...prev, fullName: event.target.value }))
-                }
-              />
-              <Input
-                label="Professional title"
-                placeholder="Senior Product Designer"
-                value={profile.title}
-                onChange={(event) =>
-                  setProfile((prev) => ({ ...prev, title: event.target.value }))
-                }
-              />
-              <Input
-                label="Email"
-                placeholder="you@email.com"
-                value={profile.email}
-                onChange={(event) =>
-                  setProfile((prev) => ({ ...prev, email: event.target.value }))
-                }
-              />
-              <Input
-                label="Phone"
-                placeholder="(555) 123-4567"
-                value={profile.phone}
-                onChange={(event) =>
-                  setProfile((prev) => ({ ...prev, phone: event.target.value }))
-                }
-              />
-              <Input
-                label="Location"
-                placeholder="Austin, TX"
-                value={profile.location}
-                onChange={(event) =>
-                  setProfile((prev) => ({ ...prev, location: event.target.value }))
-                }
-              />
-              <label className="md:col-span-2 flex flex-col gap-2 text-sm font-medium text-slate-200">
-                <span>Professional summary</span>
-                <textarea
-                  rows={4}
-                  className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/40"
-                  placeholder="Write a 2-3 sentence summary."
-                  value={profile.summary}
-                  onChange={(event) =>
-                    setProfile((prev) => ({ ...prev, summary: event.target.value }))
-                  }
-                />
-              </label>
-            </div>
-          </section>
-        ) : null}
-
-        {stepIndex === 1 ? (
-          <section className="grid gap-6">
-            {SECTION_CONFIGS.map((section) => (
-              <div
-                key={section.key}
-                className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6"
-              >
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+          <div className="flex flex-col gap-6">
+            {stepIndex === 0 ? (
+              <section className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
                 <SectionHeader
-                  title={section.title}
-                  description={section.description}
-                  action={
-                    <Button
-                      variant="ghost"
-                      className="px-4 py-2 text-xs"
-                      onClick={() => handleStartEntry(section.key)}
-                    >
-                      {section.addLabel}
-                    </Button>
-                  }
+                  title="Profile"
+                  description="Set the headline details that show on your resume."
                 />
-                <EntryList
-                  items={resumeData[section.key]}
-                  onAdd={() => handleStartEntry(section.key)}
-                  onEdit={(index) => handleStartEntry(section.key, index)}
-                  onRemove={(index) => handleRemoveEntry(section.key, index)}
-                  addLabel={section.addLabel}
-                  emptyMessage={`No ${section.title.toLowerCase()} entries yet.`}
-                  getTitle={section.getTitle}
-                  getMeta={section.getMeta}
-                />
-                {activeEditor?.sectionKey === section.key ? (
-                  <EntryEditor
-                    title={`Edit ${section.title}`}
-                    fields={section.fields}
-                    value={activeEditor.value}
-                    onChange={(value) =>
-                      setActiveEditor((prev) => ({ ...prev, value }))
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  <Input
+                    label="Full name"
+                    placeholder="Jordan Taylor"
+                    value={profile.fullName}
+                    onChange={(event) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        fullName: event.target.value,
+                      }))
                     }
-                    onSave={handleSaveEntry}
-                    onCancel={() => setActiveEditor(null)}
                   />
-                ) : null}
-              </div>
-            ))}
-          </section>
-        ) : null}
+                  <Input
+                    label="Professional title"
+                    placeholder="Senior Product Designer"
+                    value={profile.title}
+                    onChange={(event) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        title: event.target.value,
+                      }))
+                    }
+                  />
+                  <Input
+                    label="Email"
+                    placeholder="you@email.com"
+                    value={profile.email}
+                    onChange={(event) =>
+                      setProfile((prev) => ({ ...prev, email: event.target.value }))
+                    }
+                  />
+                  <Input
+                    label="Phone"
+                    placeholder="(555) 123-4567"
+                    value={profile.phone}
+                    onChange={(event) =>
+                      setProfile((prev) => ({ ...prev, phone: event.target.value }))
+                    }
+                  />
+                  <Input
+                    label="Location"
+                    placeholder="Austin, TX"
+                    value={profile.location}
+                    onChange={(event) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        location: event.target.value,
+                      }))
+                    }
+                  />
+                  <label className="md:col-span-2 flex flex-col gap-2 text-sm font-medium text-slate-200">
+                    <span>Professional summary</span>
+                    <textarea
+                      rows={4}
+                      className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/40"
+                      placeholder="Write a 2-3 sentence summary."
+                      value={profile.summary}
+                      onChange={(event) =>
+                        setProfile((prev) => ({
+                          ...prev,
+                          summary: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+              </section>
+            ) : null}
 
-        {stepIndex === 2 ? (
-          <section className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
-            <SectionHeader
-              title="Visibility"
-              description="Control who can view your resume link."
-            />
-            <div className="mt-6 grid gap-4">
-              <VisibilityToggle
-                enabled={visibility.isPublic}
-                onChange={(nextValue) =>
-                  setVisibility((prev) => ({ ...prev, isPublic: nextValue }))
-                }
-              />
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-xs text-slate-300">
-                {visibility.isPublic
-                  ? "Public resumes are visible on your shareable link."
-                  : "Your resume stays private until you publish it."}
+            {stepIndex === 1 ? (
+              <section className="grid gap-6">
+                {orderedSections.map((section) => (
+                  <div
+                    key={section.key}
+                    className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6"
+                  >
+                    <SectionHeader
+                      title={section.title}
+                      description={section.description}
+                      action={
+                        <Button
+                          variant="ghost"
+                          className="px-4 py-2 text-xs"
+                          onClick={() => handleStartEntry(section.key)}
+                        >
+                          {section.addLabel}
+                        </Button>
+                      }
+                    />
+                    <EntryList
+                      items={resumeData[section.key]}
+                      onAdd={() => handleStartEntry(section.key)}
+                      onEdit={(index) => handleStartEntry(section.key, index)}
+                      onRemove={(index) => handleRemoveEntry(section.key, index)}
+                      addLabel={section.addLabel}
+                      emptyMessage={`No ${section.title.toLowerCase()} entries yet.`}
+                      getTitle={section.getTitle}
+                      getMeta={section.getMeta}
+                    />
+                    {activeEditor?.sectionKey === section.key ? (
+                      <EntryEditor
+                        title={`Edit ${section.title}`}
+                        fields={section.fields}
+                        value={activeEditor.value}
+                        onChange={(value) =>
+                          setActiveEditor((prev) => ({ ...prev, value }))
+                        }
+                        onSave={handleSaveEntry}
+                        onCancel={() => setActiveEditor(null)}
+                      />
+                    ) : null}
+                  </div>
+                ))}
+              </section>
+            ) : null}
+
+            {stepIndex === 2 ? (
+              <section className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
+                <SectionHeader
+                  title="Visibility"
+                  description="Control who can view your resume link."
+                />
+                <div className="mt-6 grid gap-4">
+                  <VisibilityToggle
+                    enabled={visibility.isPublic}
+                    onChange={(nextValue) =>
+                      setVisibility((prev) => ({ ...prev, isPublic: nextValue }))
+                    }
+                  />
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-xs text-slate-300">
+                    {visibility.isPublic
+                      ? "Public resumes are visible on your shareable link."
+                      : "Your resume stays private until you publish it."}
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs text-slate-400">
+                Autosave: {autosaveLabel}
+              </div>
+              <div className="flex gap-3">
+                {stepIndex > 0 ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setStepIndex((current) => current - 1)}
+                  >
+                    Back
+                  </Button>
+                ) : null}
+                <Button onClick={handleNextStep}>
+                  {stepIndex === STEPS.length - 1
+                    ? "Choose template"
+                    : "Next"}
+                </Button>
               </div>
             </div>
-          </section>
-        ) : null}
+          </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs text-slate-400">
-            Autosave: {autosaveLabel}
-          </div>
-          <div className="flex gap-3">
-            {stepIndex > 0 ? (
-              <Button
-                variant="ghost"
-                onClick={() => setStepIndex((current) => current - 1)}
-              >
-                Back
-              </Button>
-            ) : null}
-            <Button onClick={handleNextStep}>
-              {stepIndex === STEPS.length - 1
-                ? "Choose template"
-                : "Next"}
-            </Button>
-          </div>
+          <aside className="flex flex-col gap-6">
+            <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-5">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+                Section order
+              </h3>
+              <p className="mt-2 text-xs text-slate-400">
+                Drag sections to reorder your resume.
+              </p>
+              <div className="mt-4 grid gap-2">
+                {sectionOrder.map((sectionKey) => {
+                  const section = SECTION_CONFIGS.find(
+                    (item) => item.key === sectionKey
+                  );
+                  if (!section) return null;
+                  const isDragging = draggingKey === sectionKey;
+                  const isDragOver = dragOverKey === sectionKey;
+                  return (
+                    <div
+                      key={sectionKey}
+                      role="button"
+                      tabIndex={0}
+                      draggable
+                      onDragStart={() => handleDragStart(sectionKey)}
+                      onDragOver={(event) => handleDragOver(event, sectionKey)}
+                      onDrop={() => handleDrop(sectionKey)}
+                      onDragEnd={handleDragEnd}
+                      className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-sm font-medium transition ${
+                        isDragging
+                          ? "border-emerald-400/70 bg-emerald-400/10 text-emerald-100"
+                          : "border-slate-800 bg-slate-950/60 text-slate-200"
+                      } ${isDragOver ? "ring-2 ring-emerald-400/50" : ""}`}
+                    >
+                      <span>{section.title}</span>
+                      <span className="text-xs text-slate-400">Drag</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-5">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+                Style tokens
+              </h3>
+              <div className="mt-4 grid gap-4">
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Font family</span>
+                  <select
+                    value={templateStyles.fontFamily}
+                    onChange={(event) =>
+                      updateTemplateStyles({ fontFamily: event.target.value })
+                    }
+                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
+                  >
+                    {FONT_OPTIONS.map((font) => (
+                      <option key={font} value={font}>
+                        {font}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Base font size ({templateStyles.fontSize}px)</span>
+                  <input
+                    type="range"
+                    min="12"
+                    max="20"
+                    value={templateStyles.fontSize}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        fontSize: Number(event.target.value),
+                      })
+                    }
+                    className="w-full"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Section spacing ({templateStyles.spacing}px)</span>
+                  <input
+                    type="range"
+                    min="12"
+                    max="32"
+                    value={templateStyles.spacing}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        spacing: Number(event.target.value),
+                      })
+                    }
+                    className="w-full"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Section layout</span>
+                  <select
+                    value={templateStyles.sectionLayout}
+                    onChange={(event) =>
+                      updateTemplateStyles({ sectionLayout: event.target.value })
+                    }
+                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
+                  >
+                    <option value="single">Single column</option>
+                    <option value="columns">Two column</option>
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Header scale ({templateStyles.tokens.headerScale}x)</span>
+                  <input
+                    type="range"
+                    min="1.4"
+                    max="2.4"
+                    step="0.05"
+                    value={templateStyles.tokens.headerScale}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        tokens: {
+                          headerScale: Number(event.target.value),
+                        },
+                      })
+                    }
+                    className="w-full"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>
+                    Section title scale ({templateStyles.tokens.sectionTitleScale}
+                    x)
+                  </span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="1.6"
+                    step="0.05"
+                    value={templateStyles.tokens.sectionTitleScale}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        tokens: {
+                          sectionTitleScale: Number(event.target.value),
+                        },
+                      })
+                    }
+                    className="w-full"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Body scale ({templateStyles.tokens.bodyScale}x)</span>
+                  <input
+                    type="range"
+                    min="0.8"
+                    max="1.2"
+                    step="0.05"
+                    value={templateStyles.tokens.bodyScale}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        tokens: {
+                          bodyScale: Number(event.target.value),
+                        },
+                      })
+                    }
+                    className="w-full"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Meta scale ({templateStyles.tokens.metaScale}x)</span>
+                  <input
+                    type="range"
+                    min="0.7"
+                    max="1"
+                    step="0.05"
+                    value={templateStyles.tokens.metaScale}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        tokens: {
+                          metaScale: Number(event.target.value),
+                        },
+                      })
+                    }
+                    className="w-full"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Line height ({templateStyles.tokens.lineHeight})</span>
+                  <input
+                    type="range"
+                    min="1.2"
+                    max="1.8"
+                    step="0.05"
+                    value={templateStyles.tokens.lineHeight}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        tokens: {
+                          lineHeight: Number(event.target.value),
+                        },
+                      })
+                    }
+                    className="w-full"
+                  />
+                </label>
+
+                <div className="grid gap-3">
+                  <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
+                    <span>Background color</span>
+                    <input
+                      type="color"
+                      value={templateStyles.colors.background}
+                      onChange={(event) =>
+                        updateTemplateStyles({
+                          colors: { background: event.target.value },
+                        })
+                      }
+                      className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
+                    <span>Text color</span>
+                    <input
+                      type="color"
+                      value={templateStyles.colors.text}
+                      onChange={(event) =>
+                        updateTemplateStyles({
+                          colors: { text: event.target.value },
+                        })
+                      }
+                      className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
+                    <span>Accent color</span>
+                    <input
+                      type="color"
+                      value={templateStyles.colors.accent}
+                      onChange={(event) =>
+                        updateTemplateStyles({
+                          colors: { accent: event.target.value },
+                        })
+                      }
+                      className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
+                    <span>Muted color</span>
+                    <input
+                      type="color"
+                      value={templateStyles.colors.muted}
+                      onChange={(event) =>
+                        updateTemplateStyles({
+                          colors: { muted: event.target.value },
+                        })
+                      }
+                      className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-5">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+                Live preview
+              </h3>
+              <div className="mt-4">
+                <ResumePreview
+                  profile={profile}
+                  resumeData={resumeData}
+                  sectionOrder={sectionOrder}
+                  styles={templateStyles}
+                />
+              </div>
+            </div>
+          </aside>
         </div>
       </div>
     </div>

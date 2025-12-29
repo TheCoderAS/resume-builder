@@ -3,20 +3,13 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import Button from "../components/Button.jsx";
 import Input from "../components/Input.jsx";
+import ResumePreview from "../components/ResumePreview.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
+import { DEFAULT_TEMPLATE_STYLES, FONT_OPTIONS } from "../utils/resumePreview.js";
 
 const CANVAS_WIDTH = 860;
 const CANVAS_HEIGHT = 1180;
-
-const FONT_OPTIONS = [
-  "Inter",
-  "Poppins",
-  "Merriweather",
-  "Georgia",
-  "Arial",
-  "Times New Roman",
-];
 
 const BLOCK_OPTIONS = [
   { id: "header", label: "Header" },
@@ -25,22 +18,77 @@ const BLOCK_OPTIONS = [
   { id: "columns", label: "Columns" },
 ];
 
-const DEFAULT_COLORS = {
-  background: "#ffffff",
-  text: "#0f172a",
-  accent: "#10b981",
+const SAMPLE_PROFILE = {
+  fullName: "Alex Morgan",
+  title: "Product Designer",
+  email: "alex.morgan@email.com",
+  phone: "(555) 234-9988",
+  location: "San Francisco, CA",
+  summary:
+    "Product designer with 7+ years of experience building accessible platforms and data-rich workflows.",
 };
+
+const SAMPLE_RESUME_DATA = {
+  experience: [
+    {
+      role: "Lead Designer",
+      company: "Studio Axis",
+      location: "Remote",
+      startDate: "2021",
+      endDate: "Present",
+      summary:
+        "Built intuitive dashboards and optimized flows for 200k+ users.\nPartnered with engineering to scale a component library.",
+    },
+  ],
+  education: [
+    {
+      school: "Parsons School of Design",
+      degree: "MFA, Interaction Design",
+      location: "New York, NY",
+      startDate: "2017",
+      endDate: "2019",
+      summary: "Focus on human-centered product systems.",
+    },
+    {
+      school: "School of the Arts",
+      degree: "BFA, Visual Communication",
+      location: "Boston, MA",
+      startDate: "2013",
+      endDate: "2017",
+    },
+  ],
+  skills: [
+    {
+      name: "Product strategy",
+      level: "Expert",
+      summary: "Roadmapping, discovery, and OKR alignment.",
+    },
+    {
+      name: "Design systems",
+      level: "Advanced",
+      summary: "Tokens, components, and documentation.",
+    },
+    {
+      name: "Research",
+      level: "Advanced",
+      summary: "Usability testing and insight synthesis.",
+    },
+    {
+      name: "Figma",
+      level: "Expert",
+      summary: "Prototyping and collaboration workflows.",
+    },
+  ],
+};
+
+const SAMPLE_SECTION_ORDER = ["experience", "skills", "education"];
 
 export default function TemplatePlayground() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const canvasRef = useRef(null);
   const [templateName, setTemplateName] = useState("Modern Executive");
-  const [fontFamily, setFontFamily] = useState("Inter");
-  const [fontSize, setFontSize] = useState(15);
-  const [spacing, setSpacing] = useState(18);
-  const [sectionLayout, setSectionLayout] = useState("single");
-  const [colors, setColors] = useState(DEFAULT_COLORS);
+  const [templateStyles, setTemplateStyles] = useState(DEFAULT_TEMPLATE_STYLES);
   const [blocks, setBlocks] = useState({
     header: true,
     section: true,
@@ -50,6 +98,9 @@ export default function TemplatePlayground() {
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  const { fontFamily, fontSize, spacing, sectionLayout, colors, tokens } =
+    templateStyles;
 
   const enabledBlocks = useMemo(
     () => BLOCK_OPTIONS.filter((block) => blocks[block.id]).map((block) => block.id),
@@ -72,6 +123,11 @@ export default function TemplatePlayground() {
     const contentWidth = CANVAS_WIDTH - padding * 2;
     let cursorY = padding;
 
+    const headerSize = Math.round(fontSize * tokens.headerScale);
+    const sectionTitleSize = Math.round(fontSize * tokens.sectionTitleScale);
+    const bodySize = Math.round(fontSize * tokens.bodyScale);
+    const metaSize = Math.round(fontSize * tokens.metaScale);
+
     const drawDivider = () => {
       ctx.strokeStyle = "#e2e8f0";
       ctx.lineWidth = 1;
@@ -84,12 +140,12 @@ export default function TemplatePlayground() {
 
     if (blocks.header) {
       ctx.fillStyle = colors.text;
-      ctx.font = `700 ${fontSize + 12}px ${fontFamily}`;
-      ctx.fillText("Alex Morgan", padding, cursorY + fontSize + 12);
-      cursorY += fontSize + 24;
+      ctx.font = `700 ${headerSize}px ${fontFamily}`;
+      ctx.fillText("Alex Morgan", padding, cursorY + headerSize);
+      cursorY += headerSize + 12;
 
-      ctx.fillStyle = "#475569";
-      ctx.font = `500 ${fontSize + 2}px ${fontFamily}`;
+      ctx.fillStyle = colors.muted;
+      ctx.font = `500 ${bodySize}px ${fontFamily}`;
       ctx.fillText("Product Designer · San Francisco, CA", padding, cursorY);
       cursorY += spacing + 6;
       drawDivider();
@@ -97,17 +153,17 @@ export default function TemplatePlayground() {
 
     if (blocks.section) {
       ctx.fillStyle = colors.accent;
-      ctx.font = `600 ${fontSize + 4}px ${fontFamily}`;
-      ctx.fillText("Experience", padding, cursorY + fontSize + 4);
+      ctx.font = `600 ${sectionTitleSize}px ${fontFamily}`;
+      ctx.fillText("Experience", padding, cursorY + sectionTitleSize);
       cursorY += spacing + 6;
 
       ctx.fillStyle = colors.text;
-      ctx.font = `600 ${fontSize}px ${fontFamily}`;
+      ctx.font = `600 ${bodySize}px ${fontFamily}`;
       ctx.fillText("Lead Designer · Studio Axis", padding, cursorY);
       cursorY += spacing;
 
-      ctx.fillStyle = "#475569";
-      ctx.font = `400 ${fontSize - 1}px ${fontFamily}`;
+      ctx.fillStyle = colors.muted;
+      ctx.font = `400 ${metaSize}px ${fontFamily}`;
       ctx.fillText(
         "Built intuitive dashboards and optimized flows for 200k+ users.",
         padding,
@@ -118,8 +174,8 @@ export default function TemplatePlayground() {
       if (sectionLayout === "columns") {
         const columnGap = 24;
         const columnWidth = (contentWidth - columnGap) / 2;
-        ctx.fillStyle = "#475569";
-        ctx.font = `400 ${fontSize - 1}px ${fontFamily}`;
+        ctx.fillStyle = colors.muted;
+        ctx.font = `400 ${metaSize}px ${fontFamily}`;
         ctx.fillText("• Product strategy", padding, cursorY);
         ctx.fillText(
           "• Design systems",
@@ -135,8 +191,8 @@ export default function TemplatePlayground() {
         );
         cursorY += spacing + 6;
       } else {
-        ctx.fillStyle = "#475569";
-        ctx.font = `400 ${fontSize - 1}px ${fontFamily}`;
+        ctx.fillStyle = colors.muted;
+        ctx.font = `400 ${metaSize}px ${fontFamily}`;
         ctx.fillText("• Product strategy and roadmapping", padding, cursorY);
         cursorY += spacing;
         ctx.fillText("• Design systems for multi-platform teams", padding, cursorY);
@@ -148,12 +204,12 @@ export default function TemplatePlayground() {
 
     if (blocks.list) {
       ctx.fillStyle = colors.accent;
-      ctx.font = `600 ${fontSize + 4}px ${fontFamily}`;
-      ctx.fillText("Skills", padding, cursorY + fontSize + 4);
+      ctx.font = `600 ${sectionTitleSize}px ${fontFamily}`;
+      ctx.fillText("Skills", padding, cursorY + sectionTitleSize);
       cursorY += spacing + 4;
 
       ctx.fillStyle = colors.text;
-      ctx.font = `400 ${fontSize - 1}px ${fontFamily}`;
+      ctx.font = `400 ${metaSize}px ${fontFamily}`;
       const skillText =
         "Figma · Prototyping · User testing · Design systems · Accessibility";
       ctx.fillText(skillText, padding, cursorY);
@@ -163,15 +219,15 @@ export default function TemplatePlayground() {
 
     if (blocks.columns) {
       ctx.fillStyle = colors.accent;
-      ctx.font = `600 ${fontSize + 4}px ${fontFamily}`;
-      ctx.fillText("Education", padding, cursorY + fontSize + 4);
+      ctx.font = `600 ${sectionTitleSize}px ${fontFamily}`;
+      ctx.fillText("Education", padding, cursorY + sectionTitleSize);
       cursorY += spacing + 4;
 
       const columnGap = 24;
       const columnWidth = (contentWidth - columnGap) / 2;
 
       ctx.fillStyle = colors.text;
-      ctx.font = `600 ${fontSize}px ${fontFamily}`;
+      ctx.font = `600 ${bodySize}px ${fontFamily}`;
       ctx.fillText("MFA, Interaction Design", padding, cursorY);
       ctx.fillText(
         "BFA, Visual Communication",
@@ -180,8 +236,8 @@ export default function TemplatePlayground() {
       );
 
       cursorY += spacing;
-      ctx.fillStyle = "#475569";
-      ctx.font = `400 ${fontSize - 1}px ${fontFamily}`;
+      ctx.fillStyle = colors.muted;
+      ctx.font = `400 ${metaSize}px ${fontFamily}`;
       ctx.fillText("Parsons School of Design", padding, cursorY);
       ctx.fillText(
         "School of the Arts",
@@ -189,12 +245,20 @@ export default function TemplatePlayground() {
         cursorY
       );
     }
-  }, [blocks, colors, fontFamily, fontSize, sectionLayout, spacing]);
+  }, [blocks, colors, fontFamily, fontSize, sectionLayout, spacing, tokens]);
 
-  const handleColorChange = (key, value) => {
-    setColors((prev) => ({
+  const updateTemplateStyles = (updates) => {
+    setTemplateStyles((prev) => ({
       ...prev,
-      [key]: value,
+      ...updates,
+      colors: {
+        ...prev.colors,
+        ...(updates.colors ?? {}),
+      },
+      tokens: {
+        ...prev.tokens,
+        ...(updates.tokens ?? {}),
+      },
     }));
   };
 
@@ -250,6 +314,7 @@ export default function TemplatePlayground() {
           fontSize,
           spacing,
           colors,
+          tokens,
         },
         thumbnailUrl,
         status: "draft",
@@ -293,12 +358,20 @@ export default function TemplatePlayground() {
               </span>
             </div>
             <div className="mt-4 overflow-hidden rounded-[24px] border border-slate-800 bg-white">
-              <canvas
-                ref={canvasRef}
-                className="h-auto w-full"
-                aria-label="Template canvas preview"
+              <ResumePreview
+                profile={SAMPLE_PROFILE}
+                resumeData={SAMPLE_RESUME_DATA}
+                sectionOrder={SAMPLE_SECTION_ORDER}
+                styles={templateStyles}
+                visibleBlocks={blocks}
               />
             </div>
+            <canvas
+              ref={canvasRef}
+              className="hidden"
+              aria-hidden="true"
+              aria-label="Template canvas preview"
+            />
           </div>
 
           <aside className="flex flex-col gap-4">
@@ -317,7 +390,9 @@ export default function TemplatePlayground() {
                   <span>Font family</span>
                   <select
                     value={fontFamily}
-                    onChange={(event) => setFontFamily(event.target.value)}
+                    onChange={(event) =>
+                      updateTemplateStyles({ fontFamily: event.target.value })
+                    }
                     className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
                   >
                     {FONT_OPTIONS.map((font) => (
@@ -336,7 +411,9 @@ export default function TemplatePlayground() {
                     max="20"
                     value={fontSize}
                     onChange={(event) =>
-                      setFontSize(Number(event.target.value))
+                      updateTemplateStyles({
+                        fontSize: Number(event.target.value),
+                      })
                     }
                     className="w-full"
                   />
@@ -349,7 +426,11 @@ export default function TemplatePlayground() {
                     min="12"
                     max="32"
                     value={spacing}
-                    onChange={(event) => setSpacing(Number(event.target.value))}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        spacing: Number(event.target.value),
+                      })
+                    }
                     className="w-full"
                   />
                 </label>
@@ -358,7 +439,9 @@ export default function TemplatePlayground() {
                   <span>Section layout</span>
                   <select
                     value={sectionLayout}
-                    onChange={(event) => setSectionLayout(event.target.value)}
+                    onChange={(event) =>
+                      updateTemplateStyles({ sectionLayout: event.target.value })
+                    }
                     className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
                   >
                     <option value="single">Single column</option>
@@ -373,7 +456,9 @@ export default function TemplatePlayground() {
                       type="color"
                       value={colors.background}
                       onChange={(event) =>
-                        handleColorChange("background", event.target.value)
+                        updateTemplateStyles({
+                          colors: { background: event.target.value },
+                        })
                       }
                       className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
                     />
@@ -384,7 +469,9 @@ export default function TemplatePlayground() {
                       type="color"
                       value={colors.text}
                       onChange={(event) =>
-                        handleColorChange("text", event.target.value)
+                        updateTemplateStyles({
+                          colors: { text: event.target.value },
+                        })
                       }
                       className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
                     />
@@ -395,9 +482,109 @@ export default function TemplatePlayground() {
                       type="color"
                       value={colors.accent}
                       onChange={(event) =>
-                        handleColorChange("accent", event.target.value)
+                        updateTemplateStyles({
+                          colors: { accent: event.target.value },
+                        })
                       }
                       className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
+                    <span>Muted color</span>
+                    <input
+                      type="color"
+                      value={colors.muted}
+                      onChange={(event) =>
+                        updateTemplateStyles({
+                          colors: { muted: event.target.value },
+                        })
+                      }
+                      className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
+                    />
+                  </label>
+                </div>
+
+                <div className="mt-2 grid gap-3 border-t border-slate-800 pt-4">
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                    <span>Header scale ({tokens.headerScale}x)</span>
+                    <input
+                      type="range"
+                      min="1.4"
+                      max="2.4"
+                      step="0.05"
+                      value={tokens.headerScale}
+                      onChange={(event) =>
+                        updateTemplateStyles({
+                          tokens: { headerScale: Number(event.target.value) },
+                        })
+                      }
+                      className="w-full"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                    <span>Section title scale ({tokens.sectionTitleScale}x)</span>
+                    <input
+                      type="range"
+                      min="1"
+                      max="1.6"
+                      step="0.05"
+                      value={tokens.sectionTitleScale}
+                      onChange={(event) =>
+                        updateTemplateStyles({
+                          tokens: {
+                            sectionTitleScale: Number(event.target.value),
+                          },
+                        })
+                      }
+                      className="w-full"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                    <span>Body scale ({tokens.bodyScale}x)</span>
+                    <input
+                      type="range"
+                      min="0.8"
+                      max="1.2"
+                      step="0.05"
+                      value={tokens.bodyScale}
+                      onChange={(event) =>
+                        updateTemplateStyles({
+                          tokens: { bodyScale: Number(event.target.value) },
+                        })
+                      }
+                      className="w-full"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                    <span>Meta scale ({tokens.metaScale}x)</span>
+                    <input
+                      type="range"
+                      min="0.7"
+                      max="1"
+                      step="0.05"
+                      value={tokens.metaScale}
+                      onChange={(event) =>
+                        updateTemplateStyles({
+                          tokens: { metaScale: Number(event.target.value) },
+                        })
+                      }
+                      className="w-full"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                    <span>Line height ({tokens.lineHeight})</span>
+                    <input
+                      type="range"
+                      min="1.2"
+                      max="1.8"
+                      step="0.05"
+                      value={tokens.lineHeight}
+                      onChange={(event) =>
+                        updateTemplateStyles({
+                          tokens: { lineHeight: Number(event.target.value) },
+                        })
+                      }
+                      className="w-full"
                     />
                   </label>
                 </div>

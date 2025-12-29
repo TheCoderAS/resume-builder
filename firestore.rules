@@ -20,7 +20,10 @@ service cloud.firestore {
     match /resumes/{resumeId} {
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn()
+      allow read: if (isSignedIn()
+          && resource.data.userId == request.auth.uid)
+        || resource.data.visibility.isPublic == true;
+      allow update, delete: if isSignedIn()
         && resource.data.userId == request.auth.uid;
     }
 

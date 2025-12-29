@@ -284,9 +284,14 @@ export default function ResumeEditor() {
               {currentStep} · {autosaveLabel}
             </p>
           </div>
-          <Button variant="ghost" onClick={() => navigate("/app")}>
-            Back to dashboard
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button variant="ghost" onClick={() => navigate("/app/export")}>
+              Export & publish
+            </Button>
+            <Button variant="ghost" onClick={() => navigate("/app")}>
+              Back to dashboard
+            </Button>
+          </div>
         </header>
 
         <div className="flex flex-wrap gap-3">

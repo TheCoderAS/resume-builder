@@ -66,28 +66,28 @@ export default function AppShell({ children }) {
             </Button>
           </div>
         </div>
-        <div className="app-topbar-nav lg:hidden">
-          <nav className="flex w-full items-center justify-around gap-2 px-4 py-3">
-            {NAV_ITEMS.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/app"}
-                className={({ isActive }) =>
-                  `${mobileLinkBase} ${
-                    isActive
-                      ? "bg-emerald-400/10 text-emerald-100"
-                      : "text-slate-300 hover:bg-slate-900/60"
-                  }`
-                }
-              >
-                <item.icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
-          </nav>
-        </div>
       </header>
+      <div className="app-topbar-nav lg:hidden">
+        <nav className="flex w-full items-center justify-around gap-2 px-4 py-3">
+          {NAV_ITEMS.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === "/app"}
+              className={({ isActive }) =>
+                `${mobileLinkBase} ${
+                  isActive
+                    ? "bg-emerald-400/10 text-emerald-100"
+                    : "text-slate-300 hover:bg-slate-900/60"
+                }`
+              }
+            >
+              <item.icon className="h-4 w-4" />
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+      </div>
       <div className="app-body">
         <aside className="app-sidebar">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">

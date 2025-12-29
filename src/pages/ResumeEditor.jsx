@@ -19,7 +19,7 @@ import Snackbar from "../components/Snackbar.jsx";
 import VisibilityToggle from "../components/VisibilityToggle.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
-import { DEFAULT_TEMPLATE_STYLES, FONT_OPTIONS } from "../utils/resumePreview.js";
+import { DEFAULT_TEMPLATE_STYLES } from "../utils/resumePreview.js";
 
 const STEPS = ["Profile", "Resume Data", "Visibility"];
 
@@ -119,8 +119,6 @@ export default function ResumeEditor() {
     SECTION_CONFIGS.map((section) => section.key)
   );
   const [templateStyles, setTemplateStyles] = useState(DEFAULT_TEMPLATE_STYLES);
-  const [draggingKey, setDraggingKey] = useState(null);
-  const [dragOverKey, setDragOverKey] = useState(null);
   const [toast, setToast] = useState(null);
   const lastAutosaveStatus = useRef("idle");
 
@@ -278,57 +276,11 @@ export default function ResumeEditor() {
     });
   };
 
-  const handleDragStart = (sectionKey) => {
-    setDraggingKey(sectionKey);
-  };
-
-  const handleDragOver = (event, sectionKey) => {
-    event.preventDefault();
-    if (sectionKey !== draggingKey) {
-      setDragOverKey(sectionKey);
-    }
-  };
-
-  const handleDrop = (sectionKey) => {
-    if (!draggingKey) return;
-    setSectionOrder((prev) => {
-      const nextOrder = [...prev];
-      const fromIndex = nextOrder.indexOf(draggingKey);
-      const toIndex = nextOrder.indexOf(sectionKey);
-      if (fromIndex === -1 || toIndex === -1) return prev;
-      nextOrder.splice(fromIndex, 1);
-      nextOrder.splice(toIndex, 0, draggingKey);
-      return nextOrder;
-    });
-    setDraggingKey(null);
-    setDragOverKey(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggingKey(null);
-    setDragOverKey(null);
-  };
-
-  const updateTemplateStyles = (updates) => {
-    setTemplateStyles((prev) => ({
-      ...prev,
-      ...updates,
-      colors: {
-        ...prev.colors,
-        ...(updates.colors ?? {}),
-      },
-      tokens: {
-        ...prev.tokens,
-        ...(updates.tokens ?? {}),
-      },
-    }));
-  };
-
   const handleNextStep = () => {
     if (stepIndex < STEPS.length - 1) {
       setStepIndex((current) => current + 1);
     } else {
-      navigate("/app/templates");
+      navigate("/app/export");
     }
   };
 
@@ -542,7 +494,7 @@ export default function ResumeEditor() {
                 ) : null}
                 <Button onClick={handleNextStep}>
                   {stepIndex === STEPS.length - 1
-                    ? "Choose template"
+                    ? "Review & publish"
                     : "Next"}
                 </Button>
               </div>
@@ -550,268 +502,6 @@ export default function ResumeEditor() {
           </div>
 
           <aside className="flex flex-col gap-6">
-            <div className="app-card">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
-                Section order
-              </h3>
-              <p className="mt-2 text-xs text-slate-400">
-                Drag sections to reorder your resume.
-              </p>
-              <div className="mt-4 grid gap-2">
-                {sectionOrder.map((sectionKey) => {
-                  const section = SECTION_CONFIGS.find(
-                    (item) => item.key === sectionKey
-                  );
-                  if (!section) return null;
-                  const isDragging = draggingKey === sectionKey;
-                  const isDragOver = dragOverKey === sectionKey;
-                  return (
-                    <div
-                      key={sectionKey}
-                      role="button"
-                      tabIndex={0}
-                      draggable
-                      onDragStart={() => handleDragStart(sectionKey)}
-                      onDragOver={(event) => handleDragOver(event, sectionKey)}
-                      onDrop={() => handleDrop(sectionKey)}
-                      onDragEnd={handleDragEnd}
-                      className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-sm font-medium transition ${
-                        isDragging
-                          ? "border-emerald-400/70 bg-emerald-400/10 text-emerald-100"
-                          : "border-slate-800 bg-slate-950/60 text-slate-200"
-                      } ${isDragOver ? "ring-2 ring-emerald-400/50" : ""}`}
-                    >
-                      <span>{section.title}</span>
-                      <span className="text-xs text-slate-400">Drag</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="app-card">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
-                Style tokens
-              </h3>
-              <div className="mt-4 grid gap-4">
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Font family</span>
-                  <select
-                    value={templateStyles.fontFamily}
-                    onChange={(event) =>
-                      updateTemplateStyles({ fontFamily: event.target.value })
-                    }
-                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
-                  >
-                    {FONT_OPTIONS.map((font) => (
-                      <option key={font} value={font}>
-                        {font}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Base font size ({templateStyles.fontSize}px)</span>
-                  <input
-                    type="range"
-                    min="12"
-                    max="20"
-                    value={templateStyles.fontSize}
-                    onChange={(event) =>
-                      updateTemplateStyles({
-                        fontSize: Number(event.target.value),
-                      })
-                    }
-                    className="w-full"
-                  />
-                </label>
-
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Section spacing ({templateStyles.spacing}px)</span>
-                  <input
-                    type="range"
-                    min="12"
-                    max="32"
-                    value={templateStyles.spacing}
-                    onChange={(event) =>
-                      updateTemplateStyles({
-                        spacing: Number(event.target.value),
-                      })
-                    }
-                    className="w-full"
-                  />
-                </label>
-
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Section layout</span>
-                  <select
-                    value={templateStyles.sectionLayout}
-                    onChange={(event) =>
-                      updateTemplateStyles({ sectionLayout: event.target.value })
-                    }
-                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
-                  >
-                    <option value="single">Single column</option>
-                    <option value="columns">Two column</option>
-                  </select>
-                </label>
-
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Header scale ({templateStyles.tokens.headerScale}x)</span>
-                  <input
-                    type="range"
-                    min="1.4"
-                    max="2.4"
-                    step="0.05"
-                    value={templateStyles.tokens.headerScale}
-                    onChange={(event) =>
-                      updateTemplateStyles({
-                        tokens: {
-                          headerScale: Number(event.target.value),
-                        },
-                      })
-                    }
-                    className="w-full"
-                  />
-                </label>
-
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>
-                    Section title scale ({templateStyles.tokens.sectionTitleScale}
-                    x)
-                  </span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="1.6"
-                    step="0.05"
-                    value={templateStyles.tokens.sectionTitleScale}
-                    onChange={(event) =>
-                      updateTemplateStyles({
-                        tokens: {
-                          sectionTitleScale: Number(event.target.value),
-                        },
-                      })
-                    }
-                    className="w-full"
-                  />
-                </label>
-
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Body scale ({templateStyles.tokens.bodyScale}x)</span>
-                  <input
-                    type="range"
-                    min="0.8"
-                    max="1.2"
-                    step="0.05"
-                    value={templateStyles.tokens.bodyScale}
-                    onChange={(event) =>
-                      updateTemplateStyles({
-                        tokens: {
-                          bodyScale: Number(event.target.value),
-                        },
-                      })
-                    }
-                    className="w-full"
-                  />
-                </label>
-
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Meta scale ({templateStyles.tokens.metaScale}x)</span>
-                  <input
-                    type="range"
-                    min="0.7"
-                    max="1"
-                    step="0.05"
-                    value={templateStyles.tokens.metaScale}
-                    onChange={(event) =>
-                      updateTemplateStyles({
-                        tokens: {
-                          metaScale: Number(event.target.value),
-                        },
-                      })
-                    }
-                    className="w-full"
-                  />
-                </label>
-
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Line height ({templateStyles.tokens.lineHeight})</span>
-                  <input
-                    type="range"
-                    min="1.2"
-                    max="1.8"
-                    step="0.05"
-                    value={templateStyles.tokens.lineHeight}
-                    onChange={(event) =>
-                      updateTemplateStyles({
-                        tokens: {
-                          lineHeight: Number(event.target.value),
-                        },
-                      })
-                    }
-                    className="w-full"
-                  />
-                </label>
-
-                <div className="grid gap-3">
-                  <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
-                    <span>Background color</span>
-                    <input
-                      type="color"
-                      value={templateStyles.colors.background}
-                      onChange={(event) =>
-                        updateTemplateStyles({
-                          colors: { background: event.target.value },
-                        })
-                      }
-                      className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
-                    />
-                  </label>
-                  <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
-                    <span>Text color</span>
-                    <input
-                      type="color"
-                      value={templateStyles.colors.text}
-                      onChange={(event) =>
-                        updateTemplateStyles({
-                          colors: { text: event.target.value },
-                        })
-                      }
-                      className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
-                    />
-                  </label>
-                  <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
-                    <span>Accent color</span>
-                    <input
-                      type="color"
-                      value={templateStyles.colors.accent}
-                      onChange={(event) =>
-                        updateTemplateStyles({
-                          colors: { accent: event.target.value },
-                        })
-                      }
-                      className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
-                    />
-                  </label>
-                  <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
-                    <span>Muted color</span>
-                    <input
-                      type="color"
-                      value={templateStyles.colors.muted}
-                      onChange={(event) =>
-                        updateTemplateStyles({
-                          colors: { muted: event.target.value },
-                        })
-                      }
-                      className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-
             <div className="app-card">
               <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
                 Live preview

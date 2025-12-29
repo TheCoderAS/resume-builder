@@ -1,12 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  FieldPath,
-  collection,
-  getDocs,
-  limit,
-  query,
-  where,
-} from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
 import { useParams } from "react-router-dom";
 import ResumePreview from "../components/ResumePreview.jsx";
 import { db } from "../firebase.js";
@@ -22,15 +15,9 @@ export default function PublicResume() {
     const loadResume = async () => {
       setStatus("loading");
       try {
-        const byIdQuery = query(
-          collection(db, "resumes"),
-          where(FieldPath.documentId(), "==", slug),
-          where("visibility.isPublic", "==", true),
-          limit(1)
-        );
-        const byIdSnapshot = await getDocs(byIdQuery);
-        const byIdResume = byIdSnapshot.docs[0]?.data() ?? null;
-        if (byIdResume) {
+        const byIdSnapshot = await getDoc(doc(db, "resumes", slug));
+        const byIdResume = byIdSnapshot.exists() ? byIdSnapshot.data() : null;
+        if (byIdResume?.visibility?.isPublic) {
           if (isMounted) {
             setResume({
               ...byIdResume,

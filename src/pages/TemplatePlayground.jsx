@@ -4,14 +4,17 @@ import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
 import Input from "../components/Input.jsx";
+import PagePreviewFrame from "../components/PagePreviewFrame.jsx";
 import Snackbar from "../components/Snackbar.jsx";
 import ResumePreview from "../components/ResumePreview.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
-import { DEFAULT_TEMPLATE_STYLES, FONT_OPTIONS } from "../utils/resumePreview.js";
-
-const CANVAS_WIDTH = 860;
-const CANVAS_HEIGHT = 1180;
+import {
+  DEFAULT_TEMPLATE_STYLES,
+  FONT_OPTIONS,
+  PAGE_SIZE_OPTIONS,
+  resolvePageSetup,
+} from "../utils/resumePreview.js";
 
 const BLOCK_OPTIONS = [
   { id: "header", label: "Header" },
@@ -100,8 +103,9 @@ export default function TemplatePlayground() {
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState(null);
 
-  const { fontFamily, fontSize, spacing, sectionLayout, colors, tokens } =
+  const { fontFamily, fontSize, spacing, sectionLayout, colors, tokens, page } =
     templateStyles;
+  const resolvedPage = resolvePageSetup(page);
 
   const enabledBlocks = useMemo(
     () => BLOCK_OPTIONS.filter((block) => blocks[block.id]).map((block) => block.id),
@@ -111,18 +115,19 @@ export default function TemplatePlayground() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.width = CANVAS_WIDTH;
-    canvas.height = CANVAS_HEIGHT;
+    canvas.width = resolvedPage.width;
+    canvas.height = resolvedPage.height;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.clearRect(0, 0, resolvedPage.width, resolvedPage.height);
     ctx.fillStyle = colors.background;
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.fillRect(0, 0, resolvedPage.width, resolvedPage.height);
 
-    const padding = 56;
-    const contentWidth = CANVAS_WIDTH - padding * 2;
-    let cursorY = padding;
+    const paddingX = resolvedPage.paddingX;
+    const paddingY = resolvedPage.paddingY;
+    const contentWidth = resolvedPage.width - paddingX * 2;
+    let cursorY = paddingY;
 
     const headerSize = Math.round(fontSize * tokens.headerScale);
     const sectionTitleSize = Math.round(fontSize * tokens.sectionTitleScale);
@@ -133,8 +138,8 @@ export default function TemplatePlayground() {
       ctx.strokeStyle = "#e2e8f0";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(padding, cursorY);
-      ctx.lineTo(padding + contentWidth, cursorY);
+      ctx.moveTo(paddingX, cursorY);
+      ctx.lineTo(paddingX + contentWidth, cursorY);
       ctx.stroke();
       cursorY += spacing;
     };
@@ -142,12 +147,16 @@ export default function TemplatePlayground() {
     if (blocks.header) {
       ctx.fillStyle = colors.text;
       ctx.font = `700 ${headerSize}px ${fontFamily}`;
-      ctx.fillText("Alex Morgan", padding, cursorY + headerSize);
+      ctx.fillText("Alex Morgan", paddingX, cursorY + headerSize);
       cursorY += headerSize + 12;
 
       ctx.fillStyle = colors.muted;
       ctx.font = `500 ${bodySize}px ${fontFamily}`;
-      ctx.fillText("Product Designer · San Francisco, CA", padding, cursorY);
+      ctx.fillText(
+        "Product Designer · San Francisco, CA",
+        paddingX,
+        cursorY
+      );
       cursorY += spacing + 6;
       drawDivider();
     }
@@ -155,19 +164,19 @@ export default function TemplatePlayground() {
     if (blocks.section) {
       ctx.fillStyle = colors.accent;
       ctx.font = `600 ${sectionTitleSize}px ${fontFamily}`;
-      ctx.fillText("Experience", padding, cursorY + sectionTitleSize);
+      ctx.fillText("Experience", paddingX, cursorY + sectionTitleSize);
       cursorY += spacing + 6;
 
       ctx.fillStyle = colors.text;
       ctx.font = `600 ${bodySize}px ${fontFamily}`;
-      ctx.fillText("Lead Designer · Studio Axis", padding, cursorY);
+      ctx.fillText("Lead Designer · Studio Axis", paddingX, cursorY);
       cursorY += spacing;
 
       ctx.fillStyle = colors.muted;
       ctx.font = `400 ${metaSize}px ${fontFamily}`;
       ctx.fillText(
         "Built intuitive dashboards and optimized flows for 200k+ users.",
-        padding,
+        paddingX,
         cursorY
       );
       cursorY += spacing + 4;
@@ -177,26 +186,30 @@ export default function TemplatePlayground() {
         const columnWidth = (contentWidth - columnGap) / 2;
         ctx.fillStyle = colors.muted;
         ctx.font = `400 ${metaSize}px ${fontFamily}`;
-        ctx.fillText("• Product strategy", padding, cursorY);
+        ctx.fillText("• Product strategy", paddingX, cursorY);
         ctx.fillText(
           "• Design systems",
-          padding + columnWidth + columnGap,
+          paddingX + columnWidth + columnGap,
           cursorY
         );
         cursorY += spacing;
-        ctx.fillText("• Team leadership", padding, cursorY);
+        ctx.fillText("• Team leadership", paddingX, cursorY);
         ctx.fillText(
           "• Customer research",
-          padding + columnWidth + columnGap,
+          paddingX + columnWidth + columnGap,
           cursorY
         );
         cursorY += spacing + 6;
       } else {
         ctx.fillStyle = colors.muted;
         ctx.font = `400 ${metaSize}px ${fontFamily}`;
-        ctx.fillText("• Product strategy and roadmapping", padding, cursorY);
+        ctx.fillText("• Product strategy and roadmapping", paddingX, cursorY);
         cursorY += spacing;
-        ctx.fillText("• Design systems for multi-platform teams", padding, cursorY);
+        ctx.fillText(
+          "• Design systems for multi-platform teams",
+          paddingX,
+          cursorY
+        );
         cursorY += spacing + 6;
       }
 
@@ -206,14 +219,14 @@ export default function TemplatePlayground() {
     if (blocks.list) {
       ctx.fillStyle = colors.accent;
       ctx.font = `600 ${sectionTitleSize}px ${fontFamily}`;
-      ctx.fillText("Skills", padding, cursorY + sectionTitleSize);
+      ctx.fillText("Skills", paddingX, cursorY + sectionTitleSize);
       cursorY += spacing + 4;
 
       ctx.fillStyle = colors.text;
       ctx.font = `400 ${metaSize}px ${fontFamily}`;
       const skillText =
         "Figma · Prototyping · User testing · Design systems · Accessibility";
-      ctx.fillText(skillText, padding, cursorY);
+      ctx.fillText(skillText, paddingX, cursorY);
       cursorY += spacing + 10;
       drawDivider();
     }
@@ -221,7 +234,7 @@ export default function TemplatePlayground() {
     if (blocks.columns) {
       ctx.fillStyle = colors.accent;
       ctx.font = `600 ${sectionTitleSize}px ${fontFamily}`;
-      ctx.fillText("Education", padding, cursorY + sectionTitleSize);
+      ctx.fillText("Education", paddingX, cursorY + sectionTitleSize);
       cursorY += spacing + 4;
 
       const columnGap = 24;
@@ -229,29 +242,45 @@ export default function TemplatePlayground() {
 
       ctx.fillStyle = colors.text;
       ctx.font = `600 ${bodySize}px ${fontFamily}`;
-      ctx.fillText("MFA, Interaction Design", padding, cursorY);
+      ctx.fillText("MFA, Interaction Design", paddingX, cursorY);
       ctx.fillText(
         "BFA, Visual Communication",
-        padding + columnWidth + columnGap,
+        paddingX + columnWidth + columnGap,
         cursorY
       );
 
       cursorY += spacing;
       ctx.fillStyle = colors.muted;
       ctx.font = `400 ${metaSize}px ${fontFamily}`;
-      ctx.fillText("Parsons School of Design", padding, cursorY);
+      ctx.fillText("Parsons School of Design", paddingX, cursorY);
       ctx.fillText(
         "School of the Arts",
-        padding + columnWidth + columnGap,
+        paddingX + columnWidth + columnGap,
         cursorY
       );
     }
-  }, [blocks, colors, fontFamily, fontSize, sectionLayout, spacing, tokens]);
+  }, [
+    blocks,
+    colors,
+    fontFamily,
+    fontSize,
+    resolvedPage.height,
+    resolvedPage.paddingX,
+    resolvedPage.paddingY,
+    resolvedPage.width,
+    sectionLayout,
+    spacing,
+    tokens,
+  ]);
 
   const updateTemplateStyles = (updates) => {
     setTemplateStyles((prev) => ({
       ...prev,
       ...updates,
+      page: {
+        ...prev.page,
+        ...(updates.page ?? {}),
+      },
       colors: {
         ...prev.colors,
         ...(updates.colors ?? {}),
@@ -350,17 +379,19 @@ export default function TemplatePlayground() {
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-lg font-semibold text-slate-100">Canvas</h2>
               <span className="text-xs text-slate-400">
-                {CANVAS_WIDTH} × {CANVAS_HEIGHT}px
+                {resolvedPage.width} × {resolvedPage.height}px
               </span>
             </div>
             <div className="mt-4 overflow-hidden rounded-[24px] border border-slate-800 bg-white">
-              <ResumePreview
-                profile={SAMPLE_PROFILE}
-                resumeData={SAMPLE_RESUME_DATA}
-                sectionOrder={SAMPLE_SECTION_ORDER}
-                styles={templateStyles}
-                visibleBlocks={blocks}
-              />
+              <PagePreviewFrame styles={templateStyles} className="w-full">
+                <ResumePreview
+                  profile={SAMPLE_PROFILE}
+                  resumeData={SAMPLE_RESUME_DATA}
+                  sectionOrder={SAMPLE_SECTION_ORDER}
+                  styles={templateStyles}
+                  visibleBlocks={blocks}
+                />
+              </PagePreviewFrame>
             </div>
             <canvas
               ref={canvasRef}
@@ -383,6 +414,57 @@ export default function TemplatePlayground() {
                 />
 
                 <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Page size</span>
+                  <select
+                    value={resolvedPage.size}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        page: { size: event.target.value },
+                      })
+                    }
+                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
+                  >
+                    {PAGE_SIZE_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label} ({option.width} × {option.height})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Page padding X ({resolvedPage.paddingX}px)</span>
+                  <input
+                    type="range"
+                    min="24"
+                    max="88"
+                    value={resolvedPage.paddingX}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        page: { paddingX: Number(event.target.value) },
+                      })
+                    }
+                    className="w-full"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Page padding Y ({resolvedPage.paddingY}px)</span>
+                  <input
+                    type="range"
+                    min="24"
+                    max="96"
+                    value={resolvedPage.paddingY}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        page: { paddingY: Number(event.target.value) },
+                      })
+                    }
+                    className="w-full"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
                   <span>Font family</span>
                   <select
                     value={fontFamily}
@@ -403,7 +485,7 @@ export default function TemplatePlayground() {
                   <span>Font size ({fontSize}px)</span>
                   <input
                     type="range"
-                    min="12"
+                    min="9"
                     max="20"
                     value={fontSize}
                     onChange={(event) =>
@@ -419,8 +501,8 @@ export default function TemplatePlayground() {
                   <span>Section spacing ({spacing}px)</span>
                   <input
                     type="range"
-                    min="12"
-                    max="32"
+                    min="8"
+                    max="28"
                     value={spacing}
                     onChange={(event) =>
                       updateTemplateStyles({

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
 import { useParams } from "react-router-dom";
+import PagePreviewFrame from "../components/PagePreviewFrame.jsx";
 import ResumePreview from "../components/ResumePreview.jsx";
 import { db } from "../firebase.js";
 import { DEFAULT_TEMPLATE_STYLES } from "../utils/resumePreview.js";
@@ -102,12 +103,14 @@ export default function PublicResume() {
           <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
             <div className="flex justify-center">
               <div className="w-full max-w-[760px] rounded-[22px] bg-white p-4 shadow-[0_20px_40px_rgba(15,23,42,0.3)]">
-                <ResumePreview
-                  profile={resume.profile}
-                  resumeData={resume.resumeData}
-                  sectionOrder={resume.sectionOrder}
-                  styles={resume.templateStyles}
-                />
+                <PagePreviewFrame styles={resume.templateStyles} className="w-full">
+                  <ResumePreview
+                    profile={resume.profile}
+                    resumeData={resume.resumeData}
+                    sectionOrder={resume.sectionOrder}
+                    styles={resume.templateStyles}
+                  />
+                </PagePreviewFrame>
               </div>
             </div>
           </div>

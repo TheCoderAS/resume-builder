@@ -13,13 +13,19 @@ import Button from "../components/Button.jsx";
 import EntryEditor from "../components/EntryEditor.jsx";
 import EntryList from "../components/EntryList.jsx";
 import Input from "../components/Input.jsx";
+import PagePreviewFrame from "../components/PagePreviewFrame.jsx";
 import ResumePreview from "../components/ResumePreview.jsx";
 import SectionHeader from "../components/SectionHeader.jsx";
 import Snackbar from "../components/Snackbar.jsx";
 import VisibilityToggle from "../components/VisibilityToggle.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
-import { DEFAULT_TEMPLATE_STYLES } from "../utils/resumePreview.js";
+import {
+  DEFAULT_TEMPLATE_STYLES,
+  FONT_OPTIONS,
+  PAGE_SIZE_OPTIONS,
+  resolvePageSetup,
+} from "../utils/resumePreview.js";
 
 const STEPS = ["Profile", "Resume Data", "Visibility"];
 
@@ -121,6 +127,7 @@ export default function ResumeEditor() {
   const [templateStyles, setTemplateStyles] = useState(DEFAULT_TEMPLATE_STYLES);
   const [toast, setToast] = useState(null);
   const lastAutosaveStatus = useRef("idle");
+  const resolvedPage = resolvePageSetup(templateStyles.page);
 
   const currentStep = useMemo(() => STEPS[stepIndex], [stepIndex]);
   const orderedSections = useMemo(
@@ -298,6 +305,25 @@ export default function ResumeEditor() {
     }
     lastAutosaveStatus.current = autosaveStatus;
   }, [autosaveStatus]);
+
+  const updateTemplateStyles = (updates) => {
+    setTemplateStyles((prev) => ({
+      ...prev,
+      ...updates,
+      page: {
+        ...prev.page,
+        ...(updates.page ?? {}),
+      },
+      colors: {
+        ...prev.colors,
+        ...(updates.colors ?? {}),
+      },
+      tokens: {
+        ...prev.tokens,
+        ...(updates.tokens ?? {}),
+      },
+    }));
+  };
 
   return (
     <AppShell>
@@ -504,15 +530,169 @@ export default function ResumeEditor() {
           <aside className="flex flex-col gap-6">
             <div className="app-card">
               <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+                Page setup
+              </h3>
+              <div className="mt-4 flex flex-col gap-4">
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Page size</span>
+                  <select
+                    value={resolvedPage.size}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        page: { size: event.target.value },
+                      })
+                    }
+                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
+                  >
+                    {PAGE_SIZE_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label} ({option.width} × {option.height})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Page padding X ({resolvedPage.paddingX}px)</span>
+                  <input
+                    type="range"
+                    min="24"
+                    max="88"
+                    value={resolvedPage.paddingX}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        page: { paddingX: Number(event.target.value) },
+                      })
+                    }
+                    className="w-full"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Page padding Y ({resolvedPage.paddingY}px)</span>
+                  <input
+                    type="range"
+                    min="24"
+                    max="96"
+                    value={resolvedPage.paddingY}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        page: { paddingY: Number(event.target.value) },
+                      })
+                    }
+                    className="w-full"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="app-card">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+                Typography
+              </h3>
+              <div className="mt-4 flex flex-col gap-4">
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Font family</span>
+                  <select
+                    value={templateStyles.fontFamily}
+                    onChange={(event) =>
+                      updateTemplateStyles({ fontFamily: event.target.value })
+                    }
+                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
+                  >
+                    {FONT_OPTIONS.map((font) => (
+                      <option key={font} value={font}>
+                        {font}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Font size ({templateStyles.fontSize}px)</span>
+                  <input
+                    type="range"
+                    min="9"
+                    max="20"
+                    value={templateStyles.fontSize}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        fontSize: Number(event.target.value),
+                      })
+                    }
+                    className="w-full"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Section spacing ({templateStyles.spacing}px)</span>
+                  <input
+                    type="range"
+                    min="8"
+                    max="28"
+                    value={templateStyles.spacing}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        spacing: Number(event.target.value),
+                      })
+                    }
+                    className="w-full"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Line height ({templateStyles.tokens.lineHeight})</span>
+                  <input
+                    type="range"
+                    min="1.2"
+                    max="1.8"
+                    step="0.05"
+                    value={templateStyles.tokens.lineHeight}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        tokens: { lineHeight: Number(event.target.value) },
+                      })
+                    }
+                    className="w-full"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="app-card">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+                Section layout
+              </h3>
+              <div className="mt-4 flex flex-col gap-4">
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Layout</span>
+                  <select
+                    value={templateStyles.sectionLayout}
+                    onChange={(event) =>
+                      updateTemplateStyles({ sectionLayout: event.target.value })
+                    }
+                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
+                  >
+                    <option value="single">Single column</option>
+                    <option value="columns">Two column</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="app-card">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
                 Live preview
               </h3>
               <div className="mt-4">
-                <ResumePreview
-                  profile={profile}
-                  resumeData={resumeData}
-                  sectionOrder={sectionOrder}
-                  styles={templateStyles}
-                />
+                <PagePreviewFrame styles={templateStyles} className="w-full">
+                  <ResumePreview
+                    profile={profile}
+                    resumeData={resumeData}
+                    sectionOrder={sectionOrder}
+                    styles={templateStyles}
+                  />
+                </PagePreviewFrame>
               </div>
             </div>
           </aside>

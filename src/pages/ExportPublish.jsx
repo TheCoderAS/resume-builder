@@ -17,13 +17,17 @@ import ErrorBanner from "../components/ErrorBanner.jsx";
 import Input from "../components/Input.jsx";
 import LoadingSkeleton from "../components/LoadingSkeleton.jsx";
 import LoaderOverlay from "../components/LoaderOverlay.jsx";
+import PagePreviewFrame from "../components/PagePreviewFrame.jsx";
 import ResumePreview from "../components/ResumePreview.jsx";
 import SectionHeader from "../components/SectionHeader.jsx";
 import Snackbar from "../components/Snackbar.jsx";
 import VisibilityToggle from "../components/VisibilityToggle.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
-import { DEFAULT_TEMPLATE_STYLES } from "../utils/resumePreview.js";
+import {
+  DEFAULT_TEMPLATE_STYLES,
+  resolvePageSetup,
+} from "../utils/resumePreview.js";
 
 const EMPTY_RESUME = {
   profile: {
@@ -319,6 +323,7 @@ export default function ExportPublish() {
     return {
       ...DEFAULT_TEMPLATE_STYLES,
       ...styles,
+      page: resolvePageSetup(styles.page),
       colors: {
         ...DEFAULT_TEMPLATE_STYLES.colors,
         ...(styles.colors ?? {}),
@@ -413,10 +418,27 @@ export default function ExportPublish() {
     if (!frameDoc) return;
     frameDoc.open();
     frameDoc.write(
-      `<!doctype html><html><head><title>Resume Preview</title></head><body style="margin:0;background:#f8fafc;padding:24px;"></body></html>`
+      `<!doctype html><html><head><title>Resume Preview</title></head><body style="margin:0;background:#f8fafc;padding:24px;box-sizing:border-box;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;"></body></html>`
     );
     frameDoc.close();
     frameDoc.body.appendChild(cloned);
+    const page = resolvePageSetup(resume.templateStyles?.page);
+    const applyScale = () => {
+      if (!iframeRef.current) return;
+      const availableWidth = iframeRef.current.clientWidth - 48;
+      const availableHeight = iframeRef.current.clientHeight - 48;
+      const scale = Math.min(
+        availableWidth / page.width,
+        availableHeight / page.height,
+        1
+      );
+      cloned.style.transform = `scale(${scale})`;
+      cloned.style.transformOrigin = "top center";
+    };
+    applyScale();
+    iframeRef.current?.contentWindow?.addEventListener("resize", applyScale);
+    return () =>
+      iframeRef.current?.contentWindow?.removeEventListener("resize", applyScale);
   }, [previewOpen, resume]);
 
   return (
@@ -487,16 +509,18 @@ export default function ExportPublish() {
                 </div>
               ) : (
                 <div
-                  ref={previewRef}
-                  data-export-preview="true"
                   className="w-full max-w-[720px] overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_20px_40px_rgba(15,23,42,0.3)]"
                 >
-                  <ResumePreview
-                    profile={resume.profile}
-                    resumeData={resume.resumeData}
-                    sectionOrder={resume.sectionOrder}
-                    styles={resume.templateStyles}
-                  />
+                  <PagePreviewFrame styles={resume.templateStyles} className="w-full">
+                    <ResumePreview
+                      ref={previewRef}
+                      data-export-preview="true"
+                      profile={resume.profile}
+                      resumeData={resume.resumeData}
+                      sectionOrder={resume.sectionOrder}
+                      styles={resume.templateStyles}
+                    />
+                  </PagePreviewFrame>
                 </div>
               )}
             </div>

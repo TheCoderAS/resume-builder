@@ -18,6 +18,9 @@ export const DEFAULT_TEMPLATE_STYLES = {
   fontSize: 15,
   spacing: 18,
   sectionLayout: "single",
+  headerAlignment: "left",
+  showHeaderDivider: true,
+  showSectionDividers: false,
   page: {
     size: "A4",
     width: 794,

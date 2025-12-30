@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  serverTimestamp,
+  updateDoc,
+} from "firebase/firestore";
+import { useLocation, useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import ErrorBanner from "../components/ErrorBanner.jsx";
@@ -87,9 +95,16 @@ const SAMPLE_RESUME_DATA = {
 };
 
 const SAMPLE_SECTION_ORDER = ["experience", "skills", "education"];
+const SECTION_OPTIONS = [
+  { id: "experience", label: "Experience" },
+  { id: "skills", label: "Skills" },
+  { id: "education", label: "Education" },
+];
 
 export default function TemplatePlayground() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const canvasRef = useRef(null);
   const [templateName, setTemplateName] = useState("Modern Executive");
   const [templateStyles, setTemplateStyles] = useState(DEFAULT_TEMPLATE_STYLES);
@@ -99,18 +114,103 @@ export default function TemplatePlayground() {
     list: true,
     columns: true,
   });
+  const [sectionOrder, setSectionOrder] = useState(SAMPLE_SECTION_ORDER);
+  const [templateId, setTemplateId] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState(null);
 
-  const { fontFamily, fontSize, spacing, sectionLayout, colors, tokens, page } =
-    templateStyles;
+  const {
+    fontFamily,
+    fontSize,
+    spacing,
+    sectionLayout,
+    headerAlignment,
+    showHeaderDivider,
+    showSectionDividers,
+    colors,
+    tokens,
+    page,
+  } = templateStyles;
   const resolvedPage = resolvePageSetup(page);
 
   const enabledBlocks = useMemo(
     () => BLOCK_OPTIONS.filter((block) => blocks[block.id]).map((block) => block.id),
     [blocks]
   );
+
+  const hydrateTemplateStyles = (template = {}) => {
+    const styles = template.styles ?? {};
+    return {
+      ...DEFAULT_TEMPLATE_STYLES,
+      ...styles,
+      page: resolvePageSetup(styles.page),
+      colors: {
+        ...DEFAULT_TEMPLATE_STYLES.colors,
+        ...(styles.colors ?? {}),
+      },
+      tokens: {
+        ...DEFAULT_TEMPLATE_STYLES.tokens,
+        ...(styles.tokens ?? {}),
+      },
+      sectionLayout:
+        template.layout?.sectionLayout ??
+        styles.sectionLayout ??
+        DEFAULT_TEMPLATE_STYLES.sectionLayout,
+      headerAlignment:
+        styles.headerAlignment ?? DEFAULT_TEMPLATE_STYLES.headerAlignment,
+      showHeaderDivider:
+        styles.showHeaderDivider ?? DEFAULT_TEMPLATE_STYLES.showHeaderDivider,
+      showSectionDividers:
+        styles.showSectionDividers ?? DEFAULT_TEMPLATE_STYLES.showSectionDividers,
+    };
+  };
+
+  useEffect(() => {
+    const templateIdFromState = location.state?.templateId;
+    if (!templateIdFromState) return;
+    setIsLoading(true);
+    setTemplateId(templateIdFromState);
+    setErrorMessage("");
+
+    const loadTemplate = async () => {
+      try {
+        const snapshot = await getDoc(doc(db, "templates", templateIdFromState));
+        if (!snapshot.exists()) {
+          setErrorMessage("We couldn't find that template.");
+          return;
+        }
+        const data = snapshot.data();
+        setTemplateName(data.name ?? "Untitled template");
+        setTemplateStyles(hydrateTemplateStyles(data));
+        const nextBlocks = BLOCK_OPTIONS.reduce(
+          (acc, block) => ({
+            ...acc,
+            [block.id]: data.layout?.blocks?.includes(block.id) ?? true,
+          }),
+          {}
+        );
+        setBlocks(nextBlocks);
+        const savedOrder = data.layout?.sectionOrder ?? SAMPLE_SECTION_ORDER;
+        const normalizedOrder = [
+          ...new Set(savedOrder.filter((section) =>
+            SECTION_OPTIONS.some((option) => option.id === section)
+          )),
+          ...SECTION_OPTIONS.map((option) => option.id).filter(
+            (section) => !savedOrder.includes(section)
+          ),
+        ];
+        setSectionOrder(normalizedOrder);
+      } catch (error) {
+        setErrorMessage("Unable to load that template.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadTemplate();
+  }, [location.state?.templateId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -145,20 +245,27 @@ export default function TemplatePlayground() {
     };
 
     if (blocks.header) {
+      ctx.textAlign = headerAlignment ?? "left";
+      const headerX =
+        headerAlignment === "center"
+          ? paddingX + contentWidth / 2
+          : headerAlignment === "right"
+            ? paddingX + contentWidth
+            : paddingX;
       ctx.fillStyle = colors.text;
       ctx.font = `700 ${headerSize}px ${fontFamily}`;
-      ctx.fillText("Alex Morgan", paddingX, cursorY + headerSize);
+      ctx.fillText("Alex Morgan", headerX, cursorY + headerSize);
       cursorY += headerSize + 12;
 
       ctx.fillStyle = colors.muted;
       ctx.font = `500 ${bodySize}px ${fontFamily}`;
-      ctx.fillText(
-        "Product Designer · San Francisco, CA",
-        paddingX,
-        cursorY
-      );
+      ctx.fillText("Product Designer · San Francisco, CA", headerX, cursorY);
       cursorY += spacing + 6;
-      drawDivider();
+      if (showHeaderDivider) {
+        ctx.textAlign = "left";
+        drawDivider();
+      }
+      ctx.textAlign = "left";
     }
 
     if (blocks.section) {
@@ -213,7 +320,9 @@ export default function TemplatePlayground() {
         cursorY += spacing + 6;
       }
 
-      drawDivider();
+      if (showSectionDividers) {
+        drawDivider();
+      }
     }
 
     if (blocks.list) {
@@ -228,7 +337,9 @@ export default function TemplatePlayground() {
         "Figma · Prototyping · User testing · Design systems · Accessibility";
       ctx.fillText(skillText, paddingX, cursorY);
       cursorY += spacing + 10;
-      drawDivider();
+      if (showSectionDividers) {
+        drawDivider();
+      }
     }
 
     if (blocks.columns) {
@@ -309,6 +420,18 @@ export default function TemplatePlayground() {
     return "";
   };
 
+  const moveSection = (sectionId, direction) => {
+    setSectionOrder((prev) => {
+      const index = prev.indexOf(sectionId);
+      if (index === -1) return prev;
+      const nextIndex = direction === "up" ? index - 1 : index + 1;
+      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      return next;
+    });
+  };
+
   const handleSave = async () => {
     setErrorMessage("");
     const validationError = validateTemplate();
@@ -330,30 +453,56 @@ export default function TemplatePlayground() {
     setIsSaving(true);
     try {
       const thumbnailUrl = canvas.toDataURL("image/png");
-      await addDoc(collection(db, "templates"), {
+      const payload = {
         ownerId: user.uid,
         type: "user",
         name: templateName.trim() || "Untitled template",
         layout: {
           blocks: enabledBlocks,
           sectionLayout,
+          sectionOrder,
         },
         styles: {
           fontFamily,
           fontSize,
           spacing,
+          sectionLayout,
+          headerAlignment,
+          showHeaderDivider,
+          showSectionDividers,
+          page: resolvedPage,
           colors,
           tokens,
         },
         thumbnailUrl,
         status: "draft",
-        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+      };
+
+      if (templateId) {
+        await updateDoc(doc(db, "templates", templateId), payload);
+      } else {
+        await addDoc(collection(db, "templates"), {
+          ...payload,
+          createdAt: serverTimestamp(),
+        });
+      }
+      navigate("/app/templates", {
+        state: {
+          toast: {
+            message: templateId
+              ? "Template updated."
+              : "Template saved and ready to use.",
+            variant: "success",
+          },
+        },
       });
-      setToast({ message: "Template saved to Firestore.", variant: "success" });
     } catch (error) {
       setErrorMessage("Unable to save template right now.");
-      setToast({ message: "Template save failed.", variant: "error" });
+      setToast({
+        message: "We couldn't save that template. Please try again.",
+        variant: "error",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -367,7 +516,9 @@ export default function TemplatePlayground() {
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-200">
               Template playground
             </p>
-            <h1 className="app-title">Build a new resume template</h1>
+            <h1 className="app-title">
+              {templateId ? "Edit resume template" : "Build a new resume template"}
+            </h1>
             <p className="app-subtitle">
               Configure blocks, typography, and layout before saving.
             </p>
@@ -387,7 +538,7 @@ export default function TemplatePlayground() {
                 <ResumePreview
                   profile={SAMPLE_PROFILE}
                   resumeData={SAMPLE_RESUME_DATA}
-                  sectionOrder={SAMPLE_SECTION_ORDER}
+                  sectionOrder={sectionOrder}
                   styles={templateStyles}
                   visibleBlocks={blocks}
                 />
@@ -526,6 +677,52 @@ export default function TemplatePlayground() {
                     <option value="columns">Two column</option>
                   </select>
                 </label>
+
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+                  <span>Header alignment</span>
+                  <select
+                    value={headerAlignment}
+                    onChange={(event) =>
+                      updateTemplateStyles({
+                        headerAlignment: event.target.value,
+                      })
+                    }
+                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
+                  >
+                    <option value="left">Left aligned</option>
+                    <option value="center">Centered</option>
+                    <option value="right">Right aligned</option>
+                  </select>
+                </label>
+
+                <div className="grid gap-3">
+                  <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
+                    <span>Header divider</span>
+                    <input
+                      type="checkbox"
+                      checked={showHeaderDivider}
+                      onChange={(event) =>
+                        updateTemplateStyles({
+                          showHeaderDivider: event.target.checked,
+                        })
+                      }
+                      className="h-4 w-4 accent-emerald-400"
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
+                    <span>Section dividers</span>
+                    <input
+                      type="checkbox"
+                      checked={showSectionDividers}
+                      onChange={(event) =>
+                        updateTemplateStyles({
+                          showSectionDividers: event.target.checked,
+                        })
+                      }
+                      className="h-4 w-4 accent-emerald-400"
+                    />
+                  </label>
+                </div>
 
                 <div className="grid gap-3">
                   <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
@@ -693,6 +890,48 @@ export default function TemplatePlayground() {
 
             <div className="app-card">
               <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+                Section order
+              </h3>
+              <p className="mt-2 text-xs text-slate-400">
+                Adjust the order used in the preview and when applying the template.
+              </p>
+              <div className="mt-4 grid gap-3">
+                {sectionOrder.map((sectionId, index) => {
+                  const section =
+                    SECTION_OPTIONS.find((item) => item.id === sectionId) ??
+                    SECTION_OPTIONS[0];
+                  return (
+                    <div
+                      key={sectionId}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm text-slate-200"
+                    >
+                      <span>{section.label}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => moveSection(sectionId, "up")}
+                          disabled={index === 0}
+                          className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 disabled:opacity-40"
+                        >
+                          Up
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveSection(sectionId, "down")}
+                          disabled={index === sectionOrder.length - 1}
+                          className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 disabled:opacity-40"
+                        >
+                          Down
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="app-card">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
                 Save template
               </h3>
               <p className="mt-2 text-xs text-slate-400">
@@ -704,11 +943,15 @@ export default function TemplatePlayground() {
                 </div>
               ) : null}
               <Button
-                className="mt-4 w-full"
+                className="mt-4 w-full normal-case"
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || isLoading}
               >
-                {isSaving ? "Saving..." : "Save template"}
+                {isSaving
+                  ? "Saving..."
+                  : templateId
+                    ? "Save changes"
+                    : "Save template"}
               </Button>
             </div>
           </aside>

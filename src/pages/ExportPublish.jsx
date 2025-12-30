@@ -436,9 +436,9 @@ export default function ExportPublish() {
       cloned.style.transformOrigin = "top center";
     };
     applyScale();
-    iframeRef.current?.contentWindow?.addEventListener("resize", applyScale);
-    return () =>
-      iframeRef.current?.contentWindow?.removeEventListener("resize", applyScale);
+    const observer = new ResizeObserver(applyScale);
+    observer.observe(iframeRef.current);
+    return () => observer.disconnect();
   }, [previewOpen, resume]);
 
   return (

@@ -10,7 +10,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   FiArchive,
   FiCheckCircle,
@@ -42,6 +42,7 @@ const getTemplateCategory = (template) =>
 
 export default function TemplateGallery() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [templates, setTemplates] = useState([]);
   const [filter, setFilter] = useState("all");
@@ -112,6 +113,12 @@ export default function TemplateGallery() {
       isMounted = false;
     };
   }, [user]);
+
+  useEffect(() => {
+    if (!location.state?.toast) return;
+    setToast(location.state.toast);
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.pathname, location.state?.toast, navigate]);
 
   useEffect(() => {
     if (!menuOpenId) return;

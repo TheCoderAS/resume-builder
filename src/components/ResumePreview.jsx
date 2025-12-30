@@ -47,8 +47,25 @@ const ResumePreview = forwardRef(function ResumePreview(
   ref
 ) {
   const resolvedStyles = resolveStyles(styles);
-  const { colors, fontFamily, fontSize, spacing, sectionLayout, tokens, page } =
-    resolvedStyles;
+  const {
+    colors,
+    fontFamily,
+    fontSize,
+    spacing,
+    sectionLayout,
+    headerAlignment,
+    showHeaderDivider,
+    showSectionDividers,
+    tokens,
+    page,
+  } = resolvedStyles;
+
+  const headerAlign = headerAlignment ?? "left";
+  const headerAlignmentStyles = {
+    left: "flex-start",
+    center: "center",
+    right: "flex-end",
+  };
 
   const headerSize = Math.round(fontSize * tokens.headerScale);
   const sectionTitleSize = Math.round(fontSize * tokens.sectionTitleScale);
@@ -109,10 +126,16 @@ const ResumePreview = forwardRef(function ResumePreview(
       >
         {blockVisibility.header ? (
           <header
-            className="flex flex-col border-b border-slate-200"
+            className={`flex flex-col ${
+              showHeaderDivider ? "border-b border-slate-200" : ""
+            }`}
             style={{
               gap: `${Math.round(spacing / 2)}px`,
-              paddingBottom: `${Math.round(spacing / 1.25)}px`,
+              paddingBottom: showHeaderDivider
+                ? `${Math.round(spacing / 1.25)}px`
+                : "0px",
+              textAlign: headerAlign,
+              alignItems: headerAlignmentStyles[headerAlign] ?? "flex-start",
             }}
           >
             <div>
@@ -157,7 +180,8 @@ const ResumePreview = forwardRef(function ResumePreview(
         ) : null}
 
         <div className="flex flex-col" style={{ gap: `${spacing}px` }}>
-          {orderedSections.map((sectionKey) => {
+          {orderedSections.map((sectionKey, index) => {
+            const isLastSection = index === orderedSections.length - 1;
             if (sectionKey === "experience" && experience.length === 0) {
               return null;
             }
@@ -171,8 +195,18 @@ const ResumePreview = forwardRef(function ResumePreview(
             return (
               <section
                 key={sectionKey}
-                className="flex flex-col"
-                style={{ gap: `${Math.round(spacing / 2)}px` }}
+                className={`flex flex-col ${
+                  showSectionDividers && !isLastSection
+                    ? "border-b border-slate-200"
+                    : ""
+                }`}
+                style={{
+                  gap: `${Math.round(spacing / 2)}px`,
+                  paddingBottom:
+                    showSectionDividers && !isLastSection
+                      ? `${Math.round(spacing / 1.25)}px`
+                      : "0px",
+                }}
               >
                 <h3
                   style={{

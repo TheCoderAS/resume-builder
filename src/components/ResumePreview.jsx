@@ -1,4 +1,5 @@
-import { DEFAULT_TEMPLATE_STYLES } from "../utils/resumePreview.js";
+import { forwardRef } from "react";
+import { DEFAULT_TEMPLATE_STYLES, resolvePageSetup } from "../utils/resumePreview.js";
 
 const SECTION_LABELS = {
   experience: "Experience",
@@ -9,6 +10,7 @@ const SECTION_LABELS = {
 const resolveStyles = (styles) => ({
   ...DEFAULT_TEMPLATE_STYLES,
   ...styles,
+  page: resolvePageSetup(styles?.page),
   colors: {
     ...DEFAULT_TEMPLATE_STYLES.colors,
     ...(styles?.colors ?? {}),
@@ -33,15 +35,19 @@ const splitHighlights = (text) =>
 const formatRange = (start, end) =>
   [start, end].filter(Boolean).join(" - ");
 
-export default function ResumePreview({
-  profile = {},
-  resumeData = {},
-  sectionOrder = [],
-  styles = {},
-  visibleBlocks = {},
-}) {
+const ResumePreview = forwardRef(function ResumePreview(
+  {
+    profile = {},
+    resumeData = {},
+    sectionOrder = [],
+    styles = {},
+    visibleBlocks = {},
+    ...rest
+  },
+  ref
+) {
   const resolvedStyles = resolveStyles(styles);
-  const { colors, fontFamily, fontSize, spacing, sectionLayout, tokens } =
+  const { colors, fontFamily, fontSize, spacing, sectionLayout, tokens, page } =
     resolvedStyles;
 
   const headerSize = Math.round(fontSize * tokens.headerScale);
@@ -81,8 +87,12 @@ export default function ResumePreview({
 
   return (
     <div
-      className="h-full w-full rounded-[22px] border border-slate-200 bg-white"
+      ref={ref}
+      {...rest}
+      className="rounded-[22px] border border-slate-200 bg-white"
       style={{
+        width: `${page.width}px`,
+        height: `${page.height}px`,
         fontFamily,
         fontSize: `${fontSize}px`,
         lineHeight: tokens.lineHeight,
@@ -91,8 +101,11 @@ export default function ResumePreview({
       }}
     >
       <div
-        className="flex h-full flex-col px-8 py-7"
-        style={{ gap: `${spacing}px` }}
+        className="flex h-full flex-col"
+        style={{
+          gap: `${spacing}px`,
+          padding: `${page.paddingY}px ${page.paddingX}px`,
+        }}
       >
         {blockVisibility.header ? (
           <header
@@ -320,4 +333,6 @@ export default function ResumePreview({
       </div>
     </div>
   );
-}
+});
+
+export default ResumePreview;

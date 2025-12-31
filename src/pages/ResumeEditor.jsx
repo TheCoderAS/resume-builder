@@ -23,7 +23,13 @@ import Snackbar from "../components/Snackbar.jsx";
 import VisibilityToggle from "../components/VisibilityToggle.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
-import { DEFAULT_TEMPLATE_STYLES, resolvePageSetup } from "../utils/resumePreview.js";
+import {
+  DEFAULT_TEMPLATE_SETTINGS,
+  DEFAULT_TEMPLATE_STYLES,
+  resolvePageSetup,
+  resolveTemplateSettings,
+  resolveTemplateStyles,
+} from "../utils/resumePreview.js";
 
 const STEPS = ["Select template", "Fill sections", "Export & publish"];
 
@@ -103,26 +109,11 @@ const DEFAULT_BLOCKS = {
   columns: true,
 };
 
-const resolveTemplateStyles = (template) => {
-  const styles = template?.styles ?? {};
-  return {
-    ...DEFAULT_TEMPLATE_STYLES,
-    ...styles,
-    page: resolvePageSetup(styles.page),
-    colors: {
-      ...DEFAULT_TEMPLATE_STYLES.colors,
-      ...(styles.colors ?? {}),
-    },
-    tokens: {
-      ...DEFAULT_TEMPLATE_STYLES.tokens,
-      ...(styles.tokens ?? {}),
-    },
-    sectionLayout:
-      template?.layout?.sectionLayout ??
-      styles.sectionLayout ??
-      DEFAULT_TEMPLATE_STYLES.sectionLayout,
-  };
-};
+const resolveTemplateLayout = (template) =>
+  resolveTemplateStyles(template?.styles ?? {}, template?.layout ?? {});
+
+const resolveTemplateGlobals = (template) =>
+  resolveTemplateSettings(template?.settings ?? {}, template?.styles ?? {});
 
 const resolveTemplateBlocks = (layout = {}) => {
   if (!Array.isArray(layout.blocks)) {
@@ -173,6 +164,9 @@ export default function ResumeEditor() {
     SECTION_CONFIGS.map((section) => section.key)
   );
   const [templateStyles, setTemplateStyles] = useState(DEFAULT_TEMPLATE_STYLES);
+  const [templateSettings, setTemplateSettings] = useState(
+    DEFAULT_TEMPLATE_SETTINGS
+  );
   const [templates, setTemplates] = useState([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -209,6 +203,7 @@ export default function ResumeEditor() {
         visibility,
         sectionOrder,
         templateStyles,
+        templateSettings,
         templateId,
         templateName,
         createdAt: serverTimestamp(),
@@ -225,7 +220,15 @@ export default function ResumeEditor() {
               setResumeData((prev) => ({ ...prev, ...(data.resumeData ?? {}) }));
               setVisibility((prev) => ({ ...prev, ...(data.visibility ?? {}) }));
               setSectionOrder(normalizeSectionOrder(data.sectionOrder ?? []));
-              setTemplateStyles(data.templateStyles ?? DEFAULT_TEMPLATE_STYLES);
+              setTemplateStyles(
+                resolveTemplateStyles(data.templateStyles ?? {}, {})
+              );
+              setTemplateSettings(
+                resolveTemplateSettings(
+                  data.templateSettings ?? {},
+                  data.templateStyles ?? {}
+                )
+              );
               setTemplateId(data.templateId ?? null);
               setTemplateName(data.templateName ?? "");
               setResumeId(storedId);
@@ -272,6 +275,7 @@ export default function ResumeEditor() {
       setTemplateBlocks(DEFAULT_BLOCKS);
       setTemplateName("");
       setTemplateStyles(DEFAULT_TEMPLATE_STYLES);
+      setTemplateSettings(DEFAULT_TEMPLATE_SETTINGS);
       setSectionOrder(SECTION_CONFIGS.map((section) => section.key));
       return;
     }
@@ -289,7 +293,8 @@ export default function ResumeEditor() {
         const data = snapshot.data();
         if (isMounted) {
           setTemplateName(data.name ?? "Untitled template");
-          setTemplateStyles(resolveTemplateStyles(data));
+          setTemplateStyles(resolveTemplateLayout(data));
+          setTemplateSettings(resolveTemplateGlobals(data));
           const nextOrder = normalizeSectionOrder(data.layout?.sectionOrder ?? []);
           setSectionOrder(nextOrder);
           setTemplateBlocks(resolveTemplateBlocks(data.layout ?? {}));
@@ -374,6 +379,7 @@ export default function ResumeEditor() {
             visibility,
             sectionOrder,
             templateStyles,
+            templateSettings,
             templateId,
             templateName,
             updatedAt: serverTimestamp(),
@@ -393,6 +399,7 @@ export default function ResumeEditor() {
     resumeData,
     sectionOrder,
     templateStyles,
+    templateSettings,
     templateId,
     templateName,
     visibility,
@@ -559,7 +566,7 @@ export default function ResumeEditor() {
                       {templateName ? (
                         <p className="mt-1 text-xs text-slate-400">
                           {resolvedPage.width} × {resolvedPage.height}px ·{" "}
-                          {templateStyles.fontFamily}
+                          {templateSettings.fontFamily}
                         </p>
                       ) : (
                         <p className="mt-1 text-xs text-slate-400">
@@ -744,6 +751,7 @@ export default function ResumeEditor() {
                     resumeData={resumeData}
                     sectionOrder={sectionOrder}
                     styles={templateStyles}
+                    settings={templateSettings}
                     visibleBlocks={templateBlocks}
                   />
                 </PagePreviewFrame>

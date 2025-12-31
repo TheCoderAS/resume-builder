@@ -4,7 +4,10 @@ import { useParams } from "react-router-dom";
 import PagePreviewFrame from "../components/PagePreviewFrame.jsx";
 import ResumePreview from "../components/ResumePreview.jsx";
 import { db } from "../firebase.js";
-import { DEFAULT_TEMPLATE_STYLES } from "../utils/resumePreview.js";
+import {
+  DEFAULT_TEMPLATE_STYLES,
+  resolveTemplateSettings,
+} from "../utils/resumePreview.js";
 
 export default function PublicResume() {
   const { slug } = useParams();
@@ -24,6 +27,10 @@ export default function PublicResume() {
               ...byIdResume,
               templateStyles:
                 byIdResume.templateStyles ?? DEFAULT_TEMPLATE_STYLES,
+              templateSettings: resolveTemplateSettings(
+                byIdResume.templateSettings ?? {},
+                byIdResume.templateStyles ?? {}
+              ),
             });
             setStatus("ready");
           }
@@ -44,6 +51,10 @@ export default function PublicResume() {
               ...queryResume,
               templateStyles:
                 queryResume.templateStyles ?? DEFAULT_TEMPLATE_STYLES,
+              templateSettings: resolveTemplateSettings(
+                queryResume.templateSettings ?? {},
+                queryResume.templateStyles ?? {}
+              ),
             });
             setStatus("ready");
           } else {
@@ -109,6 +120,7 @@ export default function PublicResume() {
                     resumeData={resume.resumeData}
                     sectionOrder={resume.sectionOrder}
                     styles={resume.templateStyles}
+                    settings={resume.templateSettings}
                   />
                 </PagePreviewFrame>
               </div>

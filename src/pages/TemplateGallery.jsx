@@ -29,7 +29,7 @@ import PromptModal from "../components/PromptModal.jsx";
 import Snackbar from "../components/Snackbar.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
-import { DEFAULT_TEMPLATE_STYLES, resolvePageSetup } from "../utils/resumePreview.js";
+import { resolveTemplateSettings, resolveTemplateStyles } from "../utils/resumePreview.js";
 
 const FILTER_OPTIONS = [
   { label: "All", value: "all" },
@@ -41,26 +41,11 @@ const FILTER_OPTIONS = [
 const getTemplateCategory = (template) =>
   template.category ?? template.tags?.[0] ?? "Professional";
 
-const resolveTemplateStyles = (template) => {
-  const styles = template?.styles ?? {};
-  return {
-    ...DEFAULT_TEMPLATE_STYLES,
-    ...styles,
-    page: resolvePageSetup(styles.page),
-    colors: {
-      ...DEFAULT_TEMPLATE_STYLES.colors,
-      ...(styles.colors ?? {}),
-    },
-    tokens: {
-      ...DEFAULT_TEMPLATE_STYLES.tokens,
-      ...(styles.tokens ?? {}),
-    },
-    sectionLayout:
-      template?.layout?.sectionLayout ??
-      styles.sectionLayout ??
-      DEFAULT_TEMPLATE_STYLES.sectionLayout,
-  };
-};
+const resolveTemplateLayout = (template) =>
+  resolveTemplateStyles(template?.styles ?? {}, template?.layout ?? {});
+
+const resolveTemplateGlobals = (template) =>
+  resolveTemplateSettings(template?.settings ?? {}, template?.styles ?? {});
 
 export default function TemplateGallery() {
   const navigate = useNavigate();
@@ -181,7 +166,8 @@ export default function TemplateGallery() {
   const handleSelectTemplate = async (template) => {
     if (!resumeId || !user) return;
     setSavingId(template.id);
-    const templateStyles = resolveTemplateStyles(template);
+    const templateStyles = resolveTemplateLayout(template);
+    const templateSettings = resolveTemplateGlobals(template);
     const sectionOrder = template.layout?.sectionOrder ?? [];
     try {
       await setDoc(
@@ -191,6 +177,7 @@ export default function TemplateGallery() {
           templateId: template.id,
           templateName: template.name ?? "Untitled template",
           templateStyles,
+          templateSettings,
           sectionOrder,
           updatedAt: serverTimestamp(),
         },

@@ -533,7 +533,7 @@ export default function TemplatePlayground() {
                 {resolvedPage.width} × {resolvedPage.height}px
               </span>
             </div>
-            <div className="mt-4 overflow-hidden rounded-[24px] border border-slate-800 bg-white">
+            <div className="mt-4 overflow-auto rounded-[24px] border border-slate-800 bg-white">
               <PagePreviewFrame styles={templateStyles} className="w-full">
                 <ResumePreview
                   profile={SAMPLE_PROFILE}

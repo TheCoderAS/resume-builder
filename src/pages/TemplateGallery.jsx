@@ -29,6 +29,7 @@ import PromptModal from "../components/PromptModal.jsx";
 import Snackbar from "../components/Snackbar.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
+import { DEFAULT_TEMPLATE_STYLES, resolvePageSetup } from "../utils/resumePreview.js";
 
 const FILTER_OPTIONS = [
   { label: "All", value: "all" },
@@ -39,6 +40,27 @@ const FILTER_OPTIONS = [
 
 const getTemplateCategory = (template) =>
   template.category ?? template.tags?.[0] ?? "Professional";
+
+const resolveTemplateStyles = (template) => {
+  const styles = template?.styles ?? {};
+  return {
+    ...DEFAULT_TEMPLATE_STYLES,
+    ...styles,
+    page: resolvePageSetup(styles.page),
+    colors: {
+      ...DEFAULT_TEMPLATE_STYLES.colors,
+      ...(styles.colors ?? {}),
+    },
+    tokens: {
+      ...DEFAULT_TEMPLATE_STYLES.tokens,
+      ...(styles.tokens ?? {}),
+    },
+    sectionLayout:
+      template?.layout?.sectionLayout ??
+      styles.sectionLayout ??
+      DEFAULT_TEMPLATE_STYLES.sectionLayout,
+  };
+};
 
 export default function TemplateGallery() {
   const navigate = useNavigate();
@@ -159,6 +181,8 @@ export default function TemplateGallery() {
   const handleSelectTemplate = async (template) => {
     if (!resumeId || !user) return;
     setSavingId(template.id);
+    const templateStyles = resolveTemplateStyles(template);
+    const sectionOrder = template.layout?.sectionOrder ?? [];
     try {
       await setDoc(
         doc(db, "resumes", resumeId),
@@ -166,6 +190,8 @@ export default function TemplateGallery() {
           userId: user.uid,
           templateId: template.id,
           templateName: template.name ?? "Untitled template",
+          templateStyles,
+          sectionOrder,
           updatedAt: serverTimestamp(),
         },
         { merge: true }
@@ -333,7 +359,6 @@ export default function TemplateGallery() {
             ? filteredTemplates.map((template) => {
                 const category = getTemplateCategory(template);
                 const usage = template.usageCount ?? 0;
-                const thumbnail = template.thumbnailUrl;
                 const isSaving = savingId === template.id;
                 const isAdminTemplate = template.type === "admin";
                 const isUserTemplate = user && template.ownerId === user.uid;
@@ -434,24 +459,6 @@ export default function TemplateGallery() {
                         ) : null}
                       </div>
                     ) : null}
-                    <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
-                      <div className="aspect-[4/3] w-full">
-                        {thumbnail ? (
-                          <img
-                            src={thumbnail}
-                            alt={`${template.name ?? "Template"} thumbnail`}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-xs uppercase tracking-[0.4em] text-slate-400">
-                            <span>{category}</span>
-                            <span className="text-[0.55rem] text-slate-500">
-                              Template preview
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
                     <div className="flex flex-1 flex-col gap-3">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wide text-emerald-200">

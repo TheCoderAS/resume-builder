@@ -4,10 +4,30 @@ import {
   resolveTemplateStyles,
 } from "../utils/resumePreview.js";
 
-const SECTION_LABELS = {
-  experience: "Experience",
-  education: "Education",
-  skills: "Skills",
+const DEFAULT_SECTION_LAYOUT = {
+  id: "",
+  label: "",
+  showTitleDivider: true,
+  showSectionDivider: true,
+  alignment: "left",
+  titleFontWeight: "600",
+  titleFontStyle: "normal",
+  subsections: [],
+};
+
+// Section content schema:
+// sections: [{ id, label, subsections: [{ id, type, items, text, columns, ... }] }]
+// list items: { title, subtitle, meta, summary }
+// date/number items: { label, value, note }
+// text content: { text }
+const DEFAULT_SUBSECTION_LAYOUT = {
+  id: "",
+  type: "list",
+  columns: 1,
+  columnOrder: "left-to-right",
+  showTimeline: false,
+  timelineStyle: "line",
+  timelinePosition: "left",
 };
 
 const buildContactLine = (profile) =>
@@ -24,11 +44,126 @@ const splitHighlights = (text) =>
 const formatRange = (start, end) =>
   [start, end].filter(Boolean).join(" - ");
 
+const formatSectionLabel = (sectionId = "") =>
+  sectionId
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const getSubsectionItems = (subsection = {}) => {
+  if (Array.isArray(subsection.items)) return subsection.items;
+  if (Array.isArray(subsection.entries)) return subsection.entries;
+  if (Array.isArray(subsection.values)) return subsection.values;
+  return [];
+};
+
+const getSubsectionText = (subsection = {}) => {
+  if (typeof subsection.text === "string") return subsection.text;
+  if (typeof subsection.content === "string") return subsection.content;
+  if (typeof subsection.summary === "string") return subsection.summary;
+  return "";
+};
+
+const normalizeSubsectionLayout = (subsection = {}, index = 0) => ({
+  ...DEFAULT_SUBSECTION_LAYOUT,
+  ...subsection,
+  id: subsection?.id ?? `subsection-${index + 1}`,
+  type: subsection?.type ?? DEFAULT_SUBSECTION_LAYOUT.type,
+});
+
+const normalizeSectionLayout = (section = {}, index = 0) => ({
+  ...DEFAULT_SECTION_LAYOUT,
+  ...section,
+  id: section?.id ?? `section-${index + 1}`,
+  label:
+    section?.label ??
+    (section?.id ? formatSectionLabel(section.id) : DEFAULT_SECTION_LAYOUT.label),
+  subsections: Array.isArray(section?.subsections)
+    ? section.subsections.map(normalizeSubsectionLayout)
+    : [],
+});
+
+const buildLegacySections = ({ resumeData, sectionOrder, sectionLayout }) => {
+  const sectionLabels = {
+    experience: "Experience",
+    education: "Education",
+    skills: "Skills",
+  };
+  const experienceItems = (resumeData.experience ?? []).map((item) => ({
+    title: item.role || "Role",
+    subtitle: item.company || "Company",
+    meta: [item.location, formatRange(item.startDate, item.endDate)]
+      .filter(Boolean)
+      .join(" · "),
+    summary: item.summary,
+  }));
+  const educationItems = (resumeData.education ?? []).map((item) => ({
+    title: item.degree || "Degree",
+    subtitle: item.school || "School",
+    meta: [item.location, formatRange(item.startDate, item.endDate)]
+      .filter(Boolean)
+      .join(" · "),
+    summary: item.summary,
+  }));
+  const skillsItems = (resumeData.skills ?? []).map((item) => ({
+    title: item.name || "Skill",
+    subtitle: item.level,
+    summary: item.summary,
+  }));
+
+  const legacySections = [
+    {
+      id: "experience",
+      label: sectionLabels.experience,
+      subsections: [
+        {
+          id: "experience-list",
+          type: "list",
+          columns: 1,
+          items: experienceItems,
+        },
+      ],
+    },
+    {
+      id: "education",
+      label: sectionLabels.education,
+      subsections: [
+        {
+          id: "education-list",
+          type: "list",
+          columns: sectionLayout === "columns" ? 2 : 1,
+          items: educationItems,
+        },
+      ],
+    },
+    {
+      id: "skills",
+      label: sectionLabels.skills,
+      subsections: [
+        {
+          id: "skills-list",
+          type: "list",
+          columns: sectionLayout === "columns" ? 2 : 1,
+          items: skillsItems,
+        },
+      ],
+    },
+  ];
+
+  const order = sectionOrder.length
+    ? sectionOrder
+    : legacySections.map((section) => section.id);
+  const sectionsById = new Map(
+    legacySections.map((section) => [section.id, section])
+  );
+  return order.map((sectionId) => sectionsById.get(sectionId)).filter(Boolean);
+};
+
 const ResumePreview = forwardRef(function ResumePreview(
   {
     profile = {},
     resumeData = {},
     sectionOrder = [],
+    sections = [],
     styles = {},
     settings = {},
     visibleBlocks = {},
@@ -73,27 +208,63 @@ const ResumePreview = forwardRef(function ResumePreview(
     ...visibleBlocks,
   };
 
-  const sectionVisibility = {
-    experience: blockVisibility.section,
-    skills: blockVisibility.list,
-    education: blockVisibility.columns,
+  const getEffectiveColumns = (subsection) =>
+    subsection.columns > 1
+      ? subsection.columns
+      : sectionLayout === "columns"
+        ? 2
+        : 1;
+
+  const canRenderSubsection = (subsection) => {
+    const isListLike = ["list", "date", "number"].includes(subsection.type);
+    if (isListLike && !blockVisibility.list) {
+      return false;
+    }
+    const effectiveColumns = getEffectiveColumns(subsection);
+    if (effectiveColumns > 1 && !blockVisibility.columns) {
+      return false;
+    }
+    return true;
   };
 
-  const orderedSections = (sectionOrder.length
-    ? sectionOrder
-    : Object.keys(SECTION_LABELS)
-  ).filter((sectionKey) => sectionVisibility[sectionKey] !== false);
-
-  const experience = resumeData.experience ?? [];
-  const education = resumeData.education ?? [];
-  const skills = resumeData.skills ?? [];
+  const sectionsFromData = Array.isArray(sections) && sections.length > 0
+    ? sections
+    : resumeData.sections ?? [];
+  const normalizedSections = Array.isArray(sectionsFromData)
+    ? sectionsFromData.map(normalizeSectionLayout)
+    : [];
+  const hasDynamicContent = normalizedSections.some((section) =>
+    (section.subsections ?? []).some((subsection) => {
+      if (!canRenderSubsection(subsection)) {
+        return false;
+      }
+      const items = getSubsectionItems(subsection);
+      const text = getSubsectionText(subsection);
+      return items.length > 0 || text;
+    })
+  );
+  const legacySections =
+    normalizedSections.length === 0 || !hasDynamicContent
+      ? buildLegacySections({ resumeData, sectionOrder, sectionLayout })
+      : [];
+  const resolvedSections =
+    normalizedSections.length > 0 && hasDynamicContent
+      ? normalizedSections
+      : legacySections;
 
   const hasContent =
     (blockVisibility.header &&
       (profile?.fullName || profile?.title || profile?.summary)) ||
-    experience.length > 0 ||
-    education.length > 0 ||
-    skills.length > 0;
+    resolvedSections.some((section) =>
+      (section.subsections ?? []).some((subsection) => {
+        if (!canRenderSubsection(subsection)) {
+          return false;
+        }
+        const items = getSubsectionItems(subsection);
+        const text = getSubsectionText(subsection);
+        return items.length > 0 || text;
+      })
+    );
 
   return (
     <div
@@ -173,186 +344,258 @@ const ResumePreview = forwardRef(function ResumePreview(
         ) : null}
 
         <div className="flex flex-col" style={{ gap: `${spacing}px` }}>
-          {orderedSections.map((sectionKey, index) => {
-            const isLastSection = index === orderedSections.length - 1;
-            if (sectionKey === "experience" && experience.length === 0) {
-              return null;
-            }
-            if (sectionKey === "education" && education.length === 0) {
-              return null;
-            }
-            if (sectionKey === "skills" && skills.length === 0) {
+          {resolvedSections.map((section, index) => {
+            const normalizedSection = normalizeSectionLayout(section, index);
+            const isLastSection = index === resolvedSections.length - 1;
+            const subsections = normalizedSection.subsections ?? [];
+            const hasSubsectionContent = subsections.some((subsection) => {
+              if (!canRenderSubsection(subsection)) {
+                return false;
+              }
+              const items = getSubsectionItems(subsection);
+              const text = getSubsectionText(subsection);
+              return items.length > 0 || text;
+            });
+
+            if (!hasSubsectionContent) {
               return null;
             }
 
+            const sectionDividerEnabled =
+              showSectionDividers && normalizedSection.showSectionDivider;
+
             return (
               <section
-                key={sectionKey}
+                key={normalizedSection.id || `${normalizedSection.label}-${index}`}
                 className={`flex flex-col ${
-                  showSectionDividers && !isLastSection
+                  sectionDividerEnabled && !isLastSection
                     ? "border-b border-slate-200"
                     : ""
                 }`}
                 style={{
                   gap: `${Math.round(spacing / 2)}px`,
                   paddingBottom:
-                    showSectionDividers && !isLastSection
+                    sectionDividerEnabled && !isLastSection
                       ? `${Math.round(spacing / 1.25)}px`
                       : "0px",
                 }}
               >
-                <h3
-                  style={{
-                    fontSize: `${sectionTitleSize}px`,
-                    fontWeight: 600,
-                    color: colors.accent,
-                  }}
-                >
-                  {SECTION_LABELS[sectionKey]}
-                </h3>
-                {sectionKey === "experience" ? (
-                  <div
-                    className="flex flex-col"
-                    style={{ gap: `${Math.round(spacing / 1.4)}px` }}
+                {blockVisibility.section ? (
+                  <h3
+                    style={{
+                      fontSize: `${sectionTitleSize}px`,
+                      fontWeight: normalizedSection.titleFontWeight,
+                      fontStyle: normalizedSection.titleFontStyle,
+                      color: colors.accent,
+                      textAlign: normalizedSection.alignment,
+                    }}
                   >
-                    {experience.map((item, index) => {
-                      const highlights = splitHighlights(item.summary);
+                    {normalizedSection.label}
+                  </h3>
+                ) : null}
+                <div
+                  className="flex flex-col"
+                  style={{ gap: `${Math.round(spacing / 1.4)}px` }}
+                >
+                  {subsections.map((subsection, subsectionIndex) => {
+                    const normalizedSubsection = normalizeSubsectionLayout(
+                      subsection,
+                      subsectionIndex
+                    );
+                    const items = getSubsectionItems(normalizedSubsection);
+                    const text = getSubsectionText(normalizedSubsection);
+                    if (!canRenderSubsection(normalizedSubsection)) {
+                      return null;
+                    }
+                    const effectiveColumns =
+                      getEffectiveColumns(normalizedSubsection);
+                    const gridColumnsClass =
+                      effectiveColumns === 1
+                        ? ""
+                        : effectiveColumns === 2
+                          ? "md:grid-cols-2"
+                          : "md:grid-cols-3";
+                    const baseSubsectionLayout =
+                      normalizedSubsection.columnOrder === "stacked"
+                        ? "flex flex-col"
+                        : `grid ${gridColumnsClass}`;
+                    const subsectionAlignment =
+                      normalizedSubsection.columnOrder === "right-to-left"
+                        ? "rtl"
+                        : "ltr";
+
+                    if (normalizedSubsection.type === "text") {
+                      if (!text) return null;
                       return (
-                        <div key={`${item.role}-${index}`}>
-                          <div className="flex flex-wrap items-baseline gap-x-2">
-                            <p
-                              style={{
-                                fontSize: `${bodySize}px`,
-                                fontWeight: 600,
-                              }}
-                            >
-                              {item.role || "Role"}
-                            </p>
-                            <p
-                              style={{
-                                fontSize: `${bodySize}px`,
-                                fontWeight: 500,
-                              }}
-                            >
-                              {item.company || "Company"}
-                            </p>
-                          </div>
-                          <p
-                            style={{
-                              fontSize: `${metaSize}px`,
-                              color: colors.muted,
-                            }}
-                          >
-                            {[item.location, formatRange(item.startDate, item.endDate)]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </p>
-                          {highlights.length > 1 ? (
-                            <ul
-                              className="mt-2 list-disc pl-5"
-                              style={{ fontSize: `${bodySize}px` }}
-                            >
-                              {highlights.map((line) => (
-                                <li key={line}>{line}</li>
-                              ))}
-                            </ul>
-                          ) : highlights.length === 1 ? (
-                            <p
-                              className="mt-2"
-                              style={{ fontSize: `${bodySize}px` }}
-                            >
-                              {highlights[0]}
-                            </p>
-                          ) : null}
+                        <p
+                          key={normalizedSubsection.id}
+                          style={{ fontSize: `${bodySize}px` }}
+                        >
+                          {text}
+                        </p>
+                      );
+                    }
+
+                    if (
+                      normalizedSubsection.type === "date" ||
+                      normalizedSubsection.type === "number"
+                    ) {
+                      if (items.length === 0) return null;
+                      return (
+                        <div
+                          key={normalizedSubsection.id}
+                          className={`gap-3 ${baseSubsectionLayout}`}
+                          style={{
+                            direction: subsectionAlignment,
+                            gap: `${Math.round(spacing / 1.4)}px`,
+                          }}
+                        >
+                          {items.map((item, itemIndex) => (
+                            <div key={`${normalizedSubsection.id}-${itemIndex}`}>
+                              {item.label ? (
+                                <p
+                                  style={{
+                                    fontSize: `${bodySize}px`,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {item.label}
+                                </p>
+                              ) : null}
+                              {item.value ? (
+                                <p
+                                  style={{
+                                    fontSize: `${metaSize}px`,
+                                    color: colors.muted,
+                                    fontWeight:
+                                      normalizedSubsection.type === "number"
+                                        ? 600
+                                        : 500,
+                                  }}
+                                >
+                                  {item.value}
+                                </p>
+                              ) : null}
+                              {item.note ? (
+                                <p
+                                  className="mt-1"
+                                  style={{ fontSize: `${bodySize}px` }}
+                                >
+                                  {item.note}
+                                </p>
+                              ) : null}
+                            </div>
+                          ))}
                         </div>
                       );
-                    })}
-                  </div>
-                ) : null}
+                    }
 
-                {sectionKey === "education" ? (
-                  <div
-                    className={`grid ${sectionLayout === "columns" ? "md:grid-cols-2" : ""}`}
-                    style={{ gap: `${Math.round(spacing / 1.4)}px` }}
-                  >
-                    {education.map((item, index) => (
-                      <div key={`${item.school}-${index}`}>
-                        <p
-                          style={{
-                            fontSize: `${bodySize}px`,
-                            fontWeight: 600,
-                          }}
-                        >
-                          {item.degree || "Degree"}
-                        </p>
-                        <p
-                          style={{
-                            fontSize: `${bodySize}px`,
-                            fontWeight: 500,
-                          }}
-                        >
-                          {item.school || "School"}
-                        </p>
-                        <p
-                          style={{
-                            fontSize: `${metaSize}px`,
-                            color: colors.muted,
-                          }}
-                        >
-                          {[item.location, formatRange(item.startDate, item.endDate)]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </p>
-                        {item.summary ? (
-                          <p
-                            className="mt-2"
-                            style={{ fontSize: `${bodySize}px` }}
-                          >
-                            {item.summary}
-                          </p>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
+                    if (items.length === 0) return null;
 
-                {sectionKey === "skills" ? (
-                  <div
-                    className={`grid ${sectionLayout === "columns" ? "md:grid-cols-2" : ""}`}
-                    style={{ gap: `${Math.round(spacing / 1.4)}px` }}
-                  >
-                    {skills.map((item, index) => (
-                      <div key={`${item.name}-${index}`}>
-                        <p
-                          style={{
-                            fontSize: `${bodySize}px`,
-                            fontWeight: 600,
-                          }}
-                        >
-                          {item.name || "Skill"}
-                        </p>
-                        {item.level ? (
-                          <p
-                            style={{
-                              fontSize: `${metaSize}px`,
-                              color: colors.muted,
-                            }}
-                          >
-                            {item.level}
-                          </p>
-                        ) : null}
-                        {item.summary ? (
-                          <p
-                            className="mt-1"
-                            style={{ fontSize: `${bodySize}px` }}
-                          >
-                            {item.summary}
-                          </p>
-                        ) : null}
+                    return (
+                      <div
+                        key={normalizedSubsection.id}
+                        className={`gap-3 ${baseSubsectionLayout}`}
+                        style={{
+                          direction: subsectionAlignment,
+                          gap: `${Math.round(spacing / 1.4)}px`,
+                        }}
+                      >
+                        {items.map((item, itemIndex) => {
+                          const highlights = splitHighlights(item.summary);
+                          const hasTimeline = normalizedSubsection.showTimeline;
+                          const isTimelineRight =
+                            normalizedSubsection.timelinePosition === "right";
+                          const timelineBorderClasses = {
+                            left: {
+                              line: "border-l-2 border-solid border-emerald-200",
+                              dots: "border-l-2 border-dotted border-emerald-200",
+                              bars: "border-l-4 border-solid border-emerald-200",
+                            },
+                            right: {
+                              line: "border-r-2 border-solid border-emerald-200",
+                              dots: "border-r-2 border-dotted border-emerald-200",
+                              bars: "border-r-4 border-solid border-emerald-200",
+                            },
+                          };
+                          const timelineBorderClass =
+                            timelineBorderClasses[isTimelineRight ? "right" : "left"][
+                              normalizedSubsection.timelineStyle
+                            ] ?? timelineBorderClasses.left.line;
+                          const timelinePadding = isTimelineRight
+                            ? "pr-4"
+                            : "pl-4";
+                          const timelineClass = hasTimeline
+                            ? `${timelineBorderClass} ${timelinePadding}`
+                            : "";
+                          return (
+                            <div
+                              key={`${normalizedSubsection.id}-${itemIndex}`}
+                              className={timelineClass}
+                            >
+                              <div className="flex flex-wrap items-baseline gap-x-2">
+                                {item.title ? (
+                                  <p
+                                    style={{
+                                      fontSize: `${bodySize}px`,
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {item.title}
+                                  </p>
+                                ) : null}
+                                {item.subtitle ? (
+                                  <p
+                                    style={{
+                                      fontSize: `${bodySize}px`,
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    {item.subtitle}
+                                  </p>
+                                ) : null}
+                              </div>
+                              {item.meta ? (
+                                <p
+                                  style={{
+                                    fontSize: `${metaSize}px`,
+                                    color: colors.muted,
+                                  }}
+                                >
+                                  {item.meta}
+                                </p>
+                              ) : null}
+                              {highlights.length > 1 ? (
+                                <ul
+                                  className="mt-2 list-disc pl-5"
+                                  style={{ fontSize: `${bodySize}px` }}
+                                >
+                                  {highlights.map((line) => (
+                                    <li key={line}>{line}</li>
+                                  ))}
+                                </ul>
+                              ) : highlights.length === 1 ? (
+                                <p
+                                  className="mt-2"
+                                  style={{ fontSize: `${bodySize}px` }}
+                                >
+                                  {highlights[0]}
+                                </p>
+                              ) : item.summary ? (
+                                <p
+                                  className="mt-2"
+                                  style={{ fontSize: `${bodySize}px` }}
+                                >
+                                  {item.summary}
+                                </p>
+                              ) : null}
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
-                  </div>
-                ) : null}
+                    );
+                  })}
+                </div>
               </section>
             );
           })}

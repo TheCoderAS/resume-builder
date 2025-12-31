@@ -178,7 +178,7 @@ export default function TemplatePlayground() {
     ...overrides,
   });
 
-  const normalizeSubsection = (subsection, index) => ({
+  const normalizeSubsection = (subsection, index = 0) => ({
     id: subsection?.id ?? `subsection-${index + 1}`,
     type: subsection?.type ?? "list",
     columns: subsection?.columns ?? 1,
@@ -188,10 +188,18 @@ export default function TemplatePlayground() {
     timelinePosition: subsection?.timelinePosition ?? "left",
   });
 
-  const normalizeSection = (section, fallbackLabel = "") =>
-    buildSectionDefaults(fallbackLabel, {
-      id: section?.id ?? createSectionId(fallbackLabel),
-      label: section?.label ?? fallbackLabel,
+  const getFallbackSectionLabel = (section = {}, index = 0) =>
+    section?.label ??
+    formatSectionLabel(section?.id ?? `section-${index + 1}`);
+
+  const normalizeSection = (section = {}, fallbackLabel = "", index = 0) => {
+    const resolvedLabel = section?.label ?? fallbackLabel;
+    const resolvedId =
+      section?.id ??
+      createSectionId(resolvedLabel || `section-${index + 1}`);
+    return buildSectionDefaults(resolvedLabel, {
+      id: resolvedId,
+      label: resolvedLabel,
       showTitleDivider: section?.showTitleDivider ?? true,
       showSectionDivider: section?.showSectionDivider ?? true,
       alignment: section?.alignment ?? "left",
@@ -201,6 +209,7 @@ export default function TemplatePlayground() {
         ? section.subsections.map(normalizeSubsection)
         : [],
     });
+  };
 
   const hydrateTemplateStyles = (template = {}) =>
     resolveTemplateStyles(template.styles ?? {}, template.layout ?? {});
@@ -239,15 +248,23 @@ export default function TemplatePlayground() {
           setSections(
             savedSections
               .filter((section) => section?.id)
-              .map((section) =>
-                normalizeSection(section, formatSectionLabel(section.id))
+              .map((section, index) =>
+                normalizeSection(
+                  section,
+                  getFallbackSectionLabel(section, index),
+                  index
+                )
               )
           );
         } else {
           const savedOrder = data.layout?.sectionOrder ?? [];
           setSections(
-            Array.from(new Set(savedOrder)).map((sectionId) =>
-              normalizeSection({ id: sectionId }, formatSectionLabel(sectionId))
+            Array.from(new Set(savedOrder)).map((sectionId, index) =>
+              normalizeSection(
+                { id: sectionId },
+                formatSectionLabel(sectionId),
+                index
+              )
             )
           );
         }
@@ -635,6 +652,14 @@ export default function TemplatePlayground() {
     setIsSaving(true);
     try {
       const thumbnailUrl = canvas.toDataURL("image/png");
+      const normalizedSections = sections.map((section, index) =>
+        normalizeSection(
+          section,
+          getFallbackSectionLabel(section, index),
+          index
+        )
+      );
+      const nextSectionOrder = normalizedSections.map((section) => section.id);
       const payload = {
         ownerId: user.uid,
         type: "user",
@@ -642,8 +667,8 @@ export default function TemplatePlayground() {
         layout: {
           blocks: enabledBlocks,
           sectionLayout,
-          sectionOrder,
-          sections,
+          sectionOrder: nextSectionOrder,
+          sections: normalizedSections,
         },
         styles: {
           sectionLayout,

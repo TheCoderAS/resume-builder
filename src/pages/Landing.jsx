@@ -93,7 +93,7 @@ export default function Landing() {
 
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 pb-16">
         <div className="rounded-[32px] border border-slate-800 bg-slate-900/70 p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">
             Dashboard ready
           </p>
           <h3 className="mt-3 text-2xl font-semibold text-slate-100">

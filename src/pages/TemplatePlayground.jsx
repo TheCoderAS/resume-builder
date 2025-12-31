@@ -723,15 +723,12 @@ export default function TemplatePlayground() {
       <div className="flex w-full flex-col gap-6">
         <header>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-200">
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-emerald-200">
               Template playground
             </p>
             <h1 className="app-title">
               {templateId ? "Edit resume template" : "Build a new resume template"}
             </h1>
-            <p className="app-subtitle">
-              Configure blocks, typography, and layout before saving.
-            </p>
           </div>
         </header>
 

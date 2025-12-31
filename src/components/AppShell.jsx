@@ -90,7 +90,7 @@ export default function AppShell({ children }) {
       </div>
       <div className="app-body">
         <aside className="app-sidebar">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">
             Navigation
           </p>
           <nav className="mt-4 flex flex-col gap-2">

@@ -455,7 +455,7 @@ export default function TemplateGallery() {
                           {template.name ?? "Untitled template"}
                         </h2>
                         {isDefaultTemplate ? (
-                          <span className="mt-2 inline-flex items-center rounded-full border border-emerald-400/50 bg-emerald-400/10 px-2 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-emerald-100">
+                          <span className="mt-2 inline-flex items-center rounded-full border border-emerald-400/50 bg-emerald-400/10 px-2 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-emerald-100">
                             Default
                           </span>
                         ) : null}
@@ -465,7 +465,7 @@ export default function TemplateGallery() {
                       </div>
                       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
                         <span>{usage.toLocaleString()} uses</span>
-                        <span className="rounded-full border border-slate-800 px-3 py-1 text-[0.6rem] uppercase tracking-[0.3em] text-slate-400">
+                        <span className="rounded-full border border-slate-800 px-3 py-1 text-[0.6rem] uppercase tracking-[0.1em] text-slate-400">
                           {status}
                         </span>
                       </div>

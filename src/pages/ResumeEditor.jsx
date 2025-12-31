@@ -557,7 +557,7 @@ export default function ResumeEditor() {
                   </label>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                      <p className="text-xs uppercase tracking-[0.1em] text-slate-400">
                         Selected template
                       </p>
                       <p className="text-base font-semibold text-slate-100">

@@ -20,14 +20,9 @@ import Snackbar from "../components/Snackbar.jsx";
 import VisibilityToggle from "../components/VisibilityToggle.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
-import {
-  DEFAULT_TEMPLATE_STYLES,
-  FONT_OPTIONS,
-  PAGE_SIZE_OPTIONS,
-  resolvePageSetup,
-} from "../utils/resumePreview.js";
+import { DEFAULT_TEMPLATE_STYLES, resolvePageSetup } from "../utils/resumePreview.js";
 
-const STEPS = ["Profile", "Resume Data", "Visibility"];
+const STEPS = ["Select template", "Fill sections", "Export & publish"];
 
 const SECTION_CONFIGS = [
   {
@@ -98,6 +93,53 @@ const SECTION_CONFIGS = [
   },
 ];
 
+const DEFAULT_BLOCKS = {
+  header: true,
+  section: true,
+  list: true,
+  columns: true,
+};
+
+const resolveTemplateStyles = (template) => {
+  const styles = template?.styles ?? {};
+  return {
+    ...DEFAULT_TEMPLATE_STYLES,
+    ...styles,
+    page: resolvePageSetup(styles.page),
+    colors: {
+      ...DEFAULT_TEMPLATE_STYLES.colors,
+      ...(styles.colors ?? {}),
+    },
+    tokens: {
+      ...DEFAULT_TEMPLATE_STYLES.tokens,
+      ...(styles.tokens ?? {}),
+    },
+    sectionLayout:
+      template?.layout?.sectionLayout ??
+      styles.sectionLayout ??
+      DEFAULT_TEMPLATE_STYLES.sectionLayout,
+  };
+};
+
+const resolveTemplateBlocks = (layout = {}) => {
+  if (!Array.isArray(layout.blocks)) {
+    return DEFAULT_BLOCKS;
+  }
+  return {
+    header: layout.blocks.includes("header"),
+    section: layout.blocks.includes("section"),
+    list: layout.blocks.includes("list"),
+    columns: layout.blocks.includes("columns"),
+  };
+};
+
+const normalizeSectionOrder = (order = []) => {
+  const validSections = SECTION_CONFIGS.map((section) => section.key);
+  const filtered = order.filter((section) => validSections.includes(section));
+  const merged = [...new Set([...filtered, ...validSections])];
+  return merged;
+};
+
 export default function ResumeEditor() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -105,6 +147,9 @@ export default function ResumeEditor() {
   const [resumeId, setResumeId] = useState(null);
   const [autosaveStatus, setAutosaveStatus] = useState("idle");
   const initialSave = useRef(true);
+  const [templateId, setTemplateId] = useState(null);
+  const [templateName, setTemplateName] = useState("");
+  const [templateBlocks, setTemplateBlocks] = useState(DEFAULT_BLOCKS);
 
   const [profile, setProfile] = useState({
     fullName: "",
@@ -159,6 +204,8 @@ export default function ResumeEditor() {
         visibility,
         sectionOrder,
         templateStyles,
+        templateId,
+        templateName,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
@@ -172,10 +219,10 @@ export default function ResumeEditor() {
               setProfile((prev) => ({ ...prev, ...(data.profile ?? {}) }));
               setResumeData((prev) => ({ ...prev, ...(data.resumeData ?? {}) }));
               setVisibility((prev) => ({ ...prev, ...(data.visibility ?? {}) }));
-              setSectionOrder(
-                data.sectionOrder ?? SECTION_CONFIGS.map((section) => section.key)
-              );
+              setSectionOrder(normalizeSectionOrder(data.sectionOrder ?? []));
               setTemplateStyles(data.templateStyles ?? DEFAULT_TEMPLATE_STYLES);
+              setTemplateId(data.templateId ?? null);
+              setTemplateName(data.templateName ?? "");
               setResumeId(storedId);
               initialSave.current = false;
             }
@@ -216,6 +263,49 @@ export default function ResumeEditor() {
   }, [user]);
 
   useEffect(() => {
+    if (!templateId) {
+      setTemplateBlocks(DEFAULT_BLOCKS);
+      return;
+    }
+    let isMounted = true;
+
+    const loadTemplate = async () => {
+      try {
+        const snapshot = await getDoc(doc(db, "templates", templateId));
+        if (!snapshot.exists()) {
+          if (isMounted) {
+            setTemplateBlocks(DEFAULT_BLOCKS);
+          }
+          return;
+        }
+        const data = snapshot.data();
+        if (isMounted) {
+          setTemplateName(data.name ?? "Untitled template");
+          setTemplateStyles(resolveTemplateStyles(data));
+          const nextOrder = normalizeSectionOrder(data.layout?.sectionOrder ?? []);
+          setSectionOrder(nextOrder);
+          setTemplateBlocks(resolveTemplateBlocks(data.layout ?? {}));
+        }
+      } catch (error) {
+        console.error(error);
+        if (isMounted) {
+          setTemplateBlocks(DEFAULT_BLOCKS);
+          setToast({
+            message: "Unable to load template details.",
+            variant: "error",
+          });
+        }
+      }
+    };
+
+    loadTemplate();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [templateId]);
+
+  useEffect(() => {
     if (!user || !resumeId || initialSave.current) return;
     setAutosaveStatus("saving");
     const timeout = setTimeout(async () => {
@@ -229,6 +319,8 @@ export default function ResumeEditor() {
             visibility,
             sectionOrder,
             templateStyles,
+            templateId,
+            templateName,
             updatedAt: serverTimestamp(),
           },
           { merge: true }
@@ -246,6 +338,8 @@ export default function ResumeEditor() {
     resumeData,
     sectionOrder,
     templateStyles,
+    templateId,
+    templateName,
     visibility,
     resumeId,
     user,
@@ -285,6 +379,13 @@ export default function ResumeEditor() {
 
   const handleNextStep = () => {
     if (stepIndex < STEPS.length - 1) {
+      if (stepIndex === 0 && !templateId) {
+        setToast({
+          message: "Select a template to continue.",
+          variant: "error",
+        });
+        return;
+      }
       setStepIndex((current) => current + 1);
     } else {
       navigate("/app/export");
@@ -298,6 +399,8 @@ export default function ResumeEditor() {
     return "Draft ready";
   }, [autosaveStatus]);
 
+  const canSelectStep = (index) => index === 0 || Boolean(templateId);
+
   useEffect(() => {
     if (autosaveStatus === lastAutosaveStatus.current) return;
     if (autosaveStatus === "error") {
@@ -305,25 +408,6 @@ export default function ResumeEditor() {
     }
     lastAutosaveStatus.current = autosaveStatus;
   }, [autosaveStatus]);
-
-  const updateTemplateStyles = (updates) => {
-    setTemplateStyles((prev) => ({
-      ...prev,
-      ...updates,
-      page: {
-        ...prev.page,
-        ...(updates.page ?? {}),
-      },
-      colors: {
-        ...prev.colors,
-        ...(updates.colors ?? {}),
-      },
-      tokens: {
-        ...prev.tokens,
-        ...(updates.tokens ?? {}),
-      },
-    }));
-  };
 
   return (
     <AppShell>
@@ -335,23 +419,32 @@ export default function ResumeEditor() {
               {currentStep} · {autosaveLabel}
             </p>
           </div>
-          {stepIndex === 2 ? (
-            <Button variant="ghost" onClick={() => navigate("/app/export")}>
-              Export & publish
-            </Button>
-          ) : null}
         </header>
 
         <div className="flex flex-wrap gap-3">
-          {STEPS.map((step, index) => (
+          {STEPS.map((step, index) => {
+            const isDisabled = !canSelectStep(index);
+            return (
             <button
               key={step}
               type="button"
-              onClick={() => setStepIndex(index)}
+              onClick={() => {
+                if (isDisabled) {
+                  setToast({
+                    message: "Select a template before moving forward.",
+                    variant: "error",
+                  });
+                  return;
+                }
+                setStepIndex(index);
+              }}
+              disabled={isDisabled}
               className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
                 index === stepIndex
                   ? "border-emerald-400/60 bg-emerald-400/10 text-emerald-200"
-                  : "border-slate-800 bg-slate-950/70 text-slate-300 hover:border-slate-600"
+                  : isDisabled
+                    ? "cursor-not-allowed border-slate-900 bg-slate-950/40 text-slate-500"
+                    : "border-slate-800 bg-slate-950/70 text-slate-300 hover:border-slate-600"
               }`}
             >
               <span className="flex h-6 w-6 items-center justify-center rounded-full border border-current text-xs">
@@ -359,7 +452,8 @@ export default function ResumeEditor() {
               </span>
               {step}
             </button>
-          ))}
+            );
+          })}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
@@ -367,80 +461,116 @@ export default function ResumeEditor() {
             {stepIndex === 0 ? (
               <section className="app-card">
                 <SectionHeader
-                  title="Profile"
-                  description="Set the headline details that show on your resume."
+                  title="Select a template"
+                  description="Templates define the sections, styling, and layout for your resume."
+                  action={
+                    <Button variant="ghost" onClick={() => navigate("/app/templates")}>
+                      Browse templates
+                    </Button>
+                  }
                 />
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  <Input
-                    label="Full name"
-                    placeholder="Jordan Taylor"
-                    value={profile.fullName}
-                    onChange={(event) =>
-                      setProfile((prev) => ({
-                        ...prev,
-                        fullName: event.target.value,
-                      }))
-                    }
-                  />
-                  <Input
-                    label="Professional title"
-                    placeholder="Senior Product Designer"
-                    value={profile.title}
-                    onChange={(event) =>
-                      setProfile((prev) => ({
-                        ...prev,
-                        title: event.target.value,
-                      }))
-                    }
-                  />
-                  <Input
-                    label="Email"
-                    placeholder="you@email.com"
-                    value={profile.email}
-                    onChange={(event) =>
-                      setProfile((prev) => ({ ...prev, email: event.target.value }))
-                    }
-                  />
-                  <Input
-                    label="Phone"
-                    placeholder="(555) 123-4567"
-                    value={profile.phone}
-                    onChange={(event) =>
-                      setProfile((prev) => ({ ...prev, phone: event.target.value }))
-                    }
-                  />
-                  <Input
-                    label="Location"
-                    placeholder="Austin, TX"
-                    value={profile.location}
-                    onChange={(event) =>
-                      setProfile((prev) => ({
-                        ...prev,
-                        location: event.target.value,
-                      }))
-                    }
-                  />
-                  <label className="md:col-span-2 flex flex-col gap-2 text-sm font-medium text-slate-200">
-                    <span>Professional summary</span>
-                    <textarea
-                      rows={4}
-                      className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/40"
-                      placeholder="Write a 2-3 sentence summary."
-                      value={profile.summary}
-                      onChange={(event) =>
-                        setProfile((prev) => ({
-                          ...prev,
-                          summary: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
+                <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 px-5 py-4 text-sm text-slate-200">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                        Selected template
+                      </p>
+                      <p className="text-base font-semibold text-slate-100">
+                        {templateName || "No template selected"}
+                      </p>
+                      {templateName ? (
+                        <p className="mt-1 text-xs text-slate-400">
+                          {resolvedPage.width} × {resolvedPage.height}px ·{" "}
+                          {templateStyles.fontFamily}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-slate-400">
+                          Choose a template to unlock section editing.
+                        </p>
+                      )}
+                    </div>
+                    <Button onClick={() => navigate("/app/templates")}>
+                      {templateName ? "Change template" : "Choose template"}
+                    </Button>
+                  </div>
                 </div>
               </section>
             ) : null}
 
             {stepIndex === 1 ? (
               <section className="grid gap-6">
+                <div className="app-card">
+                  <SectionHeader
+                    title="Profile"
+                    description="Set the headline details that show on your resume."
+                  />
+                  <div className="mt-6 grid gap-4 md:grid-cols-2">
+                    <Input
+                      label="Full name"
+                      placeholder="Jordan Taylor"
+                      value={profile.fullName}
+                      onChange={(event) =>
+                        setProfile((prev) => ({
+                          ...prev,
+                          fullName: event.target.value,
+                        }))
+                      }
+                    />
+                    <Input
+                      label="Professional title"
+                      placeholder="Senior Product Designer"
+                      value={profile.title}
+                      onChange={(event) =>
+                        setProfile((prev) => ({
+                          ...prev,
+                          title: event.target.value,
+                        }))
+                      }
+                    />
+                    <Input
+                      label="Email"
+                      placeholder="you@email.com"
+                      value={profile.email}
+                      onChange={(event) =>
+                        setProfile((prev) => ({ ...prev, email: event.target.value }))
+                      }
+                    />
+                    <Input
+                      label="Phone"
+                      placeholder="(555) 123-4567"
+                      value={profile.phone}
+                      onChange={(event) =>
+                        setProfile((prev) => ({ ...prev, phone: event.target.value }))
+                      }
+                    />
+                    <Input
+                      label="Location"
+                      placeholder="Austin, TX"
+                      value={profile.location}
+                      onChange={(event) =>
+                        setProfile((prev) => ({
+                          ...prev,
+                          location: event.target.value,
+                        }))
+                      }
+                    />
+                    <label className="md:col-span-2 flex flex-col gap-2 text-sm font-medium text-slate-200">
+                      <span>Professional summary</span>
+                      <textarea
+                        rows={4}
+                        className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/40"
+                        placeholder="Write a 2-3 sentence summary."
+                        value={profile.summary}
+                        onChange={(event) =>
+                          setProfile((prev) => ({
+                            ...prev,
+                            summary: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
+                </div>
                 {orderedSections.map((section) => (
                   <div key={section.key} className="app-card">
                     <SectionHeader
@@ -486,8 +616,8 @@ export default function ResumeEditor() {
             {stepIndex === 2 ? (
               <section className="app-card">
                 <SectionHeader
-                  title="Visibility"
-                  description="Control who can view your resume link."
+                  title="Export & publish"
+                  description="Review privacy, then export or share your resume."
                 />
                 <div className="mt-6 grid gap-4">
                   <VisibilityToggle
@@ -501,6 +631,9 @@ export default function ResumeEditor() {
                       ? "Public resumes are visible on your shareable link."
                       : "Your resume stays private until you publish it."}
                   </div>
+                  <Button onClick={() => navigate("/app/export")}>
+                    Go to export & publish
+                  </Button>
                 </div>
               </section>
             ) : null}
@@ -520,7 +653,7 @@ export default function ResumeEditor() {
                 ) : null}
                 <Button onClick={handleNextStep}>
                   {stepIndex === STEPS.length - 1
-                    ? "Review & publish"
+                    ? "Export & publish"
                     : "Next"}
                 </Button>
               </div>
@@ -530,153 +663,36 @@ export default function ResumeEditor() {
           <aside className="flex flex-col gap-6">
             <div className="app-card">
               <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
-                Page setup
+                Template details
               </h3>
-              <div className="mt-4 flex flex-col gap-4">
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Page size</span>
-                  <select
-                    value={resolvedPage.size}
-                    onChange={(event) =>
-                      updateTemplateStyles({
-                        page: { size: event.target.value },
-                      })
-                    }
-                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
-                  >
-                    {PAGE_SIZE_OPTIONS.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label} ({option.width} × {option.height})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Page padding X ({resolvedPage.paddingX}px)</span>
-                  <input
-                    type="range"
-                    min="24"
-                    max="88"
-                    value={resolvedPage.paddingX}
-                    onChange={(event) =>
-                      updateTemplateStyles({
-                        page: { paddingX: Number(event.target.value) },
-                      })
-                    }
-                    className="w-full"
-                  />
-                </label>
-
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Page padding Y ({resolvedPage.paddingY}px)</span>
-                  <input
-                    type="range"
-                    min="24"
-                    max="96"
-                    value={resolvedPage.paddingY}
-                    onChange={(event) =>
-                      updateTemplateStyles({
-                        page: { paddingY: Number(event.target.value) },
-                      })
-                    }
-                    className="w-full"
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div className="app-card">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
-                Typography
-              </h3>
-              <div className="mt-4 flex flex-col gap-4">
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Font family</span>
-                  <select
-                    value={templateStyles.fontFamily}
-                    onChange={(event) =>
-                      updateTemplateStyles({ fontFamily: event.target.value })
-                    }
-                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
-                  >
-                    {FONT_OPTIONS.map((font) => (
-                      <option key={font} value={font}>
-                        {font}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Font size ({templateStyles.fontSize}px)</span>
-                  <input
-                    type="range"
-                    min="9"
-                    max="20"
-                    value={templateStyles.fontSize}
-                    onChange={(event) =>
-                      updateTemplateStyles({
-                        fontSize: Number(event.target.value),
-                      })
-                    }
-                    className="w-full"
-                  />
-                </label>
-
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Section spacing ({templateStyles.spacing}px)</span>
-                  <input
-                    type="range"
-                    min="8"
-                    max="28"
-                    value={templateStyles.spacing}
-                    onChange={(event) =>
-                      updateTemplateStyles({
-                        spacing: Number(event.target.value),
-                      })
-                    }
-                    className="w-full"
-                  />
-                </label>
-
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Line height ({templateStyles.tokens.lineHeight})</span>
-                  <input
-                    type="range"
-                    min="1.2"
-                    max="1.8"
-                    step="0.05"
-                    value={templateStyles.tokens.lineHeight}
-                    onChange={(event) =>
-                      updateTemplateStyles({
-                        tokens: { lineHeight: Number(event.target.value) },
-                      })
-                    }
-                    className="w-full"
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div className="app-card">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
-                Section layout
-              </h3>
-              <div className="mt-4 flex flex-col gap-4">
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                  <span>Layout</span>
-                  <select
-                    value={templateStyles.sectionLayout}
-                    onChange={(event) =>
-                      updateTemplateStyles({ sectionLayout: event.target.value })
-                    }
-                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
-                  >
-                    <option value="single">Single column</option>
-                    <option value="columns">Two column</option>
-                  </select>
-                </label>
+              <div className="mt-4 flex flex-col gap-3 text-sm text-slate-200">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                    Name
+                  </p>
+                  <p className="text-base font-semibold text-slate-100">
+                    {templateName || "No template selected"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                    Page size
+                  </p>
+                  <p>
+                    {resolvedPage.width} × {resolvedPage.height}px
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                    Typography
+                  </p>
+                  <p>
+                    {templateStyles.fontFamily} · {templateStyles.fontSize}px
+                  </p>
+                </div>
+                <Button variant="ghost" onClick={() => navigate("/app/templates")}>
+                  Change template
+                </Button>
               </div>
             </div>
 
@@ -691,6 +707,7 @@ export default function ResumeEditor() {
                     resumeData={resumeData}
                     sectionOrder={sectionOrder}
                     styles={templateStyles}
+                    visibleBlocks={templateBlocks}
                   />
                 </PagePreviewFrame>
               </div>

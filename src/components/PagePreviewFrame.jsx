@@ -10,15 +10,9 @@ export default function PagePreviewFrame({ styles, className = "", children }) {
     if (!containerRef.current) return;
     const updateScale = () => {
       if (!containerRef.current) return;
-      const { clientWidth, clientHeight } = containerRef.current;
+      const { clientWidth } = containerRef.current;
       if (!clientWidth) return;
-      const heightConstraint =
-        clientHeight && clientHeight > 0 ? clientHeight : page.height;
-      const nextScale = Math.min(
-        clientWidth / page.width,
-        heightConstraint / page.height,
-        1
-      );
+      const nextScale = Math.min(clientWidth / page.width, 1);
       setScale(Number.isFinite(nextScale) ? nextScale : 1);
     };
 
@@ -26,15 +20,15 @@ export default function PagePreviewFrame({ styles, className = "", children }) {
     const observer = new ResizeObserver(updateScale);
     observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [page.height, page.width]);
+  }, [page.width]);
 
   const scaledHeight = Math.round(page.height * scale);
 
   return (
     <div
       ref={containerRef}
-      className={`flex justify-center overflow-hidden ${className}`}
-      style={{ height: `${scaledHeight}px` }}
+      className={`flex justify-center overflow-auto ${className}`}
+      style={{ height: `${scaledHeight}px`, maxWidth: "100%" }}
     >
       <div
         style={{

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FiX } from "react-icons/fi";
 import Button from "./Button.jsx";
 import Input from "./Input.jsx";
+import { FONT_SIZE_OPTIONS } from "../utils/resumePreview.js";
 
 const DEFAULT_SECTION_VALUES = {
   id: "",
@@ -11,6 +12,11 @@ const DEFAULT_SECTION_VALUES = {
   alignment: "left",
   titleFontWeight: "600",
   titleFontStyle: "normal",
+  titleFontSizeKey: "sectionTitle",
+  placeholderValue: "",
+  placeholderFontSizeKey: "body",
+  showTitle: true,
+  showPlaceholder: true,
 };
 
 export default function SectionModal({
@@ -73,12 +79,84 @@ export default function SectionModal({
         </div>
 
         <div className="mt-6 grid gap-4">
-          <Input
-            label="Section title"
-            value={formState.label}
-            onChange={(event) => updateField("label", event.target.value)}
-            error={error}
-          />
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <Input
+                label="Section title"
+                value={formState.label}
+                onChange={(event) => updateField("label", event.target.value)}
+                error={error}
+              />
+            </div>
+            <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-200">
+              <input
+                type="checkbox"
+                checked={formState.showTitle}
+                onChange={(event) =>
+                  updateField("showTitle", event.target.checked)
+                }
+                className="h-4 w-4 accent-emerald-400"
+              />
+              <span>Show</span>
+            </label>
+          </div>
+          <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+            <span>Title font size</span>
+            <select
+              value={formState.titleFontSizeKey}
+              onChange={(event) =>
+                updateField("titleFontSizeKey", event.target.value)
+              }
+              className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
+            >
+              {FONT_SIZE_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex items-end gap-3">
+            <label className="flex flex-1 flex-col gap-2 text-sm font-medium text-slate-200">
+              <span>Placeholder value</span>
+              <input
+                type="text"
+                value={formState.placeholderValue}
+                onChange={(event) =>
+                  updateField("placeholderValue", event.target.value)
+                }
+                className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
+                placeholder="Short placeholder text"
+              />
+            </label>
+            <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-200">
+              <input
+                type="checkbox"
+                checked={formState.showPlaceholder}
+                onChange={(event) =>
+                  updateField("showPlaceholder", event.target.checked)
+                }
+                className="h-4 w-4 accent-emerald-400"
+              />
+              <span>Show</span>
+            </label>
+          </div>
+          <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+            <span>Placeholder font size</span>
+            <select
+              value={formState.placeholderFontSizeKey}
+              onChange={(event) =>
+                updateField("placeholderFontSizeKey", event.target.value)
+              }
+              className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
+            >
+              {FONT_SIZE_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
             <span>Alignment</span>
@@ -124,8 +202,7 @@ export default function SectionModal({
           </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
-              <span>Title divider</span>
+            <label className="flex items-center gap-3 text-sm font-medium text-slate-200">
               <input
                 type="checkbox"
                 checked={formState.showTitleDivider}
@@ -134,9 +211,9 @@ export default function SectionModal({
                 }
                 className="h-4 w-4 accent-emerald-400"
               />
+              <span>Title divider</span>
             </label>
-            <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
-              <span>Section divider</span>
+            <label className="flex items-center gap-3 text-sm font-medium text-slate-200">
               <input
                 type="checkbox"
                 checked={formState.showSectionDivider}
@@ -145,6 +222,7 @@ export default function SectionModal({
                 }
                 className="h-4 w-4 accent-emerald-400"
               />
+              <span>Section divider</span>
             </label>
           </div>
         </div>

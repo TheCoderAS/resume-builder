@@ -12,6 +12,11 @@ const DEFAULT_SECTION_LAYOUT = {
   alignment: "left",
   titleFontWeight: "600",
   titleFontStyle: "normal",
+  titleFontSizeKey: "sectionTitle",
+  showTitle: true,
+  placeholderValue: "",
+  placeholderFontSizeKey: "body",
+  showPlaceholder: true,
   subsections: [],
 };
 
@@ -28,6 +33,9 @@ const DEFAULT_SUBSECTION_LAYOUT = {
   showTimeline: false,
   timelineStyle: "line",
   timelinePosition: "left",
+  placeholderValue: "",
+  placeholderFontSizeKey: "body",
+  showPlaceholder: true,
 };
 
 const buildContactLine = (profile) =>
@@ -167,6 +175,8 @@ const ResumePreview = forwardRef(function ResumePreview(
     styles = {},
     settings = {},
     visibleBlocks = {},
+    useLegacyFallback = true,
+    showHeaderFallback = true,
     ...rest
   },
   ref
@@ -180,6 +190,18 @@ const ResumePreview = forwardRef(function ResumePreview(
     colors,
     tokens,
   } = resolvedSettings;
+  const normalizedFontFamily = (fontFamily ?? "").trim() || "Inter";
+  const fontStacks = {
+    Inter: '"Inter", system-ui, sans-serif',
+    Poppins: '"Poppins", "Trebuchet MS", sans-serif',
+    Merriweather: '"Merriweather", Georgia, serif',
+    Georgia: 'Georgia, "Times New Roman", serif',
+    Arial: 'Arial, system-ui, sans-serif',
+    "Times New Roman": '"Times New Roman", Times, serif',
+  };
+  const fontStack =
+    fontStacks[normalizedFontFamily] ??
+    `${normalizedFontFamily.includes(" ") ? `"${normalizedFontFamily}"` : normalizedFontFamily}, "Space Grotesk", system-ui, sans-serif`;
   const {
     sectionLayout,
     headerAlignment,
@@ -199,6 +221,13 @@ const ResumePreview = forwardRef(function ResumePreview(
   const sectionTitleSize = Math.round(fontSize * tokens.sectionTitleScale);
   const bodySize = Math.round(fontSize * tokens.bodyScale);
   const metaSize = Math.round(fontSize * tokens.metaScale);
+  const sizeByKey = {
+    header: headerSize,
+    sectionTitle: sectionTitleSize,
+    body: bodySize,
+    meta: metaSize,
+  };
+  const resolveSize = (key, fallback) => sizeByKey[key] ?? fallback;
 
   const blockVisibility = {
     header: true,
@@ -243,10 +272,11 @@ const ResumePreview = forwardRef(function ResumePreview(
       return items.length > 0 || text;
     })
   );
-  const legacySections =
-    normalizedSections.length === 0 || !hasDynamicContent
-      ? buildLegacySections({ resumeData, sectionOrder, sectionLayout })
-      : [];
+  const shouldUseLegacyFallback =
+    useLegacyFallback && (normalizedSections.length === 0 || !hasDynamicContent);
+  const legacySections = shouldUseLegacyFallback
+    ? buildLegacySections({ resumeData, sectionOrder, sectionLayout })
+    : [];
   const resolvedSections =
     normalizedSections.length > 0 && hasDynamicContent
       ? normalizedSections
@@ -265,6 +295,8 @@ const ResumePreview = forwardRef(function ResumePreview(
         return items.length > 0 || text;
       })
     );
+  const hasHeaderContent =
+    profile?.fullName || profile?.title || profile?.summary || buildContactLine(profile);
 
   return (
     <div
@@ -274,7 +306,7 @@ const ResumePreview = forwardRef(function ResumePreview(
       style={{
         width: `${page.width}px`,
         height: `${page.height}px`,
-        fontFamily,
+        fontFamily: fontStack,
         fontSize: `${fontSize}px`,
         lineHeight: tokens.lineHeight,
         color: colors.text,
@@ -288,11 +320,9 @@ const ResumePreview = forwardRef(function ResumePreview(
           padding: `${page.paddingY}px ${page.paddingX}px`,
         }}
       >
-        {blockVisibility.header ? (
+        {blockVisibility.header && (showHeaderFallback || hasHeaderContent) ? (
           <header
-            className={`flex flex-col ${
-              showHeaderDivider ? "border-b border-slate-200" : ""
-            }`}
+            className="flex flex-col"
             style={{
               gap: `${Math.round(spacing / 2)}px`,
               paddingBottom: showHeaderDivider
@@ -300,6 +330,9 @@ const ResumePreview = forwardRef(function ResumePreview(
                 : "0px",
               textAlign: headerAlign,
               alignItems: headerAlignmentStyles[headerAlign] ?? "flex-start",
+              borderBottom: showHeaderDivider
+                ? `1px solid ${colors.divider ?? "#e2e8f0"}`
+                : "none",
             }}
           >
             <div>
@@ -309,17 +342,19 @@ const ResumePreview = forwardRef(function ResumePreview(
                   fontWeight: 700,
                 }}
               >
-                {profile.fullName || "Your name"}
+                {profile.fullName || (showHeaderFallback ? "Your name" : "")}
               </h2>
-              <p
-                style={{
-                  fontSize: `${bodySize}px`,
-                  color: colors.muted,
-                  fontWeight: 500,
-                }}
-              >
-                {profile.title || "Professional title"}
-              </p>
+              {profile.title || showHeaderFallback ? (
+                <p
+                  style={{
+                    fontSize: `${bodySize}px`,
+                    color: colors.muted,
+                    fontWeight: 500,
+                  }}
+                >
+                  {profile.title || "Professional title"}
+                </p>
+              ) : null}
             </div>
             {buildContactLine(profile) ? (
               <p
@@ -361,16 +396,13 @@ const ResumePreview = forwardRef(function ResumePreview(
               return null;
             }
 
-            const sectionDividerEnabled =
-              showSectionDividers && normalizedSection.showSectionDivider;
+            const sectionDividerEnabled = normalizedSection.showSectionDivider;
 
             return (
               <section
                 key={normalizedSection.id || `${normalizedSection.label}-${index}`}
                 className={`flex flex-col ${
-                  sectionDividerEnabled && !isLastSection
-                    ? "border-b border-slate-200"
-                    : ""
+                  sectionDividerEnabled && !isLastSection ? "border-b" : ""
                 }`}
                 style={{
                   gap: `${Math.round(spacing / 2)}px`,
@@ -378,20 +410,35 @@ const ResumePreview = forwardRef(function ResumePreview(
                     sectionDividerEnabled && !isLastSection
                       ? `${Math.round(spacing / 1.25)}px`
                       : "0px",
+                  borderBottomColor: colors.divider ?? "#e2e8f0",
                 }}
               >
-                {blockVisibility.section ? (
-                  <h3
-                    style={{
-                      fontSize: `${sectionTitleSize}px`,
-                      fontWeight: normalizedSection.titleFontWeight,
-                      fontStyle: normalizedSection.titleFontStyle,
-                      color: colors.accent,
-                      textAlign: normalizedSection.alignment,
-                    }}
+                {blockVisibility.section && normalizedSection.showTitle !== false ? (
+                  <div
+                    className="flex flex-col"
+                    style={{ gap: `${Math.round(spacing / 3)}px` }}
                   >
-                    {normalizedSection.label}
-                  </h3>
+                    <h3
+                      style={{
+                        fontSize: `${resolveSize(
+                          normalizedSection.titleFontSizeKey ?? "sectionTitle",
+                          sectionTitleSize
+                        )}px`,
+                        fontWeight: normalizedSection.titleFontWeight,
+                        fontStyle: normalizedSection.titleFontStyle,
+                        color: colors.accent,
+                        textAlign: normalizedSection.alignment,
+                      }}
+                    >
+                      {normalizedSection.label}
+                    </h3>
+                    {normalizedSection.showTitleDivider ? (
+                      <div
+                        className="h-px w-full"
+                        style={{ backgroundColor: colors.divider ?? "#e2e8f0" }}
+                      />
+                    ) : null}
+                  </div>
                 ) : null}
                 <div
                   className="flex flex-col"
@@ -423,13 +470,20 @@ const ResumePreview = forwardRef(function ResumePreview(
                       normalizedSubsection.columnOrder === "right-to-left"
                         ? "rtl"
                         : "ltr";
+                    const isPlaceholder = normalizedSubsection.previewPlaceholder;
+                    const placeholderSize = resolveSize(
+                      normalizedSubsection.placeholderFontSizeKey ?? "body",
+                      bodySize
+                    );
 
                     if (normalizedSubsection.type === "text") {
                       if (!text) return null;
                       return (
                         <p
                           key={normalizedSubsection.id}
-                          style={{ fontSize: `${bodySize}px` }}
+                          style={{
+                            fontSize: `${isPlaceholder ? placeholderSize : bodySize}px`,
+                          }}
                         >
                           {text}
                         </p>
@@ -455,7 +509,9 @@ const ResumePreview = forwardRef(function ResumePreview(
                               {item.label ? (
                                 <p
                                   style={{
-                                    fontSize: `${bodySize}px`,
+                                    fontSize: `${
+                                      isPlaceholder ? placeholderSize : bodySize
+                                    }px`,
                                     fontWeight: 600,
                                   }}
                                 >
@@ -465,7 +521,9 @@ const ResumePreview = forwardRef(function ResumePreview(
                               {item.value ? (
                                 <p
                                   style={{
-                                    fontSize: `${metaSize}px`,
+                                    fontSize: `${
+                                      isPlaceholder ? placeholderSize : metaSize
+                                    }px`,
                                     color: colors.muted,
                                     fontWeight:
                                       normalizedSubsection.type === "number"
@@ -479,7 +537,11 @@ const ResumePreview = forwardRef(function ResumePreview(
                               {item.note ? (
                                 <p
                                   className="mt-1"
-                                  style={{ fontSize: `${bodySize}px` }}
+                                  style={{
+                                    fontSize: `${
+                                      isPlaceholder ? placeholderSize : bodySize
+                                    }px`,
+                                  }}
                                 >
                                   {item.note}
                                 </p>
@@ -537,7 +599,9 @@ const ResumePreview = forwardRef(function ResumePreview(
                                 {item.title ? (
                                   <p
                                     style={{
-                                      fontSize: `${bodySize}px`,
+                                      fontSize: `${
+                                        isPlaceholder ? placeholderSize : bodySize
+                                      }px`,
                                       fontWeight: 600,
                                     }}
                                   >
@@ -547,7 +611,9 @@ const ResumePreview = forwardRef(function ResumePreview(
                                 {item.subtitle ? (
                                   <p
                                     style={{
-                                      fontSize: `${bodySize}px`,
+                                      fontSize: `${
+                                        isPlaceholder ? placeholderSize : bodySize
+                                      }px`,
                                       fontWeight: 500,
                                     }}
                                   >
@@ -558,7 +624,9 @@ const ResumePreview = forwardRef(function ResumePreview(
                               {item.meta ? (
                                 <p
                                   style={{
-                                    fontSize: `${metaSize}px`,
+                                    fontSize: `${
+                                      isPlaceholder ? placeholderSize : metaSize
+                                    }px`,
                                     color: colors.muted,
                                   }}
                                 >
@@ -568,7 +636,11 @@ const ResumePreview = forwardRef(function ResumePreview(
                               {highlights.length > 1 ? (
                                 <ul
                                   className="mt-2 list-disc pl-5"
-                                  style={{ fontSize: `${bodySize}px` }}
+                                  style={{
+                                    fontSize: `${
+                                      isPlaceholder ? placeholderSize : bodySize
+                                    }px`,
+                                  }}
                                 >
                                   {highlights.map((line) => (
                                     <li key={line}>{line}</li>
@@ -577,14 +649,22 @@ const ResumePreview = forwardRef(function ResumePreview(
                               ) : highlights.length === 1 ? (
                                 <p
                                   className="mt-2"
-                                  style={{ fontSize: `${bodySize}px` }}
+                                  style={{
+                                    fontSize: `${
+                                      isPlaceholder ? placeholderSize : bodySize
+                                    }px`,
+                                  }}
                                 >
                                   {highlights[0]}
                                 </p>
                               ) : item.summary ? (
                                 <p
                                   className="mt-2"
-                                  style={{ fontSize: `${bodySize}px` }}
+                                  style={{
+                                    fontSize: `${
+                                      isPlaceholder ? placeholderSize : bodySize
+                                    }px`,
+                                  }}
                                 >
                                   {item.summary}
                                 </p>

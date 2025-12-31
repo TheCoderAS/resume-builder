@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FiChevronDown, FiChevronUp } from "react-icons/fi";
+import {
+  FiChevronDown,
+  FiChevronUp,
+  FiEdit2,
+  FiTrash2,
+  FiArrowUp,
+  FiArrowDown,
+} from "react-icons/fi";
 import {
   addDoc,
   collection,
@@ -32,67 +39,13 @@ import {
 
 const DEFAULT_BLOCK_IDS = ["header", "section", "list", "columns"];
 
-const SAMPLE_PROFILE = {
-  fullName: "Alex Morgan",
-  title: "Product Designer",
-  email: "alex.morgan@email.com",
-  phone: "(555) 234-9988",
-  location: "San Francisco, CA",
-  summary:
-    "Product designer with 7+ years of experience building accessible platforms and data-rich workflows.",
-};
-
-const SAMPLE_RESUME_DATA = {
-  experience: [
-    {
-      role: "Lead Designer",
-      company: "Studio Axis",
-      location: "Remote",
-      startDate: "2021",
-      endDate: "Present",
-      summary:
-        "Built intuitive dashboards and optimized flows for 200k+ users.\nPartnered with engineering to scale a component library.",
-    },
-  ],
-  education: [
-    {
-      school: "Parsons School of Design",
-      degree: "MFA, Interaction Design",
-      location: "New York, NY",
-      startDate: "2017",
-      endDate: "2019",
-      summary: "Focus on human-centered product systems.",
-    },
-    {
-      school: "School of the Arts",
-      degree: "BFA, Visual Communication",
-      location: "Boston, MA",
-      startDate: "2013",
-      endDate: "2017",
-    },
-  ],
-  skills: [
-    {
-      name: "Product strategy",
-      level: "Expert",
-      summary: "Roadmapping, discovery, and OKR alignment.",
-    },
-    {
-      name: "Design systems",
-      level: "Advanced",
-      summary: "Tokens, components, and documentation.",
-    },
-    {
-      name: "Research",
-      level: "Advanced",
-      summary: "Usability testing and insight synthesis.",
-    },
-    {
-      name: "Figma",
-      level: "Expert",
-      summary: "Prototyping and collaboration workflows.",
-    },
-  ],
+const PLACEHOLDER_PROFILE = {
+  fullName: "Full Name",
+  title: "Role or Title",
+  email: "email@domain.com",
+  phone: "(000) 000-0000",
+  location: "City, Country",
+  summary: "Short profile summary goes here.",
 };
 
 const formatSectionLabel = (sectionId) =>
@@ -153,6 +106,84 @@ export default function TemplatePlayground() {
     () => sections.map((section) => section.id),
     [sections]
   );
+  const previewSections = useMemo(
+    () =>
+      sections.map((section) => {
+        const sectionHasSubsections = (section.subsections ?? []).length > 0;
+        const sectionPlaceholder = (section.placeholderValue ?? "").trim();
+        const canShowSectionPlaceholder =
+          section.showPlaceholder !== false && sectionPlaceholder;
+        const fallbackSubsections =
+          !sectionHasSubsections && canShowSectionPlaceholder
+            ? [
+                {
+                  id: `${section.id}-placeholder`,
+                  type: "text",
+                  columns: 1,
+                  columnOrder: "left-to-right",
+                  text: sectionPlaceholder,
+                  previewPlaceholder: true,
+                  placeholderFontSizeKey: section.placeholderFontSizeKey ?? "body",
+                },
+              ]
+            : [];
+        const mappedSubsections = (section.subsections ?? []).map((subsection) => {
+          const items =
+            subsection.items ?? subsection.entries ?? subsection.values ?? [];
+          const text =
+            subsection.text ?? subsection.content ?? subsection.summary ?? "";
+          const hasItems = Array.isArray(items) && items.length > 0;
+          const hasText = typeof text === "string" && text.trim().length > 0;
+          if (hasItems || hasText || subsection.showPlaceholder === false) {
+            return subsection;
+          }
+          const placeholder = (subsection.placeholderValue ?? "").trim();
+          if (!placeholder) {
+            return subsection;
+          }
+          if (subsection.type === "text") {
+            return {
+              ...subsection,
+              text: placeholder,
+              previewPlaceholder: true,
+              placeholderFontSizeKey: subsection.placeholderFontSizeKey ?? "body",
+            };
+          }
+          if (subsection.type === "date" || subsection.type === "number") {
+            return {
+              ...subsection,
+              items: [
+                {
+                  label: placeholder,
+                  value: "Value",
+                  note: "Optional note",
+                },
+              ],
+              previewPlaceholder: true,
+              placeholderFontSizeKey: subsection.placeholderFontSizeKey ?? "body",
+            };
+          }
+          return {
+            ...subsection,
+            items: [
+              {
+                title: placeholder,
+                subtitle: "Subtitle",
+                meta: "Meta",
+                summary: "Summary",
+              },
+            ],
+            previewPlaceholder: true,
+            placeholderFontSizeKey: subsection.placeholderFontSizeKey ?? "body",
+          };
+        });
+        return {
+          ...section,
+          subsections: sectionHasSubsections ? mappedSubsections : fallbackSubsections,
+        };
+      }),
+    [sections]
+  );
 
   const buildSectionDefaults = (label = "", overrides = {}) => ({
     id: "",
@@ -162,6 +193,11 @@ export default function TemplatePlayground() {
     alignment: "left",
     titleFontWeight: "600",
     titleFontStyle: "normal",
+    titleFontSizeKey: "sectionTitle",
+    placeholderValue: "",
+    placeholderFontSizeKey: "body",
+    showTitle: true,
+    showPlaceholder: true,
     subsections: [],
     ...overrides,
   });
@@ -174,6 +210,9 @@ export default function TemplatePlayground() {
     showTimeline: subsection?.showTimeline ?? false,
     timelineStyle: subsection?.timelineStyle ?? "line",
     timelinePosition: subsection?.timelinePosition ?? "left",
+    placeholderValue: subsection?.placeholderValue ?? "",
+    placeholderFontSizeKey: subsection?.placeholderFontSizeKey ?? "body",
+    showPlaceholder: subsection?.showPlaceholder ?? true,
   });
 
   const getFallbackSectionLabel = (section = {}, index = 0) =>
@@ -193,6 +232,11 @@ export default function TemplatePlayground() {
       alignment: section?.alignment ?? "left",
       titleFontWeight: section?.titleFontWeight ?? "600",
       titleFontStyle: section?.titleFontStyle ?? "normal",
+      titleFontSizeKey: section?.titleFontSizeKey ?? "sectionTitle",
+      placeholderValue: section?.placeholderValue ?? "",
+      placeholderFontSizeKey: section?.placeholderFontSizeKey ?? "body",
+      showTitle: section?.showTitle ?? true,
+      showPlaceholder: section?.showPlaceholder ?? true,
       subsections: Array.isArray(section?.subsections)
         ? section.subsections.map(normalizeSubsection)
         : [],
@@ -281,7 +325,7 @@ export default function TemplatePlayground() {
     const metaSize = Math.round(fontSize * tokens.metaScale);
 
     const drawDivider = () => {
-      ctx.strokeStyle = "#e2e8f0";
+      ctx.strokeStyle = colors.divider ?? "#e2e8f0";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(paddingX, cursorY);
@@ -708,14 +752,18 @@ export default function TemplatePlayground() {
             </div>
             <div className="mt-2 overflow-auto rounded-[24px] border border-slate-800 bg-white">
               <PagePreviewFrame styles={templateStyles}>
-                <ResumePreview
-                  profile={SAMPLE_PROFILE}
-                  resumeData={SAMPLE_RESUME_DATA}
+                {sections.length ? (
+                  <ResumePreview
+                    profile={{}}
+                    resumeData={{}}
                   sectionOrder={sectionOrder}
-                  sections={sections}
+                  sections={previewSections}
                   styles={templateStyles}
                   settings={templateSettings}
+                  useLegacyFallback={false}
+                  showHeaderFallback={false}
                 />
+                ) : null}
               </PagePreviewFrame>
             </div>
             <canvas
@@ -861,65 +909,6 @@ export default function TemplatePlayground() {
                     />
                   </label>
 
-                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                    <span>Section layout</span>
-                    <select
-                      value={sectionLayout}
-                      onChange={(event) =>
-                        updateTemplateStyles({ sectionLayout: event.target.value })
-                      }
-                      className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
-                    >
-                      <option value="single">Single column</option>
-                      <option value="columns">Two column</option>
-                    </select>
-                  </label>
-
-                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-                    <span>Header alignment</span>
-                    <select
-                      value={headerAlignment}
-                      onChange={(event) =>
-                        updateTemplateStyles({
-                          headerAlignment: event.target.value,
-                        })
-                      }
-                      className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
-                    >
-                      <option value="left">Left aligned</option>
-                      <option value="center">Centered</option>
-                      <option value="right">Right aligned</option>
-                    </select>
-                  </label>
-
-                  <div className="grid gap-3">
-                    <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
-                      <span>Header divider</span>
-                      <input
-                        type="checkbox"
-                        checked={showHeaderDivider}
-                        onChange={(event) =>
-                          updateTemplateStyles({
-                            showHeaderDivider: event.target.checked,
-                          })
-                        }
-                        className="h-4 w-4 accent-emerald-400"
-                      />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
-                      <span>Section dividers</span>
-                      <input
-                        type="checkbox"
-                        checked={showSectionDividers}
-                        onChange={(event) =>
-                          updateTemplateStyles({
-                            showSectionDividers: event.target.checked,
-                          })
-                        }
-                        className="h-4 w-4 accent-emerald-400"
-                      />
-                    </label>
-                  </div>
 
                   <div className="grid gap-3">
                     <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
@@ -961,20 +950,33 @@ export default function TemplatePlayground() {
                         className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
                       />
                     </label>
-                    <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
-                      <span>Muted color</span>
-                      <input
-                        type="color"
-                        value={colors.muted}
-                        onChange={(event) =>
-                          updateTemplateSettings({
-                            colors: { muted: event.target.value },
-                          })
-                        }
-                        className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
-                      />
-                    </label>
-                  </div>
+                  <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
+                    <span>Muted color</span>
+                    <input
+                      type="color"
+                      value={colors.muted}
+                      onChange={(event) =>
+                        updateTemplateSettings({
+                          colors: { muted: event.target.value },
+                        })
+                      }
+                      className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-200">
+                    <span>Divider color</span>
+                    <input
+                      type="color"
+                      value={colors.divider ?? "#e2e8f0"}
+                      onChange={(event) =>
+                        updateTemplateSettings({
+                          colors: { divider: event.target.value },
+                        })
+                      }
+                      className="h-8 w-12 rounded border border-slate-800 bg-slate-950"
+                    />
+                  </label>
+                </div>
 
                   <div className="mt-2 grid gap-3 border-t border-slate-800 pt-4">
                     <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
@@ -1123,44 +1125,52 @@ export default function TemplatePlayground() {
                               {section.subsections?.length ?? 0} subsections
                             </p>
                           </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleEditSection(section)}
-                              className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleAddSubsection(section.id)}
-                              className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200"
-                            >
-                              Add subsection
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moveSection(section.id, "up")}
-                              disabled={index === 0}
-                              className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 disabled:opacity-40"
-                            >
-                              Up
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moveSection(section.id, "down")}
-                              disabled={index === sections.length - 1}
-                              className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 disabled:opacity-40"
-                            >
-                              Down
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveSection(section.id)}
-                              className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200"
-                            >
-                              Remove
-                            </button>
+                          <div className="flex flex-col gap-2">
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => handleAddSubsection(section.id)}
+                                className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200"
+                              >
+                                Add subsection
+                              </button>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditSection(section)}
+                                className="rounded-full border border-slate-700 p-2 text-slate-200"
+                                aria-label="Edit section"
+                              >
+                                <FiEdit2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveSection(section.id, "up")}
+                                disabled={index === 0}
+                                className="rounded-full border border-slate-700 p-2 text-slate-200 disabled:opacity-40"
+                                aria-label="Move section up"
+                              >
+                                <FiArrowUp className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveSection(section.id, "down")}
+                                disabled={index === sections.length - 1}
+                                className="rounded-full border border-slate-700 p-2 text-slate-200 disabled:opacity-40"
+                                aria-label="Move section down"
+                              >
+                                <FiArrowDown className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSection(section.id)}
+                                className="rounded-full border border-slate-700 p-2 text-slate-200"
+                                aria-label="Remove section"
+                              >
+                                <FiTrash2 className="h-4 w-4" />
+                              </button>
+                            </div>
                           </div>
                           {section.subsections?.length ? (
                             <div className="mt-3 w-full border-t border-slate-800 pt-3 text-xs text-slate-300">
@@ -1177,29 +1187,31 @@ export default function TemplatePlayground() {
                                         ? ` · ${subsection.timelineStyle} timeline`
                                         : ""}
                                     </span>
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleEditSubsection(section.id, subsection)
-                                        }
-                                        className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200"
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleRemoveSubsection(
-                                            section.id,
-                                            subsection.id
-                                          )
-                                        }
-                                        className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200"
-                                      >
-                                        Remove
-                                      </button>
-                                    </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleEditSubsection(section.id, subsection)
+                                    }
+                                    className="rounded-full border border-slate-700 p-2 text-slate-200"
+                                    aria-label="Edit subsection"
+                                  >
+                                    <FiEdit2 className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleRemoveSubsection(
+                                        section.id,
+                                        subsection.id
+                                      )
+                                    }
+                                    className="rounded-full border border-slate-700 p-2 text-slate-200"
+                                    aria-label="Remove subsection"
+                                  >
+                                    <FiTrash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
                                   </li>
                                 ))}
                               </ul>

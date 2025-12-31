@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { FiX } from "react-icons/fi";
 import Button from "./Button.jsx";
+import { FONT_SIZE_OPTIONS } from "../utils/resumePreview.js";
 
 const DEFAULT_SUBSECTION_VALUES = {
   id: "",
@@ -10,6 +11,9 @@ const DEFAULT_SUBSECTION_VALUES = {
   showTimeline: false,
   timelineStyle: "line",
   timelinePosition: "left",
+  placeholderValue: "",
+  placeholderFontSizeKey: "body",
+  showPlaceholder: true,
 };
 
 export default function SubsectionModal({
@@ -74,6 +78,47 @@ export default function SubsectionModal({
               <option value="text">Text</option>
               <option value="date">Date</option>
               <option value="number">Number</option>
+            </select>
+          </label>
+          <div className="flex items-end gap-3">
+            <label className="flex flex-1 flex-col gap-2 text-sm font-medium text-slate-200">
+              <span>Placeholder value</span>
+              <input
+                type="text"
+                value={formState.placeholderValue}
+                onChange={(event) =>
+                  updateField("placeholderValue", event.target.value)
+                }
+                className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
+                placeholder="e.g., Senior Designer"
+              />
+            </label>
+            <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-200">
+              <input
+                type="checkbox"
+                checked={formState.showPlaceholder}
+                onChange={(event) =>
+                  updateField("showPlaceholder", event.target.checked)
+                }
+                className="h-4 w-4 accent-emerald-400"
+              />
+              <span>Show</span>
+            </label>
+          </div>
+          <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+            <span>Placeholder font size</span>
+            <select
+              value={formState.placeholderFontSizeKey}
+              onChange={(event) =>
+                updateField("placeholderFontSizeKey", event.target.value)
+              }
+              className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
+            >
+              {FONT_SIZE_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
 

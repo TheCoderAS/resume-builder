@@ -724,6 +724,7 @@ export default function TemplatePlayground() {
                   profile={SAMPLE_PROFILE}
                   resumeData={SAMPLE_RESUME_DATA}
                   sectionOrder={sectionOrder}
+                  sections={sections}
                   styles={templateStyles}
                   settings={templateSettings}
                   visibleBlocks={blocks}

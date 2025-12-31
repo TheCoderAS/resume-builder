@@ -1,14 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  serverTimestamp,
-  setDoc,
-  where,
-} from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
@@ -61,9 +52,6 @@ export default function ExportPublish() {
   const [downloadMessage, setDownloadMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [templates, setTemplates] = useState([]);
-  const [templatesLoading, setTemplatesLoading] = useState(true);
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -100,11 +88,6 @@ export default function ExportPublish() {
             templateStyles:
               data.templateStyles ?? DEFAULT_TEMPLATE_STYLES,
           }));
-          setSelectedTemplateId(
-            data.templateId ??
-              window.localStorage.getItem("defaultTemplateId") ??
-              ""
-          );
         }
       } catch (error) {
         if (isMounted) {
@@ -122,63 +105,6 @@ export default function ExportPublish() {
       isMounted = false;
     };
   }, [resumeId, user]);
-
-  useEffect(() => {
-    let isMounted = true;
-    const loadTemplates = async () => {
-      setTemplatesLoading(true);
-      try {
-        const templatesRef = collection(db, "templates");
-        const publicQuery = query(
-          templatesRef,
-          where("type", "==", "admin"),
-          where("status", "==", "active")
-        );
-        const [publicSnapshot, userSnapshot] = await Promise.all([
-          getDocs(publicQuery),
-          user
-            ? getDocs(query(templatesRef, where("ownerId", "==", user.uid)))
-            : Promise.resolve(null),
-        ]);
-        const publicTemplates = publicSnapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data(),
-        }));
-        const userTemplates = userSnapshot
-          ? userSnapshot.docs.map((docSnap) => ({
-              id: docSnap.id,
-              ...docSnap.data(),
-            }))
-          : [];
-        const nextTemplates = [...publicTemplates, ...userTemplates];
-        if (isMounted) {
-          setTemplates(nextTemplates);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setTemplates([]);
-        }
-      } finally {
-        if (isMounted) {
-          setTemplatesLoading(false);
-        }
-      }
-    };
-
-    loadTemplates();
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
-
-  useEffect(() => {
-    if (selectedTemplateId || templates.length === 0) return;
-    setSelectedTemplateId(
-      resume.templateId ??
-        window.localStorage.getItem("defaultTemplateId") ??
-        templates[0].id
-    );
-  }, [resume.templateId, selectedTemplateId, templates]);
 
   const publicLink =
     resume.publicSlug || resumeId
@@ -318,71 +244,6 @@ export default function ExportPublish() {
     }
   };
 
-  const resolveTemplateStyles = (template) => {
-    const styles = template?.styles ?? {};
-    return {
-      ...DEFAULT_TEMPLATE_STYLES,
-      ...styles,
-      page: resolvePageSetup(styles.page),
-      colors: {
-        ...DEFAULT_TEMPLATE_STYLES.colors,
-        ...(styles.colors ?? {}),
-      },
-      tokens: {
-        ...DEFAULT_TEMPLATE_STYLES.tokens,
-        ...(styles.tokens ?? {}),
-      },
-      sectionLayout:
-        template?.layout?.sectionLayout ??
-        styles.sectionLayout ??
-        DEFAULT_TEMPLATE_STYLES.sectionLayout,
-    };
-  };
-
-  const handleTemplateChange = async (event) => {
-    const nextTemplateId = event.target.value;
-    setSelectedTemplateId(nextTemplateId);
-    const template = templates.find((item) => item.id === nextTemplateId);
-    if (!template) return;
-    const nextTemplateStyles = resolveTemplateStyles(template);
-    const nextSectionOrder =
-      template.layout?.sectionOrder ?? resume.sectionOrder ?? [];
-    setResume((prev) => ({
-      ...prev,
-      templateId: template.id,
-      templateName: template.name ?? "Untitled template",
-      templateStyles: nextTemplateStyles,
-      sectionOrder: nextSectionOrder,
-    }));
-    if (!resumeId || !user) return;
-    setSaving(true);
-    try {
-      await setDoc(
-        doc(db, "resumes", resumeId),
-        {
-          userId: user.uid,
-          templateId: template.id,
-          templateName: template.name ?? "Untitled template",
-          templateStyles: nextTemplateStyles,
-          sectionOrder: nextSectionOrder,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-      setToast({
-        message: `Template "${template.name ?? "Untitled"}" applied.`,
-        variant: "success",
-      });
-    } catch (error) {
-      setToast({
-        message: "Unable to apply this template.",
-        variant: "error",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   useEffect(() => {
     if (!previewOpen || !iframeRef.current || !previewRef.current) return;
     const sourceNode = previewRef.current;
@@ -479,29 +340,6 @@ export default function ExportPublish() {
               title="PDF preview"
               description="Review the layout that will be exported."
             />
-            <div className="mt-4 grid gap-2 text-sm text-slate-200">
-              <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                Template
-                <select
-                  value={selectedTemplateId}
-                  onChange={handleTemplateChange}
-                  disabled={templatesLoading || templates.length === 0}
-                  className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm font-medium text-slate-100"
-                >
-                  {templatesLoading ? (
-                    <option value="">Loading templates...</option>
-                  ) : templates.length === 0 ? (
-                    <option value="">No templates available</option>
-                  ) : (
-                    templates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name ?? "Untitled template"}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </label>
-            </div>
             <div className="mt-6 flex justify-center">
               {loading ? (
                 <div className="w-full max-w-[720px] rounded-[22px] border border-slate-800 bg-slate-950/60 p-4">

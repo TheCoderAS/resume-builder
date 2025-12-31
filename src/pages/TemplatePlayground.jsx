@@ -20,10 +20,13 @@ import SubsectionModal from "../components/SubsectionModal.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
 import {
+  DEFAULT_TEMPLATE_SETTINGS,
   DEFAULT_TEMPLATE_STYLES,
   FONT_OPTIONS,
   PAGE_SIZE_OPTIONS,
   resolvePageSetup,
+  resolveTemplateSettings,
+  resolveTemplateStyles,
 } from "../utils/resumePreview.js";
 
 const BLOCK_OPTIONS = [
@@ -116,6 +119,9 @@ export default function TemplatePlayground() {
   const canvasRef = useRef(null);
   const [templateName, setTemplateName] = useState("Modern Executive");
   const [templateStyles, setTemplateStyles] = useState(DEFAULT_TEMPLATE_STYLES);
+  const [templateSettings, setTemplateSettings] = useState(
+    DEFAULT_TEMPLATE_SETTINGS
+  );
   const [blocks, setBlocks] = useState({
     header: true,
     section: true,
@@ -138,15 +144,18 @@ export default function TemplatePlayground() {
     fontFamily,
     fontSize,
     spacing,
+    colors,
+    tokens,
+  } = templateSettings;
+  const {
     sectionLayout,
     headerAlignment,
     showHeaderDivider,
     showSectionDividers,
-    colors,
-    tokens,
     page,
   } = templateStyles;
   const resolvedPage = resolvePageSetup(page);
+  const sectionTitleSize = Math.round(fontSize * tokens.sectionTitleScale);
 
   const enabledBlocks = useMemo(
     () => BLOCK_OPTIONS.filter((block) => blocks[block.id]).map((block) => block.id),
@@ -163,7 +172,6 @@ export default function TemplatePlayground() {
     showTitleDivider: true,
     showSectionDivider: true,
     alignment: "left",
-    titleFontSize: fontSize,
     titleFontWeight: "600",
     titleFontStyle: "normal",
     subsections: [],
@@ -187,7 +195,6 @@ export default function TemplatePlayground() {
       showTitleDivider: section?.showTitleDivider ?? true,
       showSectionDivider: section?.showSectionDivider ?? true,
       alignment: section?.alignment ?? "left",
-      titleFontSize: section?.titleFontSize ?? fontSize,
       titleFontWeight: section?.titleFontWeight ?? "600",
       titleFontStyle: section?.titleFontStyle ?? "normal",
       subsections: Array.isArray(section?.subsections)
@@ -195,32 +202,11 @@ export default function TemplatePlayground() {
         : [],
     });
 
-  const hydrateTemplateStyles = (template = {}) => {
-    const styles = template.styles ?? {};
-    return {
-      ...DEFAULT_TEMPLATE_STYLES,
-      ...styles,
-      page: resolvePageSetup(styles.page),
-      colors: {
-        ...DEFAULT_TEMPLATE_STYLES.colors,
-        ...(styles.colors ?? {}),
-      },
-      tokens: {
-        ...DEFAULT_TEMPLATE_STYLES.tokens,
-        ...(styles.tokens ?? {}),
-      },
-      sectionLayout:
-        template.layout?.sectionLayout ??
-        styles.sectionLayout ??
-        DEFAULT_TEMPLATE_STYLES.sectionLayout,
-      headerAlignment:
-        styles.headerAlignment ?? DEFAULT_TEMPLATE_STYLES.headerAlignment,
-      showHeaderDivider:
-        styles.showHeaderDivider ?? DEFAULT_TEMPLATE_STYLES.showHeaderDivider,
-      showSectionDividers:
-        styles.showSectionDividers ?? DEFAULT_TEMPLATE_STYLES.showSectionDividers,
-    };
-  };
+  const hydrateTemplateStyles = (template = {}) =>
+    resolveTemplateStyles(template.styles ?? {}, template.layout ?? {});
+
+  const hydrateTemplateSettings = (template = {}) =>
+    resolveTemplateSettings(template.settings ?? {}, template.styles ?? {});
 
   useEffect(() => {
     const templateIdFromState = location.state?.templateId;
@@ -239,6 +225,7 @@ export default function TemplatePlayground() {
         const data = snapshot.data();
         setTemplateName(data.name ?? "Untitled template");
         setTemplateStyles(hydrateTemplateStyles(data));
+        setTemplateSettings(hydrateTemplateSettings(data));
         const nextBlocks = BLOCK_OPTIONS.reduce(
           (acc, block) => ({
             ...acc,
@@ -454,6 +441,13 @@ export default function TemplatePlayground() {
         ...prev.page,
         ...(updates.page ?? {}),
       },
+    }));
+  };
+
+  const updateTemplateSettings = (updates) => {
+    setTemplateSettings((prev) => ({
+      ...prev,
+      ...updates,
       colors: {
         ...prev.colors,
         ...(updates.colors ?? {}),
@@ -652,14 +646,16 @@ export default function TemplatePlayground() {
           sections,
         },
         styles: {
-          fontFamily,
-          fontSize,
-          spacing,
           sectionLayout,
           headerAlignment,
           showHeaderDivider,
           showSectionDividers,
           page: resolvedPage,
+        },
+        settings: {
+          fontFamily,
+          fontSize,
+          spacing,
           colors,
           tokens,
         },
@@ -729,6 +725,7 @@ export default function TemplatePlayground() {
                   resumeData={SAMPLE_RESUME_DATA}
                   sectionOrder={sectionOrder}
                   styles={templateStyles}
+                  settings={templateSettings}
                   visibleBlocks={blocks}
                 />
               </PagePreviewFrame>
@@ -809,7 +806,7 @@ export default function TemplatePlayground() {
                   <select
                     value={fontFamily}
                     onChange={(event) =>
-                      updateTemplateStyles({ fontFamily: event.target.value })
+                      updateTemplateSettings({ fontFamily: event.target.value })
                     }
                     className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
                   >
@@ -829,7 +826,7 @@ export default function TemplatePlayground() {
                     max="20"
                     value={fontSize}
                     onChange={(event) =>
-                      updateTemplateStyles({
+                      updateTemplateSettings({
                         fontSize: Number(event.target.value),
                       })
                     }
@@ -845,7 +842,7 @@ export default function TemplatePlayground() {
                     max="28"
                     value={spacing}
                     onChange={(event) =>
-                      updateTemplateStyles({
+                      updateTemplateSettings({
                         spacing: Number(event.target.value),
                       })
                     }
@@ -920,7 +917,7 @@ export default function TemplatePlayground() {
                       type="color"
                       value={colors.background}
                       onChange={(event) =>
-                        updateTemplateStyles({
+                        updateTemplateSettings({
                           colors: { background: event.target.value },
                         })
                       }
@@ -933,7 +930,7 @@ export default function TemplatePlayground() {
                       type="color"
                       value={colors.text}
                       onChange={(event) =>
-                        updateTemplateStyles({
+                        updateTemplateSettings({
                           colors: { text: event.target.value },
                         })
                       }
@@ -946,7 +943,7 @@ export default function TemplatePlayground() {
                       type="color"
                       value={colors.accent}
                       onChange={(event) =>
-                        updateTemplateStyles({
+                        updateTemplateSettings({
                           colors: { accent: event.target.value },
                         })
                       }
@@ -959,7 +956,7 @@ export default function TemplatePlayground() {
                       type="color"
                       value={colors.muted}
                       onChange={(event) =>
-                        updateTemplateStyles({
+                        updateTemplateSettings({
                           colors: { muted: event.target.value },
                         })
                       }
@@ -978,7 +975,7 @@ export default function TemplatePlayground() {
                       step="0.05"
                       value={tokens.headerScale}
                       onChange={(event) =>
-                        updateTemplateStyles({
+                        updateTemplateSettings({
                           tokens: { headerScale: Number(event.target.value) },
                         })
                       }
@@ -994,7 +991,7 @@ export default function TemplatePlayground() {
                       step="0.05"
                       value={tokens.sectionTitleScale}
                       onChange={(event) =>
-                        updateTemplateStyles({
+                        updateTemplateSettings({
                           tokens: {
                             sectionTitleScale: Number(event.target.value),
                           },
@@ -1012,7 +1009,7 @@ export default function TemplatePlayground() {
                       step="0.05"
                       value={tokens.bodyScale}
                       onChange={(event) =>
-                        updateTemplateStyles({
+                        updateTemplateSettings({
                           tokens: { bodyScale: Number(event.target.value) },
                         })
                       }
@@ -1028,7 +1025,7 @@ export default function TemplatePlayground() {
                       step="0.05"
                       value={tokens.metaScale}
                       onChange={(event) =>
-                        updateTemplateStyles({
+                        updateTemplateSettings({
                           tokens: { metaScale: Number(event.target.value) },
                         })
                       }
@@ -1044,7 +1041,7 @@ export default function TemplatePlayground() {
                       step="0.05"
                       value={tokens.lineHeight}
                       onChange={(event) =>
-                        updateTemplateStyles({
+                        updateTemplateSettings({
                           tokens: { lineHeight: Number(event.target.value) },
                         })
                       }
@@ -1106,8 +1103,8 @@ export default function TemplatePlayground() {
                       <div>
                         <span className="font-medium">{section.label}</span>
                         <p className="mt-1 text-xs text-slate-400">
-                          Alignment: {section.alignment} · Title {section.titleFontSize}
-                          px · {section.subsections?.length ?? 0} subsections
+                          Alignment: {section.alignment} · Title {sectionTitleSize}px ·{" "}
+                          {section.subsections?.length ?? 0} subsections
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">

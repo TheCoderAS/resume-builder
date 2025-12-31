@@ -9,7 +9,6 @@ const DEFAULT_SECTION_VALUES = {
   showTitleDivider: true,
   showSectionDivider: true,
   alignment: "left",
-  titleFontSize: 14,
   titleFontWeight: "600",
   titleFontStyle: "normal",
 };
@@ -25,9 +24,10 @@ export default function SectionModal({
 
   useEffect(() => {
     if (!open) return;
+    const { titleFontSize: _unusedTitleFontSize, ...rest } = initialValues ?? {};
     setFormState({
       ...DEFAULT_SECTION_VALUES,
-      ...(initialValues ?? {}),
+      ...rest,
     });
     setError("");
   }, [open, initialValues]);
@@ -93,36 +93,21 @@ export default function SectionModal({
             </select>
           </label>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-              <span>Title size</span>
-              <input
-                type="number"
-                min="10"
-                max="24"
-                value={formState.titleFontSize}
-                onChange={(event) =>
-                  updateField("titleFontSize", Number(event.target.value))
-                }
-                className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
-              <span>Title weight</span>
-              <select
-                value={formState.titleFontWeight}
-                onChange={(event) =>
-                  updateField("titleFontWeight", event.target.value)
-                }
-                className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
-              >
-                <option value="400">Regular</option>
-                <option value="500">Medium</option>
-                <option value="600">Semi-bold</option>
-                <option value="700">Bold</option>
-              </select>
-            </label>
-          </div>
+          <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
+            <span>Title weight</span>
+            <select
+              value={formState.titleFontWeight}
+              onChange={(event) =>
+                updateField("titleFontWeight", event.target.value)
+              }
+              className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100"
+            >
+              <option value="400">Regular</option>
+              <option value="500">Medium</option>
+              <option value="600">Semi-bold</option>
+              <option value="700">Bold</option>
+            </select>
+          </label>
 
           <label className="flex flex-col gap-2 text-sm font-medium text-slate-200">
             <span>Title style</span>

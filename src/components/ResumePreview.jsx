@@ -1,25 +1,14 @@
 import { forwardRef } from "react";
-import { DEFAULT_TEMPLATE_STYLES, resolvePageSetup } from "../utils/resumePreview.js";
+import {
+  resolveTemplateSettings,
+  resolveTemplateStyles,
+} from "../utils/resumePreview.js";
 
 const SECTION_LABELS = {
   experience: "Experience",
   education: "Education",
   skills: "Skills",
 };
-
-const resolveStyles = (styles) => ({
-  ...DEFAULT_TEMPLATE_STYLES,
-  ...styles,
-  page: resolvePageSetup(styles?.page),
-  colors: {
-    ...DEFAULT_TEMPLATE_STYLES.colors,
-    ...(styles?.colors ?? {}),
-  },
-  tokens: {
-    ...DEFAULT_TEMPLATE_STYLES.tokens,
-    ...(styles?.tokens ?? {}),
-  },
-});
 
 const buildContactLine = (profile) =>
   [profile?.email, profile?.phone, profile?.location]
@@ -41,22 +30,26 @@ const ResumePreview = forwardRef(function ResumePreview(
     resumeData = {},
     sectionOrder = [],
     styles = {},
+    settings = {},
     visibleBlocks = {},
     ...rest
   },
   ref
 ) {
-  const resolvedStyles = resolveStyles(styles);
+  const resolvedStyles = resolveTemplateStyles(styles);
+  const resolvedSettings = resolveTemplateSettings(settings, styles);
   const {
-    colors,
     fontFamily,
     fontSize,
     spacing,
+    colors,
+    tokens,
+  } = resolvedSettings;
+  const {
     sectionLayout,
     headerAlignment,
     showHeaderDivider,
     showSectionDividers,
-    tokens,
     page,
   } = resolvedStyles;
 

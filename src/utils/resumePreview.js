@@ -13,21 +13,10 @@ export const PAGE_SIZE_OPTIONS = [
   { id: "Legal", label: "US Legal", width: 816, height: 1344 },
 ];
 
-export const DEFAULT_TEMPLATE_STYLES = {
+export const DEFAULT_TEMPLATE_SETTINGS = {
   fontFamily: "Inter",
   fontSize: 15,
   spacing: 18,
-  sectionLayout: "single",
-  headerAlignment: "left",
-  showHeaderDivider: true,
-  showSectionDividers: false,
-  page: {
-    size: "A4",
-    width: 794,
-    height: 1123,
-    paddingX: 48,
-    paddingY: 44,
-  },
   colors: {
     background: "#ffffff",
     text: "#0f172a",
@@ -43,6 +32,20 @@ export const DEFAULT_TEMPLATE_STYLES = {
   },
 };
 
+export const DEFAULT_TEMPLATE_STYLES = {
+  sectionLayout: "single",
+  headerAlignment: "left",
+  showHeaderDivider: true,
+  showSectionDividers: false,
+  page: {
+    size: "A4",
+    width: 794,
+    height: 1123,
+    paddingX: 48,
+    paddingY: 44,
+  },
+};
+
 export const resolvePageSetup = (page = {}) => {
   const base =
     PAGE_SIZE_OPTIONS.find((option) => option.id === page.size) ??
@@ -55,3 +58,38 @@ export const resolvePageSetup = (page = {}) => {
     paddingY: page.paddingY ?? DEFAULT_TEMPLATE_STYLES.page.paddingY,
   };
 };
+
+const pickLegacySettings = (styles = {}) => ({
+  ...(styles.fontFamily ? { fontFamily: styles.fontFamily } : {}),
+  ...(typeof styles.fontSize === "number" ? { fontSize: styles.fontSize } : {}),
+  ...(typeof styles.spacing === "number" ? { spacing: styles.spacing } : {}),
+});
+
+export const resolveTemplateSettings = (settings = {}, legacyStyles = {}) => {
+  const legacy = pickLegacySettings(legacyStyles ?? {});
+  return {
+    ...DEFAULT_TEMPLATE_SETTINGS,
+    ...legacy,
+    ...settings,
+    colors: {
+      ...DEFAULT_TEMPLATE_SETTINGS.colors,
+      ...(legacyStyles?.colors ?? {}),
+      ...(settings?.colors ?? {}),
+    },
+    tokens: {
+      ...DEFAULT_TEMPLATE_SETTINGS.tokens,
+      ...(legacyStyles?.tokens ?? {}),
+      ...(settings?.tokens ?? {}),
+    },
+  };
+};
+
+export const resolveTemplateStyles = (styles = {}, layout = {}) => ({
+  ...DEFAULT_TEMPLATE_STYLES,
+  ...styles,
+  page: resolvePageSetup(styles?.page),
+  sectionLayout:
+    layout?.sectionLayout ??
+    styles?.sectionLayout ??
+    DEFAULT_TEMPLATE_STYLES.sectionLayout,
+});

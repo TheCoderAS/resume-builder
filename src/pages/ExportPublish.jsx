@@ -16,8 +16,10 @@ import VisibilityToggle from "../components/VisibilityToggle.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
 import {
+  DEFAULT_TEMPLATE_SETTINGS,
   DEFAULT_TEMPLATE_STYLES,
   resolvePageSetup,
+  resolveTemplateSettings,
 } from "../utils/resumePreview.js";
 
 const EMPTY_RESUME = {
@@ -36,6 +38,7 @@ const EMPTY_RESUME = {
   },
   sectionOrder: [],
   templateStyles: DEFAULT_TEMPLATE_STYLES,
+  templateSettings: DEFAULT_TEMPLATE_SETTINGS,
   visibility: { isPublic: false },
   publicSlug: "",
 };
@@ -87,6 +90,10 @@ export default function ExportPublish() {
             },
             templateStyles:
               data.templateStyles ?? DEFAULT_TEMPLATE_STYLES,
+            templateSettings: resolveTemplateSettings(
+              data.templateSettings ?? {},
+              data.templateStyles ?? {}
+            ),
           }));
         }
       } catch (error) {
@@ -357,6 +364,7 @@ export default function ExportPublish() {
                       resumeData={resume.resumeData}
                       sectionOrder={resume.sectionOrder}
                       styles={resume.templateStyles}
+                      settings={resume.templateSettings}
                     />
                   </PagePreviewFrame>
                 </div>

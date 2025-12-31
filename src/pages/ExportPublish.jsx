@@ -451,7 +451,7 @@ export default function ExportPublish() {
           <div className="flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-800 bg-slate-950">
             <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                <p className="text-xs uppercase tracking-[0.1em] text-slate-400">
                   PDF preview
                 </p>
                 <h2 className="text-lg font-semibold text-slate-100">

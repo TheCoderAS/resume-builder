@@ -527,7 +527,7 @@ export default function ResumeEditor() {
                   description="Templates define the sections, styling, and layout for your resume."
                 />
                 <div className="mt-6 grid gap-4 rounded-2xl border border-slate-800 bg-slate-950/70 px-5 py-4 text-sm text-slate-200">
-                  <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">
                     Template
                     <select
                       value={templateId ?? ""}
@@ -557,7 +557,7 @@ export default function ResumeEditor() {
                   </label>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                      <p className="text-xs uppercase tracking-[0.1em] text-slate-400">
                         Selected template
                       </p>
                       <p className="text-base font-semibold text-slate-100">
@@ -741,7 +741,7 @@ export default function ResumeEditor() {
 
           <aside className="flex flex-col gap-6">
             <div className="app-card">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-300">
                 Live preview
               </h3>
               <div className="mt-4">

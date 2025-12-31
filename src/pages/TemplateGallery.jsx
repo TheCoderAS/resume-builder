@@ -359,7 +359,7 @@ export default function TemplateGallery() {
                     className="relative flex h-full flex-col gap-4 overflow-hidden rounded-[28px] border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-5 text-left shadow-[0_18px_40px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-emerald-400/60"
                   >
                     {isAdminTemplate ? (
-                      <div className="absolute right-5 top-5 flex items-center gap-1 rounded-full border border-emerald-400/60 bg-emerald-400/10 px-2 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-emerald-100">
+                      <div className="absolute right-5 top-5 flex items-center gap-1 rounded-full border border-emerald-400/60 bg-emerald-400/10 px-2 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-emerald-100">
                         <FiStar className="h-3 w-3" />
                         Featured
                       </div>
@@ -455,7 +455,7 @@ export default function TemplateGallery() {
                           {template.name ?? "Untitled template"}
                         </h2>
                         {isDefaultTemplate ? (
-                          <span className="mt-2 inline-flex items-center rounded-full border border-emerald-400/50 bg-emerald-400/10 px-2 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-emerald-100">
+                          <span className="mt-2 inline-flex items-center rounded-full border border-emerald-400/50 bg-emerald-400/10 px-2 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-emerald-100">
                             Default
                           </span>
                         ) : null}
@@ -465,7 +465,7 @@ export default function TemplateGallery() {
                       </div>
                       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
                         <span>{usage.toLocaleString()} uses</span>
-                        <span className="rounded-full border border-slate-800 px-3 py-1 text-[0.6rem] uppercase tracking-[0.3em] text-slate-400">
+                        <span className="rounded-full border border-slate-800 px-3 py-1 text-[0.6rem] uppercase tracking-[0.1em] text-slate-400">
                           {status}
                         </span>
                       </div>

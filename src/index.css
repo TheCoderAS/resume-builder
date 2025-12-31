@@ -74,4 +74,44 @@
   .app-pill {
     @apply rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide transition;
   }
+
+  .ui-scrollbar {
+    scrollbar-width: none;
+    scrollbar-color: transparent transparent;
+  }
+
+  .ui-scrollbar::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  .ui-scrollbar::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .ui-scrollbar::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  .ui-scrollbar::-webkit-scrollbar-track-piece {
+    background: transparent;
+  }
+
+  .ui-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .ui-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.45);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  .ui-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.7);
+    background-clip: content-box;
+  }
 }

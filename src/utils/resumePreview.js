@@ -7,6 +7,13 @@ export const FONT_OPTIONS = [
   "Times New Roman",
 ];
 
+export const FONT_SIZE_OPTIONS = [
+  { id: "header", label: "Header scale" },
+  { id: "sectionTitle", label: "Section title scale" },
+  { id: "body", label: "Body scale" },
+  { id: "meta", label: "Meta scale" },
+];
+
 export const PAGE_SIZE_OPTIONS = [
   { id: "A4", label: "A4", width: 794, height: 1123 },
   { id: "Letter", label: "US Letter", width: 816, height: 1056 },
@@ -22,6 +29,7 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
     text: "#0f172a",
     accent: "#10b981",
     muted: "#475569",
+    divider: "#e2e8f0",
   },
   tokens: {
     headerScale: 1.8,

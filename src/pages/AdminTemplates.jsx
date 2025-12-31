@@ -360,7 +360,7 @@ export default function AdminTemplates() {
                       />
                     </div>
                   ) : (
-                    <div className="flex h-40 items-center justify-center rounded-2xl border border-dashed border-slate-700 text-xs uppercase tracking-[0.3em] text-slate-500">
+                    <div className="flex h-40 items-center justify-center rounded-2xl border border-dashed border-slate-700 text-xs uppercase tracking-[0.1em] text-slate-500">
                       No thumbnail
                     </div>
                   )}

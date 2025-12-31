@@ -94,12 +94,18 @@ const SAMPLE_RESUME_DATA = {
   ],
 };
 
-const SAMPLE_SECTION_ORDER = ["experience", "skills", "education"];
-const SECTION_OPTIONS = [
-  { id: "experience", label: "Experience" },
-  { id: "skills", label: "Skills" },
-  { id: "education", label: "Education" },
-];
+const formatSectionLabel = (sectionId) =>
+  sectionId
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const createSectionId = (label) =>
+  label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
 
 export default function TemplatePlayground() {
   const { user } = useAuth();
@@ -114,7 +120,8 @@ export default function TemplatePlayground() {
     list: true,
     columns: true,
   });
-  const [sectionOrder, setSectionOrder] = useState(SAMPLE_SECTION_ORDER);
+  const [sections, setSections] = useState([]);
+  const [newSectionLabel, setNewSectionLabel] = useState("");
   const [templateId, setTemplateId] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -138,6 +145,10 @@ export default function TemplatePlayground() {
   const enabledBlocks = useMemo(
     () => BLOCK_OPTIONS.filter((block) => blocks[block.id]).map((block) => block.id),
     [blocks]
+  );
+  const sectionOrder = useMemo(
+    () => sections.map((section) => section.id),
+    [sections]
   );
 
   const hydrateTemplateStyles = (template = {}) => {
@@ -192,16 +203,25 @@ export default function TemplatePlayground() {
           {}
         );
         setBlocks(nextBlocks);
-        const savedOrder = data.layout?.sectionOrder ?? SAMPLE_SECTION_ORDER;
-        const normalizedOrder = [
-          ...new Set(savedOrder.filter((section) =>
-            SECTION_OPTIONS.some((option) => option.id === section)
-          )),
-          ...SECTION_OPTIONS.map((option) => option.id).filter(
-            (section) => !savedOrder.includes(section)
-          ),
-        ];
-        setSectionOrder(normalizedOrder);
+        const savedSections = data.layout?.sections;
+        if (Array.isArray(savedSections) && savedSections.length > 0) {
+          setSections(
+            savedSections
+              .filter((section) => section?.id)
+              .map((section) => ({
+                id: section.id,
+                label: section.label ?? formatSectionLabel(section.id),
+              }))
+          );
+        } else {
+          const savedOrder = data.layout?.sectionOrder ?? [];
+          setSections(
+            Array.from(new Set(savedOrder)).map((sectionId) => ({
+              id: sectionId,
+              label: formatSectionLabel(sectionId),
+            }))
+          );
+        }
       } catch (error) {
         setErrorMessage("Unable to load that template.");
       } finally {
@@ -411,6 +431,9 @@ export default function TemplatePlayground() {
   };
 
   const validateTemplate = () => {
+    if (sections.length === 0) {
+      return "";
+    }
     if (!blocks.header) {
       return "Templates must include a header block.";
     }
@@ -421,8 +444,8 @@ export default function TemplatePlayground() {
   };
 
   const moveSection = (sectionId, direction) => {
-    setSectionOrder((prev) => {
-      const index = prev.indexOf(sectionId);
+    setSections((prev) => {
+      const index = prev.findIndex((section) => section.id === sectionId);
       if (index === -1) return prev;
       const nextIndex = direction === "up" ? index - 1 : index + 1;
       if (nextIndex < 0 || nextIndex >= prev.length) return prev;
@@ -430,6 +453,27 @@ export default function TemplatePlayground() {
       [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
       return next;
     });
+  };
+
+  const handleAddSection = () => {
+    const trimmedLabel = newSectionLabel.trim();
+    if (!trimmedLabel) return;
+    const baseId = createSectionId(trimmedLabel);
+    if (!baseId) return;
+    setSections((prev) => {
+      let uniqueId = baseId;
+      let counter = 2;
+      while (prev.some((section) => section.id === uniqueId)) {
+        uniqueId = `${baseId}-${counter}`;
+        counter += 1;
+      }
+      return [...prev, { id: uniqueId, label: trimmedLabel }];
+    });
+    setNewSectionLabel("");
+  };
+
+  const handleRemoveSection = (sectionId) => {
+    setSections((prev) => prev.filter((section) => section.id !== sectionId));
   };
 
   const handleSave = async () => {
@@ -461,6 +505,7 @@ export default function TemplatePlayground() {
           blocks: enabledBlocks,
           sectionLayout,
           sectionOrder,
+          sections,
         },
         styles: {
           fontFamily,
@@ -896,20 +941,44 @@ export default function TemplatePlayground() {
                 Adjust the order used in the preview and when applying the template.
               </p>
               <div className="mt-4 grid gap-3">
-                {sectionOrder.map((sectionId, index) => {
-                  const section =
-                    SECTION_OPTIONS.find((item) => item.id === sectionId) ??
-                    SECTION_OPTIONS[0];
-                  return (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newSectionLabel}
+                    onChange={(event) => setNewSectionLabel(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        handleAddSection();
+                      }
+                    }}
+                    placeholder="Add a section label"
+                    className="flex-1 rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddSection}
+                    className="rounded-full border border-slate-700 px-4 py-2 text-xs text-slate-200"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                {sections.length === 0 ? (
+                  <p className="text-xs text-slate-400">
+                    No sections yet. Add one when you are ready.
+                  </p>
+                ) : (
+                  sections.map((section, index) => (
                     <div
-                      key={sectionId}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm text-slate-200"
+                      key={section.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm text-slate-200"
                     >
                       <span>{section.label}</span>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => moveSection(sectionId, "up")}
+                          onClick={() => moveSection(section.id, "up")}
                           disabled={index === 0}
                           className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 disabled:opacity-40"
                         >
@@ -917,16 +986,23 @@ export default function TemplatePlayground() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => moveSection(sectionId, "down")}
-                          disabled={index === sectionOrder.length - 1}
+                          onClick={() => moveSection(section.id, "down")}
+                          disabled={index === sections.length - 1}
                           className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 disabled:opacity-40"
                         >
                           Down
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSection(section.id)}
+                          className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200"
+                        >
+                          Remove
+                        </button>
                       </div>
                     </div>
-                  );
-                })}
+                  ))
+                )}
               </div>
             </div>
 
@@ -935,7 +1011,7 @@ export default function TemplatePlayground() {
                 Save template
               </h3>
               <p className="mt-2 text-xs text-slate-400">
-                Templates must include a header and at least one section.
+                Templates can start empty and be updated later.
               </p>
               {errorMessage ? (
                 <div className="mt-3">

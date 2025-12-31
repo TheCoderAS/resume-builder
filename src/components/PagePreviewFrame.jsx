@@ -22,6 +22,7 @@ export default function PagePreviewFrame({ styles, className = "", children }) {
     return () => observer.disconnect();
   }, [page.width]);
 
+  const scaledWidth = Math.round(page.width * scale);
   const scaledHeight = Math.round(page.height * scale);
 
   return (
@@ -30,15 +31,17 @@ export default function PagePreviewFrame({ styles, className = "", children }) {
       className={`flex justify-center overflow-auto ${className}`}
       style={{ height: `${scaledHeight}px`, maxWidth: "100%" }}
     >
-      <div
-        style={{
-          width: `${page.width}px`,
-          height: `${page.height}px`,
-          transform: `scale(${scale})`,
-          transformOrigin: "top center",
-        }}
-      >
-        {children}
+      <div style={{ width: `${scaledWidth}px`, height: `${scaledHeight}px` }}>
+        <div
+          style={{
+            width: `${page.width}px`,
+            height: `${page.height}px`,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

@@ -4,8 +4,11 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
+  query,
   serverTimestamp,
   setDoc,
+  where,
 } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
@@ -170,6 +173,8 @@ export default function ResumeEditor() {
     SECTION_CONFIGS.map((section) => section.key)
   );
   const [templateStyles, setTemplateStyles] = useState(DEFAULT_TEMPLATE_STYLES);
+  const [templates, setTemplates] = useState([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const lastAutosaveStatus = useRef("idle");
   const resolvedPage = resolvePageSetup(templateStyles.page);
@@ -265,6 +270,9 @@ export default function ResumeEditor() {
   useEffect(() => {
     if (!templateId) {
       setTemplateBlocks(DEFAULT_BLOCKS);
+      setTemplateName("");
+      setTemplateStyles(DEFAULT_TEMPLATE_STYLES);
+      setSectionOrder(SECTION_CONFIGS.map((section) => section.key));
       return;
     }
     let isMounted = true;
@@ -304,6 +312,53 @@ export default function ResumeEditor() {
       isMounted = false;
     };
   }, [templateId]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadTemplates = async () => {
+      setTemplatesLoading(true);
+      try {
+        const templatesRef = collection(db, "templates");
+        const publicQuery = query(
+          templatesRef,
+          where("type", "==", "admin"),
+          where("status", "==", "active")
+        );
+        const [publicSnapshot, userSnapshot] = await Promise.all([
+          getDocs(publicQuery),
+          user
+            ? getDocs(query(templatesRef, where("ownerId", "==", user.uid)))
+            : Promise.resolve(null),
+        ]);
+        const publicTemplates = publicSnapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        }));
+        const userTemplates = userSnapshot
+          ? userSnapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            }))
+          : [];
+        if (isMounted) {
+          setTemplates([...publicTemplates, ...userTemplates]);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setTemplates([]);
+        }
+      } finally {
+        if (isMounted) {
+          setTemplatesLoading(false);
+        }
+      }
+    };
+
+    loadTemplates();
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!user || !resumeId || initialSave.current) return;
@@ -463,13 +518,36 @@ export default function ResumeEditor() {
                 <SectionHeader
                   title="Select a template"
                   description="Templates define the sections, styling, and layout for your resume."
-                  action={
-                    <Button variant="ghost" onClick={() => navigate("/app/templates")}>
-                      Browse templates
-                    </Button>
-                  }
                 />
-                <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 px-5 py-4 text-sm text-slate-200">
+                <div className="mt-6 grid gap-4 rounded-2xl border border-slate-800 bg-slate-950/70 px-5 py-4 text-sm text-slate-200">
+                  <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    Template
+                    <select
+                      value={templateId ?? ""}
+                      onChange={(event) =>
+                        setTemplateId(event.target.value || null)
+                      }
+                      disabled={templatesLoading || templates.length === 0}
+                      className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm font-medium text-slate-100"
+                    >
+                      {templatesLoading ? (
+                        <option value="">Loading templates...</option>
+                      ) : templates.length === 0 ? (
+                        <option value="">No templates available</option>
+                      ) : (
+                        <>
+                          <option value="" disabled>
+                            Select a template
+                          </option>
+                          {templates.map((template) => (
+                            <option key={template.id} value={template.id}>
+                              {template.name ?? "Untitled template"}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                  </label>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
@@ -489,9 +567,6 @@ export default function ResumeEditor() {
                         </p>
                       )}
                     </div>
-                    <Button onClick={() => navigate("/app/templates")}>
-                      {templateName ? "Change template" : "Choose template"}
-                    </Button>
                   </div>
                 </div>
               </section>
@@ -631,9 +706,6 @@ export default function ResumeEditor() {
                       ? "Public resumes are visible on your shareable link."
                       : "Your resume stays private until you publish it."}
                   </div>
-                  <Button onClick={() => navigate("/app/export")}>
-                    Go to export & publish
-                  </Button>
                 </div>
               </section>
             ) : null}
@@ -661,41 +733,6 @@ export default function ResumeEditor() {
           </div>
 
           <aside className="flex flex-col gap-6">
-            <div className="app-card">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
-                Template details
-              </h3>
-              <div className="mt-4 flex flex-col gap-3 text-sm text-slate-200">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-                    Name
-                  </p>
-                  <p className="text-base font-semibold text-slate-100">
-                    {templateName || "No template selected"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-                    Page size
-                  </p>
-                  <p>
-                    {resolvedPage.width} × {resolvedPage.height}px
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-                    Typography
-                  </p>
-                  <p>
-                    {templateStyles.fontFamily} · {templateStyles.fontSize}px
-                  </p>
-                </div>
-                <Button variant="ghost" onClick={() => navigate("/app/templates")}>
-                  Change template
-                </Button>
-              </div>
-            </div>
-
             <div className="app-card">
               <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
                 Live preview

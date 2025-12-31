@@ -733,15 +733,15 @@ export default function TemplatePlayground() {
         </header>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="app-card">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-lg font-semibold text-slate-100">Canvas</h2>
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-slate-400">Preview</span>
               <span className="text-xs text-slate-400">
                 {resolvedPage.width} × {resolvedPage.height}px
               </span>
             </div>
-            <div className="mt-4 overflow-auto rounded-[24px] border border-slate-800 bg-white">
-              <PagePreviewFrame styles={templateStyles} className="w-full">
+            <div className="mt-2 overflow-auto rounded-[24px] border border-slate-800 bg-white">
+              <PagePreviewFrame styles={templateStyles}>
                 <ResumePreview
                   profile={SAMPLE_PROFILE}
                   resumeData={SAMPLE_RESUME_DATA}
@@ -763,7 +763,7 @@ export default function TemplatePlayground() {
 
           <aside className="flex flex-col gap-4">
             <div className="app-card">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-300">
                 Inspector
               </h3>
               <div className="mt-4 flex flex-col gap-4">
@@ -1076,7 +1076,7 @@ export default function TemplatePlayground() {
             </div>
 
             <div className="app-card">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-300">
                 Canvas blocks
               </h3>
               <div className="mt-4 grid gap-3">
@@ -1098,7 +1098,7 @@ export default function TemplatePlayground() {
             </div>
 
             <div className="app-card">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-300">
                 Section order
               </h3>
               <p className="mt-2 text-xs text-slate-400">
@@ -1219,7 +1219,7 @@ export default function TemplatePlayground() {
             </div>
 
             <div className="app-card">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-300">
                 Save template
               </h3>
               <p className="mt-2 text-xs text-slate-400">

@@ -1,26 +1,32 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { resolvePageSetup } from "../utils/resumePreview.js";
 
 export default function PagePreviewFrame({ styles, className = "", children }) {
   const containerRef = useRef(null);
   const page = useMemo(() => resolvePageSetup(styles?.page), [styles]);
   const [scale, setScale] = useState(1);
+  const [isReady, setIsReady] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!containerRef.current) return;
+    const target =
+      containerRef.current.parentElement ?? containerRef.current;
     const updateScale = () => {
       if (!containerRef.current) return;
-      const { clientWidth } = containerRef.current;
-      if (!clientWidth) return;
-      const nextScale = Math.min(clientWidth / page.width, 1);
-      setScale(Number.isFinite(nextScale) ? nextScale : 1);
+      const availableWidth =
+        target.clientWidth || target.getBoundingClientRect().width;
+      if (!availableWidth) return;
+      const nextScale = Math.min(availableWidth / page.width, 1);
+      const normalized = Number.isFinite(nextScale) ? nextScale : 1;
+      setScale(normalized);
+      if (!isReady) setIsReady(true);
     };
 
     updateScale();
     const observer = new ResizeObserver(updateScale);
-    observer.observe(containerRef.current);
+    observer.observe(target);
     return () => observer.disconnect();
-  }, [page.width]);
+  }, [page.width, isReady]);
 
   const scaledWidth = Math.round(page.width * scale);
   const scaledHeight = Math.round(page.height * scale);
@@ -28,21 +34,28 @@ export default function PagePreviewFrame({ styles, className = "", children }) {
   return (
     <div
       ref={containerRef}
-      className={`flex justify-center overflow-auto ${className}`}
-      style={{ height: `${scaledHeight}px`, maxWidth: "100%" }}
+      className={`w-full min-w-0 ${className}`}
+      style={{ maxWidth: "100%" }}
     >
-      <div style={{ width: `${scaledWidth}px`, height: `${scaledHeight}px` }}>
-        <div
-          style={{
-            width: `${page.width}px`,
-            height: `${page.height}px`,
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-          }}
-        >
-          {children}
+      {isReady && <div
+        className="flex justify-center overflow-auto"
+        style={{ height: `${scaledHeight}px`, maxWidth: "100%" }}
+      >
+        <div style={{ width: `${scaledWidth}px`, height: `${scaledHeight}px` }}>
+          {isReady ? (
+            <div
+              style={{
+                width: `${page.width}px`,
+                height: `${page.height}px`,
+                transform: `scale(${scale})`,
+                transformOrigin: "top left",
+              }}
+            >
+              {children}
+            </div>
+          ) : null}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

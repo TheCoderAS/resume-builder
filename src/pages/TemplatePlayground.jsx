@@ -15,6 +15,8 @@ import Input from "../components/Input.jsx";
 import PagePreviewFrame from "../components/PagePreviewFrame.jsx";
 import Snackbar from "../components/Snackbar.jsx";
 import ResumePreview from "../components/ResumePreview.jsx";
+import SectionModal from "../components/SectionModal.jsx";
+import SubsectionModal from "../components/SubsectionModal.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
 import {
@@ -121,7 +123,11 @@ export default function TemplatePlayground() {
     columns: true,
   });
   const [sections, setSections] = useState([]);
-  const [newSectionLabel, setNewSectionLabel] = useState("");
+  const [activeSection, setActiveSection] = useState(null);
+  const [activeSectionId, setActiveSectionId] = useState(null);
+  const [activeSubsection, setActiveSubsection] = useState(null);
+  const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
+  const [isSubsectionModalOpen, setIsSubsectionModalOpen] = useState(false);
   const [templateId, setTemplateId] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -150,6 +156,44 @@ export default function TemplatePlayground() {
     () => sections.map((section) => section.id),
     [sections]
   );
+
+  const buildSectionDefaults = (label = "", overrides = {}) => ({
+    id: "",
+    label,
+    showTitleDivider: true,
+    showSectionDivider: true,
+    alignment: "left",
+    titleFontSize: fontSize,
+    titleFontWeight: "600",
+    titleFontStyle: "normal",
+    subsections: [],
+    ...overrides,
+  });
+
+  const normalizeSubsection = (subsection, index) => ({
+    id: subsection?.id ?? `subsection-${index + 1}`,
+    type: subsection?.type ?? "list",
+    columns: subsection?.columns ?? 1,
+    columnOrder: subsection?.columnOrder ?? "left-to-right",
+    showTimeline: subsection?.showTimeline ?? false,
+    timelineStyle: subsection?.timelineStyle ?? "line",
+    timelinePosition: subsection?.timelinePosition ?? "left",
+  });
+
+  const normalizeSection = (section, fallbackLabel = "") =>
+    buildSectionDefaults(fallbackLabel, {
+      id: section?.id ?? createSectionId(fallbackLabel),
+      label: section?.label ?? fallbackLabel,
+      showTitleDivider: section?.showTitleDivider ?? true,
+      showSectionDivider: section?.showSectionDivider ?? true,
+      alignment: section?.alignment ?? "left",
+      titleFontSize: section?.titleFontSize ?? fontSize,
+      titleFontWeight: section?.titleFontWeight ?? "600",
+      titleFontStyle: section?.titleFontStyle ?? "normal",
+      subsections: Array.isArray(section?.subsections)
+        ? section.subsections.map(normalizeSubsection)
+        : [],
+    });
 
   const hydrateTemplateStyles = (template = {}) => {
     const styles = template.styles ?? {};
@@ -208,18 +252,16 @@ export default function TemplatePlayground() {
           setSections(
             savedSections
               .filter((section) => section?.id)
-              .map((section) => ({
-                id: section.id,
-                label: section.label ?? formatSectionLabel(section.id),
-              }))
+              .map((section) =>
+                normalizeSection(section, formatSectionLabel(section.id))
+              )
           );
         } else {
           const savedOrder = data.layout?.sectionOrder ?? [];
           setSections(
-            Array.from(new Set(savedOrder)).map((sectionId) => ({
-              id: sectionId,
-              label: formatSectionLabel(sectionId),
-            }))
+            Array.from(new Set(savedOrder)).map((sectionId) =>
+              normalizeSection({ id: sectionId }, formatSectionLabel(sectionId))
+            )
           );
         }
       } catch (error) {
@@ -456,24 +498,126 @@ export default function TemplatePlayground() {
   };
 
   const handleAddSection = () => {
-    const trimmedLabel = newSectionLabel.trim();
-    if (!trimmedLabel) return;
-    const baseId = createSectionId(trimmedLabel);
-    if (!baseId) return;
-    setSections((prev) => {
-      let uniqueId = baseId;
-      let counter = 2;
-      while (prev.some((section) => section.id === uniqueId)) {
-        uniqueId = `${baseId}-${counter}`;
-        counter += 1;
-      }
-      return [...prev, { id: uniqueId, label: trimmedLabel }];
-    });
-    setNewSectionLabel("");
+    setActiveSection(buildSectionDefaults());
+    setIsSectionModalOpen(true);
   };
 
   const handleRemoveSection = (sectionId) => {
     setSections((prev) => prev.filter((section) => section.id !== sectionId));
+  };
+
+  const handleEditSection = (section) => {
+    setActiveSection(section);
+    setIsSectionModalOpen(true);
+  };
+
+  const handleSaveSection = (sectionData) => {
+    const trimmedLabel = sectionData.label.trim();
+    if (!trimmedLabel) {
+      return;
+    }
+    if (sectionData.id) {
+      setSections((prev) =>
+        prev.map((section) =>
+          section.id === sectionData.id
+            ? {
+                ...section,
+                ...sectionData,
+                label: trimmedLabel,
+              }
+            : section
+        )
+      );
+    } else {
+      const baseId = createSectionId(trimmedLabel);
+      if (!baseId) return;
+      setSections((prev) => {
+        let uniqueId = baseId;
+        let counter = 2;
+        while (prev.some((section) => section.id === uniqueId)) {
+          uniqueId = `${baseId}-${counter}`;
+          counter += 1;
+        }
+        return [
+          ...prev,
+          {
+            ...buildSectionDefaults(trimmedLabel, sectionData),
+            id: uniqueId,
+            label: trimmedLabel,
+          },
+        ];
+      });
+    }
+    setIsSectionModalOpen(false);
+    setActiveSection(null);
+  };
+
+  const handleAddSubsection = (sectionId) => {
+    setActiveSectionId(sectionId);
+    setActiveSubsection({
+      type: "list",
+      columns: 1,
+      columnOrder: "left-to-right",
+      showTimeline: false,
+      timelineStyle: "line",
+      timelinePosition: "left",
+    });
+    setIsSubsectionModalOpen(true);
+  };
+
+  const handleEditSubsection = (sectionId, subsection) => {
+    setActiveSectionId(sectionId);
+    setActiveSubsection(subsection);
+    setIsSubsectionModalOpen(true);
+  };
+
+  const handleRemoveSubsection = (sectionId, subsectionId) => {
+    setSections((prev) =>
+      prev.map((section) =>
+        section.id === sectionId
+          ? {
+              ...section,
+              subsections: section.subsections.filter(
+                (subsection) => subsection.id !== subsectionId
+              ),
+            }
+          : section
+      )
+    );
+  };
+
+  const handleSaveSubsection = (subsectionData) => {
+    if (!activeSectionId) return;
+    setSections((prev) =>
+      prev.map((section) => {
+        if (section.id !== activeSectionId) return section;
+        const subsections = section.subsections ?? [];
+        if (subsectionData.id) {
+          return {
+            ...section,
+            subsections: subsections.map((subsection) =>
+              subsection.id === subsectionData.id
+                ? { ...subsection, ...subsectionData }
+                : subsection
+            ),
+          };
+        }
+        const newSubsectionId = `subsection-${subsections.length + 1}`;
+        return {
+          ...section,
+          subsections: [
+            ...subsections,
+            {
+              ...subsectionData,
+              id: newSubsectionId,
+            },
+          ],
+        };
+      })
+    );
+    setIsSubsectionModalOpen(false);
+    setActiveSectionId(null);
+    setActiveSubsection(null);
   };
 
   const handleSave = async () => {
@@ -941,28 +1085,13 @@ export default function TemplatePlayground() {
                 Adjust the order used in the preview and when applying the template.
               </p>
               <div className="mt-4 grid gap-3">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={newSectionLabel}
-                    onChange={(event) => setNewSectionLabel(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        handleAddSection();
-                      }
-                    }}
-                    placeholder="Add a section label"
-                    className="flex-1 rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-100"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddSection}
-                    className="rounded-full border border-slate-700 px-4 py-2 text-xs text-slate-200"
-                  >
-                    Add
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleAddSection}
+                  className="rounded-full border border-slate-700 px-4 py-2 text-xs text-slate-200"
+                >
+                  Add section
+                </button>
 
                 {sections.length === 0 ? (
                   <p className="text-xs text-slate-400">
@@ -974,8 +1103,28 @@ export default function TemplatePlayground() {
                       key={section.id}
                       className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm text-slate-200"
                     >
-                      <span>{section.label}</span>
-                      <div className="flex items-center gap-2">
+                      <div>
+                        <span className="font-medium">{section.label}</span>
+                        <p className="mt-1 text-xs text-slate-400">
+                          Alignment: {section.alignment} · Title {section.titleFontSize}
+                          px · {section.subsections?.length ?? 0} subsections
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEditSection(section)}
+                          className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddSubsection(section.id)}
+                          className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200"
+                        >
+                          Add subsection
+                        </button>
                         <button
                           type="button"
                           onClick={() => moveSection(section.id, "up")}
@@ -1000,6 +1149,49 @@ export default function TemplatePlayground() {
                           Remove
                         </button>
                       </div>
+                      {section.subsections?.length ? (
+                        <div className="mt-3 w-full border-t border-slate-800 pt-3 text-xs text-slate-300">
+                          <ul className="grid gap-2">
+                            {section.subsections.map((subsection) => (
+                              <li
+                                key={subsection.id}
+                                className="flex flex-wrap items-center justify-between gap-2"
+                              >
+                                <span>
+                                  {subsection.type} · {subsection.columns} col ·{" "}
+                                  {subsection.columnOrder}
+                                  {subsection.showTimeline
+                                    ? ` · ${subsection.timelineStyle} timeline`
+                                    : ""}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleEditSubsection(section.id, subsection)
+                                    }
+                                    className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleRemoveSubsection(
+                                        section.id,
+                                        subsection.id
+                                      )
+                                    }
+                                    className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
                     </div>
                   ))
                 )}
@@ -1037,6 +1229,25 @@ export default function TemplatePlayground() {
         message={toast?.message}
         variant={toast?.variant}
         onDismiss={() => setToast(null)}
+      />
+      <SectionModal
+        open={isSectionModalOpen}
+        initialValues={activeSection}
+        onCancel={() => {
+          setIsSectionModalOpen(false);
+          setActiveSection(null);
+        }}
+        onSave={handleSaveSection}
+      />
+      <SubsectionModal
+        open={isSubsectionModalOpen}
+        initialValues={activeSubsection}
+        onCancel={() => {
+          setIsSubsectionModalOpen(false);
+          setActiveSubsection(null);
+          setActiveSectionId(null);
+        }}
+        onSave={handleSaveSubsection}
       />
     </AppShell>
   );

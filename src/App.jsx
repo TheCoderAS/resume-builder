@@ -7,7 +7,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import ResumeEditor from "./pages/ResumeEditor.jsx";
 import Drafts from "./pages/Drafts.jsx";
 import TemplateGallery from "./pages/TemplateGallery.jsx";
-import TemplatePlayground from "./pages/TemplatePlayground.jsx";
+import TemplateBuilder from "./pages/TemplateBuilder.jsx";
 import ExportPublish from "./pages/ExportPublish.jsx";
 import PublicResume from "./pages/PublicResume.jsx";
 import AdminTemplates from "./pages/AdminTemplates.jsx";
@@ -57,10 +57,10 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/app/template-playground"
+        path="/app/template-builder"
         element={
           <ProtectedRoute>
-            <TemplatePlayground />
+            <TemplateBuilder />
           </ProtectedRoute>
         }
       />

@@ -45,6 +45,9 @@ export default function TemplateBuilder() {
   const [isLegacy, setIsLegacy] = useState(false);
   const [legacyJson, setLegacyJson] = useState("");
   const [formValues, setFormValues] = useState({});
+  const [expandedNodes, setExpandedNodes] = useState(new Set(["root"]));
+  const [fieldCreateSignal, setFieldCreateSignal] = useState(0);
+  const [isFieldManagerOpen, setIsFieldManagerOpen] = useState(true);
 
   const templateId = location.state?.templateId;
 
@@ -74,6 +77,8 @@ export default function TemplateBuilder() {
       setStatus("draft");
       setSaveError("");
       setFormValues({});
+      setExpandedNodes(new Set(["root"]));
+      setIsFieldManagerOpen(true);
     };
 
     const loadTemplate = async () => {
@@ -108,6 +113,8 @@ export default function TemplateBuilder() {
           setLoadNotice("");
           setIsLegacy(false);
           setLegacyJson("");
+          setExpandedNodes(new Set(["root"]));
+          setIsFieldManagerOpen(true);
         } else {
           setTemplate(baseTemplate);
           setSelectedNodeId("root");
@@ -119,6 +126,8 @@ export default function TemplateBuilder() {
           setLegacyJson(
             JSON.stringify(layout ?? data, null, 2)
           );
+          setExpandedNodes(new Set(["root"]));
+          setIsFieldManagerOpen(true);
         }
       } catch (error) {
         if (isMounted) {
@@ -152,6 +161,17 @@ export default function TemplateBuilder() {
     () => buildResumeJson(template, formValues),
     [template, formValues]
   );
+
+  const allNodeIds = useMemo(() => {
+    const ids = [];
+    const walk = (node) => {
+      if (!node) return;
+      ids.push(node.id);
+      node.children?.forEach(walk);
+    };
+    walk(template.layout.root);
+    return ids;
+  }, [template]);
 
   function updateNode(node, id, updater) {
     if (node.id === id) return updater(node);
@@ -198,6 +218,12 @@ export default function TemplateBuilder() {
         })),
       },
     }));
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      next.add(selectedNodeId);
+      next.add(newNode.id);
+      return next;
+    });
   }
 
   const handleSave = async () => {
@@ -255,6 +281,26 @@ export default function TemplateBuilder() {
   const handleDeleteNode = (nodeId) => {
     if (nodeId === "root") return;
 
+    const findNode = (node, id) => {
+      if (!node) return null;
+      if (node.id === id) return node;
+      for (const child of node.children || []) {
+        const found = findNode(child, id);
+        if (found) return found;
+      }
+      return null;
+    };
+
+    const collectIds = (node, ids) => {
+      if (!node) return;
+      ids.push(node.id);
+      node.children?.forEach((child) => collectIds(child, ids));
+    };
+
+    const removedNode = findNode(template.layout.root, nodeId);
+    const removedIds = [];
+    collectIds(removedNode, removedIds);
+
     setTemplate((prev) => {
       const nextRoot = removeNode(prev.layout.root, nodeId) || prev.layout.root;
       return {
@@ -265,6 +311,14 @@ export default function TemplateBuilder() {
         },
       };
     });
+
+    if (removedIds.length) {
+      setExpandedNodes((prev) => {
+        const next = new Set(prev);
+        removedIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    }
 
     setSelectedNodeId((current) => (current === nodeId ? "root" : current));
   };
@@ -286,6 +340,26 @@ export default function TemplateBuilder() {
         },
       },
     }));
+  };
+
+  const handleToggleNode = (nodeId) => {
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  };
+
+  const handleExpandAll = () => {
+    setExpandedNodes(new Set(allNodeIds));
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedNodes(new Set());
   };
 
   const json = isLegacy
@@ -373,13 +447,34 @@ export default function TemplateBuilder() {
             </div>
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-slate-200">Tree</h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-slate-200">Tree</h4>
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                <button
+                  type="button"
+                  onClick={handleExpandAll}
+                  className="rounded-full border border-slate-700 px-2 py-0.5 transition hover:border-indigo-400 hover:text-slate-100"
+                >
+                  Expand all
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCollapseAll}
+                  className="rounded-full border border-slate-700 px-2 py-0.5 transition hover:border-indigo-400 hover:text-slate-100"
+                >
+                  Collapse all
+                </button>
+              </div>
+            </div>
             <div className="mt-3 space-y-1">
               <Tree
                 node={template.layout.root}
                 selected={selectedNodeId}
                 onSelect={setSelectedNodeId}
                 onDelete={handleDeleteNode}
+                isOpen={expandedNodes.has(template.layout.root.id)}
+                onToggle={handleToggleNode}
+                expandedNodes={expandedNodes}
               />
             </div>
             {selectedNode && (
@@ -412,6 +507,24 @@ export default function TemplateBuilder() {
 
         <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 md:w-80 md:border-l md:rounded-l-none">
           <div className="flex h-full flex-col gap-4 overflow-auto pr-1">
+            <div className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-950/70 px-4 py-3">
+              <div>
+                <h4 className="text-sm font-semibold text-slate-200">Fields</h4>
+                <p className="text-xs text-slate-400">
+                  Create fields to bind to template nodes.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setFieldCreateSignal((prev) => prev + 1);
+                  setIsFieldManagerOpen(true);
+                }}
+                className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-indigo-400 hover:text-white"
+              >
+                Add field
+              </button>
+            </div>
             <div className="rounded-xl border border-slate-800/80 bg-slate-950/70 p-4">
               <NodeInspector
                 node={selectedNode}
@@ -420,8 +533,49 @@ export default function TemplateBuilder() {
                 onCreateField={handleCreateField}
               />
             </div>
-            <div className="rounded-xl border border-slate-800/80 bg-slate-950/70 p-4">
-              <FieldManager template={template} onUpdateTemplate={setTemplate} />
+            <div className="rounded-xl border border-slate-800/80 bg-slate-950/70">
+              <button
+                type="button"
+                onClick={() => setIsFieldManagerOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between px-4 py-3 text-left"
+                aria-expanded={isFieldManagerOpen}
+              >
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-200">
+                    Add Field
+                  </h4>
+                  <p className="text-xs text-slate-400">
+                    Create and manage data fields.
+                  </p>
+                </div>
+                <span
+                  className={`text-sm text-slate-400 transition-transform duration-200 ${
+                    isFieldManagerOpen ? "rotate-180" : ""
+                  }`}
+                  aria-hidden="true"
+                >
+                  ▾
+                </span>
+              </button>
+              <div
+                className={`overflow-hidden border-t border-slate-800/80 transition-[max-height,opacity] duration-300 ease-in-out ${
+                  isFieldManagerOpen
+                    ? "max-h-[900px] opacity-100"
+                    : "max-h-0 opacity-0"
+                }`}
+              >
+                <div
+                  className={`p-4 ${
+                    isFieldManagerOpen ? "" : "pointer-events-none"
+                  }`}
+                >
+                  <FieldManager
+                    template={template}
+                    onUpdateTemplate={setTemplate}
+                    createSignal={fieldCreateSignal}
+                  />
+                </div>
+              </div>
             </div>
             <div className="rounded-xl border border-slate-800/80 bg-slate-950/70 p-4">
               <h4 className="text-sm font-semibold text-slate-200">
@@ -450,8 +604,16 @@ export default function TemplateBuilder() {
   );
 }
 
-function Tree({ node, selected, onSelect, onDelete, depth = 0 }) {
-  const [isOpen, setIsOpen] = useState(true);
+function Tree({
+  node,
+  selected,
+  onSelect,
+  onDelete,
+  depth = 0,
+  isOpen,
+  onToggle,
+  expandedNodes,
+}) {
   const isSelected = selected === node.id;
   const canDelete = node.id !== "root";
   const hasChildren = Boolean(node.children?.length);
@@ -472,9 +634,7 @@ function Tree({ node, selected, onSelect, onDelete, depth = 0 }) {
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              if (hasChildren) {
-                setIsOpen((prev) => !prev);
-              }
+              if (hasChildren) onToggle?.(node.id);
             }}
             className={`flex h-5 w-5 items-center justify-center rounded-md border border-transparent text-[10px] text-slate-400 transition hover:border-slate-600 hover:text-slate-200 ${
               hasChildren ? "" : "opacity-0"
@@ -527,6 +687,9 @@ function Tree({ node, selected, onSelect, onDelete, depth = 0 }) {
               onSelect={onSelect}
               onDelete={onDelete}
               depth={depth + 1}
+              isOpen={expandedNodes?.has(child.id)}
+              onToggle={onToggle}
+              expandedNodes={expandedNodes}
             />
           ))
         : null}

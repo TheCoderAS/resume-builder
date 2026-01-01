@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const DEFAULT_FIELD = {
   label: "",
@@ -11,7 +11,11 @@ const DEFAULT_FIELD = {
   path: "",
 };
 
-export default function FieldManager({ template, onUpdateTemplate }) {
+export default function FieldManager({
+  template,
+  onUpdateTemplate,
+  createSignal,
+}) {
   const fields = template?.fields || {};
   const [editingFieldId, setEditingFieldId] = useState(null);
   const [draftId, setDraftId] = useState("");
@@ -42,6 +46,11 @@ export default function FieldManager({ template, onUpdateTemplate }) {
     setFormState(DEFAULT_FIELD);
     setError("");
   };
+
+  useEffect(() => {
+    if (createSignal === undefined) return;
+    startCreate();
+  }, [createSignal]);
 
   const startEdit = (fieldId) => {
     const field = fields[fieldId];

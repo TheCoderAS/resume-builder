@@ -26,6 +26,7 @@ export default function FieldManager({
   const [formState, setFormState] = useState(DEFAULT_FIELD);
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const lastCreateSignal = useRef(createSignal);
 
   const fieldEntries = useMemo(
@@ -130,15 +131,7 @@ export default function FieldManager({
     }
   };
 
-  const handleDelete = (fieldId) => {
-    const inUse = boundFieldIds.has(fieldId);
-    const confirmed = window.confirm(
-      inUse
-        ? "This field is used by one or more nodes. Delete anyway?"
-        : "Delete this field?"
-    );
-    if (!confirmed) return;
-
+  const executeDelete = (fieldId) => {
     onUpdateTemplate?.((prev) => {
       const nextFields = { ...(prev.fields || {}) };
       delete nextFields[fieldId];
@@ -157,6 +150,20 @@ export default function FieldManager({
       setFormState(DEFAULT_FIELD);
       setError("");
     }
+  };
+
+  const handleDelete = (fieldId) => {
+    setDeleteConfirm({ fieldId, inUse: boundFieldIds.has(fieldId) });
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteConfirm?.fieldId) return;
+    executeDelete(deleteConfirm.fieldId);
+    setDeleteConfirm(null);
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirm(null);
   };
 
   const handleCloseModal = () => {
@@ -306,6 +313,19 @@ export default function FieldManager({
           ) : null}
         </div>
       </PromptModal>
+      <PromptModal
+        open={Boolean(deleteConfirm)}
+        title="Delete field?"
+        description={
+          deleteConfirm?.inUse
+            ? "This field is used by one or more nodes. Deleting it will remove those bindings."
+            : "This field will be removed from the template."
+        }
+        confirmLabel="Delete field"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
     </div>
   );
 }

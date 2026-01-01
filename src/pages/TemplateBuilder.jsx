@@ -11,67 +11,26 @@ import { useLocation, useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
 import FieldManager from "../components/FieldManager.jsx";
 import NodeInspector from "../components/NodeInspector.jsx";
+import PromptModal from "../components/PromptModal.jsx";
 import { TemplatePreview } from "../components/TemplatePreview.jsx";
 import Snackbar from "../components/Snackbar.jsx";
+import BuilderHeader from "../components/template-builder/BuilderHeader.jsx";
+import BuilderNodePanel from "../components/template-builder/BuilderNodePanel.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
-import { FiTrash2 } from "react-icons/fi";
 import { db } from "../firebase.js";
 import { createEmptyTemplate } from "../templateModel.js";
 import { buildResumeJson } from "../utils/resumeData.js";
+import {
+  BASE_FONT_SIZE_OPTIONS,
+  CATEGORY_OPTIONS,
+  COLOR_TOKENS,
+  FONT_OPTIONS,
+  FONT_SIZE_TOKENS,
+  NODE_TYPES,
+  PAGE_OPTIONS,
+  STATUS_OPTIONS,
+} from "./templateBuilderOptions.js";
 
-const NODE_TYPES = [
-  "row",
-  "column",
-  "section",
-  "text",
-  "bullet-list",
-  "chip-list",
-  "repeat",
-];
-const STATUS_OPTIONS = [
-  { label: "Draft", value: "draft" },
-  { label: "Active", value: "active" },
-  { label: "Archived", value: "archived" },
-];
-const CATEGORY_OPTIONS = [
-  { label: "Professional", value: "Professional" },
-  { label: "Creative", value: "Creative" },
-  { label: "Modern", value: "Modern" },
-  { label: "Minimal", value: "Minimal" },
-  { label: "Executive", value: "Executive" },
-  { label: "Academic", value: "Academic" },
-  { label: "Technical", value: "Technical" },
-  { label: "Student", value: "Student" },
-];
-const PAGE_OPTIONS = [
-  { label: "A4", value: "A4" },
-  { label: "US Letter", value: "Letter" },
-  { label: "US Legal", value: "Legal" },
-];
-const FONT_OPTIONS = [
-  { label: "Inter", value: "Inter" },
-  { label: "Poppins", value: "Poppins" },
-  { label: "Merriweather", value: "Merriweather" },
-  { label: "Georgia", value: "Georgia" },
-  { label: "Arial", value: "Arial" },
-  { label: "Times New Roman", value: "Times New Roman" },
-];
-const BASE_FONT_SIZE_OPTIONS = Array.from({ length: 13 }, (_, index) => {
-  const size = 8 + index;
-  return { label: String(size), value: size };
-});
-const FONT_SIZE_TOKENS = [
-  { label: "Display", value: "display" },
-  { label: "Heading", value: "heading" },
-  { label: "Body", value: "body" },
-  { label: "Meta", value: "meta" },
-];
-const COLOR_TOKENS = [
-  { label: "Primary", value: "primary" },
-  { label: "Secondary", value: "secondary" },
-  { label: "Accent", value: "accent" },
-  { label: "Meta", value: "meta" },
-];
 const BUILDER_SCHEMA_VERSION = "builder-v1";
 
 const sanitizeForFirestore = (value) => {
@@ -118,6 +77,7 @@ export default function TemplateBuilder() {
   const [isGlobalFontSizesOpen, setIsGlobalFontSizesOpen] = useState(false);
   const [isNodeInspectorOpen, setIsNodeInspectorOpen] = useState(false);
   const [pendingBindNodeId, setPendingBindNodeId] = useState(null);
+  const [deleteNodeId, setDeleteNodeId] = useState(null);
 
   const templateId = location.state?.templateId;
 
@@ -287,6 +247,22 @@ export default function TemplateBuilder() {
     return { ...node, children: nextChildren };
   }
 
+  const findNode = (node, id) => {
+    if (!node) return null;
+    if (node.id === id) return node;
+    for (const child of node.children || []) {
+      const found = findNode(child, id);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const collectIds = (node, ids) => {
+    if (!node) return;
+    ids.push(node.id);
+    node.children?.forEach((child) => collectIds(child, ids));
+  };
+
   function addNode(type) {
     if (isLegacy) return;
     const newNode = {
@@ -375,22 +351,6 @@ export default function TemplateBuilder() {
   const handleDeleteNode = (nodeId) => {
     if (nodeId === "root") return;
 
-    const findNode = (node, id) => {
-      if (!node) return null;
-      if (node.id === id) return node;
-      for (const child of node.children || []) {
-        const found = findNode(child, id);
-        if (found) return found;
-      }
-      return null;
-    };
-
-    const collectIds = (node, ids) => {
-      if (!node) return;
-      ids.push(node.id);
-      node.children?.forEach((child) => collectIds(child, ids));
-    };
-
     const removedNode = findNode(template.layout.root, nodeId);
     const removedIds = [];
     collectIds(removedNode, removedIds);
@@ -415,6 +375,21 @@ export default function TemplateBuilder() {
     }
 
     setSelectedNodeId((current) => (current === nodeId ? "root" : current));
+  };
+
+  const handleRequestDeleteNode = (nodeId) => {
+    if (nodeId === "root") return;
+    setDeleteNodeId(nodeId);
+  };
+
+  const handleCancelDeleteNode = () => {
+    setDeleteNodeId(null);
+  };
+
+  const handleConfirmDeleteNode = () => {
+    if (!deleteNodeId) return;
+    handleDeleteNode(deleteNodeId);
+    setDeleteNodeId(null);
   };
 
   const handleRequestNewField = () => {
@@ -478,136 +453,39 @@ export default function TemplateBuilder() {
     <>
     <AppShell>
       <div className="flex flex-col gap-4">
-        <div className="rounded-2xl border border-slate-800/80 bg-slate-950/90 px-4 py-4 sm:px-6">
-          <div className="flex flex-wrap items-end gap-4">
-            <label className="flex w-full flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400 sm:w-auto">
-              Name
-              <input
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                disabled={isLegacy}
-                className="h-10 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 sm:w-52"
-              />
-            </label>
-            <label className="flex w-full flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400 sm:w-auto">
-              Category
-              <select
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-                disabled={isLegacy}
-                className="h-10 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 sm:w-44"
-              >
-                {CATEGORY_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex w-full flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400 sm:w-auto">
-              Status
-              <select
-                value={status}
-                onChange={(event) => setStatus(event.target.value)}
-                disabled={isLegacy}
-                className="h-10 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 sm:w-32"
-              >
-                {STATUS_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || isLegacy}
-              className="h-10 w-full rounded-full bg-indigo-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-slate-700 sm:w-auto"
-            >
-              {saving
-                ? "Saving..."
-                : templateId
-                  ? "Save changes"
-                  : "Create template"}
-            </button>
-            {saveError ? (
-              <span className="text-xs font-semibold text-rose-400">
-                {saveError}
-              </span>
-            ) : null}
-          </div>
-        </div>
+        <BuilderHeader
+          name={name}
+          onNameChange={setName}
+          category={category}
+          onCategoryChange={setCategory}
+          status={status}
+          onStatusChange={setStatus}
+          categoryOptions={CATEGORY_OPTIONS}
+          statusOptions={STATUS_OPTIONS}
+          saving={saving}
+          isLegacy={isLegacy}
+          saveError={saveError}
+          onSave={handleSave}
+          templateId={templateId}
+        />
 
         <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:gap-0">
-          <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 lg:w-72 lg:border-r lg:rounded-r-none">
-            <div className="mb-4 border-b border-slate-800/70 pb-4">
-              <h4 className="text-sm font-semibold text-slate-200">Add Node</h4>
-            <p className="mt-1 text-xs text-slate-400">
-              Build layouts with reusable blocks.
-            </p>
-            {loadError ? (
-              <p className="mt-2 text-xs text-rose-400">{loadError}</p>
-            ) : null}
-            {loadNotice ? (
-              <p className="mt-2 text-xs text-indigo-300">{loadNotice}</p>
-            ) : null}
-            <div className="mt-3 flex flex-wrap gap-2">
-              {NODE_TYPES.map((type) => (
-                <button
-                  key={type}
-                  onClick={() => addNode(type)}
-                  type="button"
-                  disabled={isLegacy}
-                  className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold tracking-wide text-slate-200 transition hover:border-indigo-400 hover:text-white disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-slate-200">Tree</h4>
-              <div className="flex items-center gap-2 text-[11px] font-semibold tracking-wide text-slate-400">
-                <button
-                  type="button"
-                  onClick={handleExpandAll}
-                  className="rounded-full border border-slate-700 px-2 py-0.5 transition hover:border-indigo-400 hover:text-slate-100"
-                >
-                  Expand all
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCollapseAll}
-                  className="rounded-full border border-slate-700 px-2 py-0.5 transition hover:border-indigo-400 hover:text-slate-100"
-                >
-                  Collapse all
-                </button>
-              </div>
-            </div>
-            <div className="mt-3 max-h-[60vh] overflow-auto space-y-1 md:max-h-[37vh] lg:max-h-[37vh]">
-              <Tree
-                node={template.layout.root}
-                selected={selectedNodeId}
-                onSelect={handleSelectNode}
-                onDelete={handleDeleteNode}
-                isOpen={expandedNodes.has(template.layout.root.id)}
-                onToggle={handleToggleNode}
-                expandedNodes={expandedNodes}
-              />
-            </div>
-            {selectedNode && (
-              <div className="mt-3 text-xs text-slate-400">
-                Selected:{" "}
-                <span className="font-semibold text-slate-200">
-                  {selectedNode.type}
-                </span>{" "}
-                <span className="text-slate-500">({selectedNode.id})</span>
-              </div>
-            )}
-          </div>
-        </aside>
+          <BuilderNodePanel
+            nodeTypes={NODE_TYPES}
+            loadError={loadError}
+            loadNotice={loadNotice}
+            isLegacy={isLegacy}
+            onAddNode={addNode}
+            onExpandAll={handleExpandAll}
+            onCollapseAll={handleCollapseAll}
+            treeRoot={template.layout.root}
+            selectedNodeId={selectedNodeId}
+            onSelectNode={handleSelectNode}
+            onDeleteNode={handleRequestDeleteNode}
+            expandedNodes={expandedNodes}
+            onToggleNode={handleToggleNode}
+            selectedNode={selectedNode}
+          />
 
           <main className="min-h-[520px] flex-1 bg-slate-100 p-2 lg:mx-4 md:max-h-[65vh] md:overflow-auto lg:max-h-[65vh] lg:overflow-auto">
               <TemplatePreview
@@ -1275,90 +1153,20 @@ export default function TemplateBuilder() {
         </div>
       </div>
     </AppShell>
+      <PromptModal
+        open={Boolean(deleteNodeId)}
+        title="Delete node?"
+        description="This will remove the node and any nested children."
+        confirmLabel="Delete node"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmDeleteNode}
+        onCancel={handleCancelDeleteNode}
+      />
       <Snackbar
         message={toast?.message}
         variant={toast?.variant}
         onDismiss={() => setToast(null)}
       />
     </>
-  );
-}
-
-function Tree({
-  node,
-  selected,
-  onSelect,
-  onDelete,
-  depth = 0,
-  isOpen,
-  onToggle,
-  expandedNodes,
-}) {
-  const isSelected = selected === node.id;
-  const canDelete = node.id !== "root";
-  const hasChildren = Boolean(node.children?.length);
-
-  return (
-    <div className="space-y-1">
-      <div
-        className={`group flex items-center justify-between rounded-lg px-2 py-1 text-xs transition ${
-          isSelected
-            ? "bg-indigo-500/20 text-indigo-100"
-            : "text-slate-300 hover:bg-slate-800/70"
-        }`}
-        style={{ marginLeft: depth * 12 }}
-        onClick={() => onSelect(node.id)}
-      >
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              if (hasChildren) onToggle?.(node.id);
-            }}
-            className={`flex h-5 w-5 items-center justify-center rounded-md border border-transparent text-[10px] text-slate-400 transition hover:border-slate-600 hover:text-slate-200 ${
-              hasChildren ? "" : "opacity-0"
-            }`}
-            disabled={!hasChildren}
-            aria-label={isOpen ? "Collapse node" : "Expand node"}
-          >
-            {isOpen ? "▾" : "▸"}
-          </button>
-          <span className="font-semibold text-slate-100">{node.type}</span>
-          <span className="text-[11px] text-slate-500">({node.id})</span>
-        </div>
-        {canDelete ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onDelete?.(node.id);
-            }}
-            className={`rounded-md p-1 text-slate-400 transition hover:bg-slate-800/80 hover:text-rose-300 ${
-              isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-            }`}
-            aria-label={`Delete ${node.type}`}
-          >
-            <FiTrash2 className="h-4 w-4" />
-          </button>
-        ) : null}
-      </div>
-
-      {isOpen
-        ? node.children?.map((child) => (
-            <Tree
-              key={child.id}
-              node={child}
-              selected={selected}
-              onSelect={onSelect}
-              onDelete={onDelete}
-              depth={depth + 1}
-              isOpen={expandedNodes?.has(child.id)}
-              onToggle={onToggle}
-              expandedNodes={expandedNodes}
-            />
-          ))
-        : null}
-    </div>
   );
 }

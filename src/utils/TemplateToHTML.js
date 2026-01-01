@@ -1,4 +1,4 @@
-export function buildHTML(template) {
+export function buildHTML(template, resumeJson = {}) {
   return `
 <html>
 <head>
@@ -14,29 +14,41 @@ body {
 </style>
 </head>
 <body>
-  ${renderNode(template.layout.root)}
+  ${renderNode(template.layout.root, template, resumeJson)}
 </body>
 </html>`;
 }
 
-export function renderNode(node) {
+export function renderNode(node, template, resumeJson) {
   if (!node) return "";
 
   switch (node.type) {
     case "section":
       return `<div class="section">
         <strong>SECTION</strong>
-        ${renderChildren(node)}
+        ${renderChildren(node, template, resumeJson)}
       </div>`;
 
     case "row":
-      return `<div class="row">${renderChildren(node)}</div>`;
+      return `<div class="row">${renderChildren(node, template, resumeJson)}</div>`;
 
     case "column":
-      return `<div class="column">${renderChildren(node)}</div>`;
+      return `<div class="column">${renderChildren(node, template, resumeJson)}</div>`;
 
     case "text":
-      return `<div class="box">Text</div>`;
+      return `<div class="box">${
+        resolveNodeValue(node, template, resumeJson) || "Sample text"
+      }</div>`;
+
+    case "bullet-list":
+      return `<div class="box">${
+        resolveNodeValue(node, template, resumeJson) || "Sample bullet list"
+      }</div>`;
+
+    case "chip-list":
+      return `<div class="box">${
+        resolveNodeValue(node, template, resumeJson) || "Sample chip list"
+      }</div>`;
 
     case "repeat":
       return `<div class="box">Repeat Block</div>`;
@@ -46,6 +58,26 @@ export function renderNode(node) {
   }
 }
 
-function renderChildren(node) {
-  return (node.children || []).map((child) => renderNode(child)).join("");
+function renderChildren(node, template, resumeJson) {
+  return (node.children || [])
+    .map((child) => renderNode(child, template, resumeJson))
+    .join("");
+}
+
+function resolveNodeValue(node, template, resumeJson) {
+  const fieldId = node?.bindField;
+  if (!fieldId) return "";
+
+  const fields = template?.fields || {};
+  const def = fields[fieldId];
+  if (!def) return "";
+
+  const source = def.source;
+  const path = def.path;
+  if (!source || !path) return "";
+
+  const bucket = resumeJson?.[source] || {};
+  const value = bucket[path];
+
+  return value != null ? String(value) : "";
 }

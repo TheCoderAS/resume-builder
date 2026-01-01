@@ -220,7 +220,7 @@ export default function FieldManager({
         onCancel={handleCloseModal}
       >
         <div className="grid gap-3">
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Field ID
             <input
               value={draftId}
@@ -229,7 +229,7 @@ export default function FieldManager({
               placeholder="e.g. full_name"
             />
           </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Label
             <input
               value={formState.label}
@@ -238,7 +238,7 @@ export default function FieldManager({
               placeholder="Full Name"
             />
           </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Description
             <input
               value={formState.description}
@@ -249,7 +249,7 @@ export default function FieldManager({
               placeholder="Shown as main header at the top."
             />
           </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Placeholder
             <input
               value={formState.placeholder}
@@ -260,7 +260,7 @@ export default function FieldManager({
               placeholder="e.g. Jane Doe"
             />
           </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Input Type
             <select
               value={formState.inputType}
@@ -276,7 +276,7 @@ export default function FieldManager({
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Max Length
             <input
               value={formState.maxLength}
@@ -290,7 +290,7 @@ export default function FieldManager({
               placeholder="80"
             />
           </label>
-          <label className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-300">
+          <label className="flex items-center gap-3 text-xs font-semibold tracking-wide text-slate-300">
             <input
               type="checkbox"
               checked={formState.required}

@@ -11,8 +11,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
 import FieldManager from "../components/FieldManager.jsx";
 import NodeInspector from "../components/NodeInspector.jsx";
-import ResumeForm from "../components/ResumeForm.jsx";
 import { TemplatePreview } from "../components/TemplatePreview.jsx";
+import Snackbar from "../components/Snackbar.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { FiTrash2 } from "react-icons/fi";
 import { db } from "../firebase.js";
@@ -28,7 +28,50 @@ const NODE_TYPES = [
   "chip-list",
   "repeat",
 ];
-const STATUS_OPTIONS = ["draft", "active", "archived"];
+const STATUS_OPTIONS = [
+  { label: "Draft", value: "draft" },
+  { label: "Active", value: "active" },
+  { label: "Archived", value: "archived" },
+];
+const CATEGORY_OPTIONS = [
+  { label: "Professional", value: "Professional" },
+  { label: "Creative", value: "Creative" },
+  { label: "Modern", value: "Modern" },
+  { label: "Minimal", value: "Minimal" },
+  { label: "Executive", value: "Executive" },
+  { label: "Academic", value: "Academic" },
+  { label: "Technical", value: "Technical" },
+  { label: "Student", value: "Student" },
+];
+const PAGE_OPTIONS = [
+  { label: "A4", value: "A4" },
+  { label: "US Letter", value: "Letter" },
+  { label: "US Legal", value: "Legal" },
+];
+const FONT_OPTIONS = [
+  { label: "Inter", value: "Inter" },
+  { label: "Poppins", value: "Poppins" },
+  { label: "Merriweather", value: "Merriweather" },
+  { label: "Georgia", value: "Georgia" },
+  { label: "Arial", value: "Arial" },
+  { label: "Times New Roman", value: "Times New Roman" },
+];
+const BASE_FONT_SIZE_OPTIONS = Array.from({ length: 13 }, (_, index) => {
+  const size = 8 + index;
+  return { label: String(size), value: size };
+});
+const FONT_SIZE_TOKENS = [
+  { label: "Display", value: "display" },
+  { label: "Heading", value: "heading" },
+  { label: "Body", value: "body" },
+  { label: "Meta", value: "meta" },
+];
+const COLOR_TOKENS = [
+  { label: "Primary", value: "primary" },
+  { label: "Secondary", value: "secondary" },
+  { label: "Accent", value: "accent" },
+  { label: "Meta", value: "meta" },
+];
 const BUILDER_SCHEMA_VERSION = "builder-v1";
 
 const sanitizeForFirestore = (value) => {
@@ -62,14 +105,18 @@ export default function TemplateBuilder() {
   const [status, setStatus] = useState("draft");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [toast, setToast] = useState(null);
   const [isLegacy, setIsLegacy] = useState(false);
   const [legacyJson, setLegacyJson] = useState("");
-  const [formValues, setFormValues] = useState({});
   const [expandedNodes, setExpandedNodes] = useState(new Set(["root"]));
   const [fieldCreateSignal, setFieldCreateSignal] = useState(0);
-  const [isFieldManagerOpen, setIsFieldManagerOpen] = useState(true);
-  const [isSampleDataOpen, setIsSampleDataOpen] = useState(true);
-  const [isJsonOpen, setIsJsonOpen] = useState(true);
+  const [isFieldManagerOpen, setIsFieldManagerOpen] = useState(false);
+  const [isJsonOpen, setIsJsonOpen] = useState(false);
+  const [isGlobalSettingsOpen, setIsGlobalSettingsOpen] = useState(false);
+  const [isGlobalColorsOpen, setIsGlobalColorsOpen] = useState(false);
+  const [isGlobalTypographyOpen, setIsGlobalTypographyOpen] = useState(false);
+  const [isGlobalFontSizesOpen, setIsGlobalFontSizesOpen] = useState(false);
+  const [isNodeInspectorOpen, setIsNodeInspectorOpen] = useState(false);
   const [pendingBindNodeId, setPendingBindNodeId] = useState(null);
 
   const templateId = location.state?.templateId;
@@ -98,9 +145,8 @@ export default function TemplateBuilder() {
       setCategory("Professional");
       setStatus("draft");
       setSaveError("");
-      setFormValues({});
       setExpandedNodes(new Set(["root"]));
-      setIsFieldManagerOpen(true);
+      setIsFieldManagerOpen(false);
     };
 
     const loadTemplate = async () => {
@@ -136,7 +182,7 @@ export default function TemplateBuilder() {
           setIsLegacy(false);
           setLegacyJson("");
           setExpandedNodes(new Set(["root"]));
-          setIsFieldManagerOpen(true);
+          setIsFieldManagerOpen(false);
         } else {
           setTemplate(baseTemplate);
           setSelectedNodeId("root");
@@ -149,7 +195,7 @@ export default function TemplateBuilder() {
             JSON.stringify(layout ?? data, null, 2)
           );
           setExpandedNodes(new Set(["root"]));
-          setIsFieldManagerOpen(true);
+          setIsFieldManagerOpen(false);
         }
       } catch (error) {
         if (isMounted) {
@@ -180,8 +226,8 @@ export default function TemplateBuilder() {
   }, [template, selectedNodeId]);
 
   const resumeJson = useMemo(
-    () => buildResumeJson(template, formValues),
-    [template, formValues]
+    () => buildResumeJson(template, {}),
+    [template]
   );
 
   const allNodeIds = useMemo(() => {
@@ -273,11 +319,13 @@ export default function TemplateBuilder() {
 
       if (templateId) {
         await updateDoc(doc(db, "templates", templateId), payload);
+        setToast({ message: "Template saved.", variant: "success" });
       } else {
         const docRef = await addDoc(collection(db, "templates"), {
           ...payload,
           createdAt: serverTimestamp(),
         });
+        setToast({ message: "Template created.", variant: "success" });
         navigate("/app/template-builder", {
           replace: true,
           state: { templateId: docRef.id },
@@ -286,6 +334,7 @@ export default function TemplateBuilder() {
     } catch (error) {
       console.error(error)
       setSaveError("Unable to save this template.");
+      setToast({ message: "Unable to save this template.", variant: "error" });
     } finally {
       setSaving(false);
     }
@@ -397,12 +446,19 @@ export default function TemplateBuilder() {
     ? legacyJson
     : JSON.stringify(template, null, 2);
 
+  const parseNumberInput = (value) => {
+    if (value === "") return undefined;
+    const next = Number(value);
+    return Number.isFinite(next) ? next : undefined;
+  };
+
   return (
+    <>
     <AppShell>
       <div className="flex flex-col gap-4">
         <div className="rounded-2xl border border-slate-800/80 bg-slate-950/90 px-4 py-4 sm:px-6">
           <div className="flex flex-wrap items-end gap-4">
-            <label className="flex w-full flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 sm:w-auto">
+            <label className="flex w-full flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400 sm:w-auto">
               Name
               <input
                 value={name}
@@ -411,16 +467,22 @@ export default function TemplateBuilder() {
                 className="h-10 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 sm:w-52"
               />
             </label>
-            <label className="flex w-full flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 sm:w-auto">
+            <label className="flex w-full flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400 sm:w-auto">
               Category
-              <input
+              <select
                 value={category}
                 onChange={(event) => setCategory(event.target.value)}
                 disabled={isLegacy}
-                className="h-10 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 sm:w-44"
-              />
+                className="h-10 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 sm:w-44"
+              >
+                {CATEGORY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </label>
-            <label className="flex w-full flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 sm:w-auto">
+            <label className="flex w-full flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400 sm:w-auto">
               Status
               <select
                 value={status}
@@ -429,8 +491,8 @@ export default function TemplateBuilder() {
                 className="h-10 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 sm:w-32"
               >
                 {STATUS_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
@@ -475,7 +537,7 @@ export default function TemplateBuilder() {
                   onClick={() => addNode(type)}
                   type="button"
                   disabled={isLegacy}
-                  className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-indigo-400 hover:text-white disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
+                  className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold tracking-wide text-slate-200 transition hover:border-indigo-400 hover:text-white disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
                 >
                   {type}
                 </button>
@@ -485,7 +547,7 @@ export default function TemplateBuilder() {
           <div>
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold text-slate-200">Tree</h4>
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              <div className="flex items-center gap-2 text-[11px] font-semibold tracking-wide text-slate-400">
                 <button
                   type="button"
                   onClick={handleExpandAll}
@@ -535,13 +597,45 @@ export default function TemplateBuilder() {
 
           <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 lg:w-80 lg:border-l lg:rounded-l-none">
           <div className="flex h-full flex-col gap-4 overflow-auto pr-1">
-            <div className="rounded-xl border border-slate-800/80 bg-slate-950/70 p-4">
-              <NodeInspector
-                node={selectedNode}
-                template={template}
-                onUpdateNode={updateSelectedNode}
-                onRequestNewField={handleRequestNewField}
-              />
+            <div className="rounded-xl border border-slate-800/80 bg-slate-950/70">
+              <button
+                type="button"
+                onClick={() => setIsNodeInspectorOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between px-4 py-3 text-left"
+                aria-expanded={isNodeInspectorOpen}
+              >
+                <h4 className="text-sm font-semibold text-slate-200">
+                  Node Inspector
+                </h4>
+                <span
+                  className={`text-sm text-slate-400 transition-transform duration-200 ${
+                    isNodeInspectorOpen ? "rotate-180" : ""
+                  }`}
+                  aria-hidden="true"
+                >
+                  ▾
+                </span>
+              </button>
+              <div
+                className={`overflow-hidden border-t border-slate-800/80 transition-[max-height,opacity] duration-300 ease-in-out ${
+                  isNodeInspectorOpen
+                    ? "max-h-[900px] opacity-100"
+                    : "max-h-0 opacity-0"
+                }`}
+              >
+                <div
+                  className={`p-4 ${
+                    isNodeInspectorOpen ? "" : "pointer-events-none"
+                  }`}
+                >
+                  <NodeInspector
+                    node={selectedNode}
+                    template={template}
+                    onUpdateNode={updateSelectedNode}
+                    onRequestNewField={handleRequestNewField}
+                  />
+                </div>
+              </div>
             </div>
             <div className="rounded-xl border border-slate-800/80 bg-slate-950/70">
               <button
@@ -590,16 +684,16 @@ export default function TemplateBuilder() {
             <div className="rounded-xl border border-slate-800/80 bg-slate-950/70">
               <button
                 type="button"
-                onClick={() => setIsSampleDataOpen((prev) => !prev)}
+                onClick={() => setIsGlobalSettingsOpen((prev) => !prev)}
                 className="flex w-full items-center justify-between px-4 py-3 text-left"
-                aria-expanded={isSampleDataOpen}
+                aria-expanded={isGlobalSettingsOpen}
               >
                 <h4 className="text-sm font-semibold text-slate-200">
-                  Sample Data
+                  Global Settings
                 </h4>
                 <span
                   className={`text-sm text-slate-400 transition-transform duration-200 ${
-                    isSampleDataOpen ? "rotate-180" : ""
+                    isGlobalSettingsOpen ? "rotate-180" : ""
                   }`}
                   aria-hidden="true"
                 >
@@ -608,21 +702,516 @@ export default function TemplateBuilder() {
               </button>
               <div
                 className={`overflow-hidden border-t border-slate-800/80 transition-[max-height,opacity] duration-300 ease-in-out ${
-                  isSampleDataOpen
+                  isGlobalSettingsOpen
                     ? "max-h-[900px] opacity-100"
                     : "max-h-0 opacity-0"
                 }`}
               >
                 <div
                   className={`p-4 ${
-                    isSampleDataOpen ? "" : "pointer-events-none"
+                    isGlobalSettingsOpen ? "" : "pointer-events-none"
                   }`}
                 >
-                  <ResumeForm
-                    template={template}
-                    values={formValues}
-                    onChange={setFormValues}
-                  />
+                  <div className="rounded-xl border border-slate-800/80 bg-slate-950/70">
+                    <button
+                      type="button"
+                      onClick={() => setIsGlobalTypographyOpen((prev) => !prev)}
+                      className="flex w-full items-center justify-between px-3 py-2 text-left"
+                      aria-expanded={isGlobalTypographyOpen}
+                    >
+                      <h5 className="text-xs font-semibold tracking-wide text-slate-300">
+                        Layout & Type
+                      </h5>
+                      <span
+                        className={`text-sm text-slate-400 transition-transform duration-200 ${
+                          isGlobalTypographyOpen ? "rotate-180" : ""
+                        }`}
+                        aria-hidden="true"
+                      >
+                        ▾
+                      </span>
+                    </button>
+                    <div
+                      className={`overflow-hidden border-t border-slate-800/80 transition-[max-height,opacity] duration-300 ease-in-out ${
+                        isGlobalTypographyOpen
+                          ? "max-h-[900px] opacity-100"
+                          : "max-h-0 opacity-0"
+                      }`}
+                    >
+                      <div
+                        className={`p-3 ${
+                          isGlobalTypographyOpen ? "" : "pointer-events-none"
+                        }`}
+                      >
+                        <div className="grid gap-3">
+                          <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                            Page Size
+                            <select
+                              value={template.page?.size ?? "A4"}
+                              onChange={(event) =>
+                                setTemplate((prev) => ({
+                                  ...prev,
+                                  page: { ...prev.page, size: event.target.value },
+                                }))
+                              }
+                              disabled={isLegacy}
+                              className="h-9 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                            >
+                              {PAGE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <div className="grid gap-3 rounded-lg border border-slate-800/80 bg-slate-950/60 p-3">
+                            <h6 className="text-[11px] font-semibold tracking-wide text-slate-400">
+                              Page Margin
+                            </h6>
+                            <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                              Horizontal
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={
+                                  template.page?.marginX === undefined
+                                    ? ""
+                                    : String(template.page.marginX)
+                                }
+                                onChange={(event) =>
+                                  setTemplate((prev) => ({
+                                    ...prev,
+                                    page: {
+                                      ...prev.page,
+                                      marginX: parseNumberInput(event.target.value),
+                                    },
+                                  }))
+                                }
+                                disabled={isLegacy}
+                                className="h-8 w-20 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                              />
+                            </label>
+                            <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                              Vertical
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={
+                                  template.page?.marginY === undefined
+                                    ? ""
+                                    : String(template.page.marginY)
+                                }
+                                onChange={(event) =>
+                                  setTemplate((prev) => ({
+                                    ...prev,
+                                    page: {
+                                      ...prev.page,
+                                      marginY: parseNumberInput(event.target.value),
+                                    },
+                                  }))
+                                }
+                                disabled={isLegacy}
+                                className="h-8 w-20 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                              />
+                            </label>
+                          </div>
+                          <div className="grid gap-3 rounded-lg border border-slate-800/80 bg-slate-950/60 p-3">
+                            <h6 className="text-[11px] font-semibold tracking-wide text-slate-400">
+                              Page Padding
+                            </h6>
+                            <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                              Horizontal
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={
+                                  template.page?.paddingX === undefined
+                                    ? ""
+                                    : String(template.page.paddingX)
+                                }
+                                onChange={(event) =>
+                                  setTemplate((prev) => ({
+                                    ...prev,
+                                    page: {
+                                      ...prev.page,
+                                      paddingX: parseNumberInput(event.target.value),
+                                    },
+                                  }))
+                                }
+                                disabled={isLegacy}
+                                className="h-8 w-20 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                              />
+                            </label>
+                            <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                              Vertical
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={
+                                  template.page?.paddingY === undefined
+                                    ? ""
+                                    : String(template.page.paddingY)
+                                }
+                                onChange={(event) =>
+                                  setTemplate((prev) => ({
+                                    ...prev,
+                                    page: {
+                                      ...prev.page,
+                                      paddingY: parseNumberInput(event.target.value),
+                                    },
+                                  }))
+                                }
+                                disabled={isLegacy}
+                                className="h-8 w-20 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                              />
+                            </label>
+                          </div>
+                          <div className="grid gap-3 rounded-lg border border-slate-800/80 bg-slate-950/60 p-3">
+                            <h6 className="text-[11px] font-semibold tracking-wide text-slate-400">
+                              Page Border
+                            </h6>
+                            <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                              Enabled
+                              <input
+                                type="checkbox"
+                                checked={template.page?.border?.enabled ?? false}
+                                onChange={(event) =>
+                                  setTemplate((prev) => ({
+                                    ...prev,
+                                    page: {
+                                      ...prev.page,
+                                      border: {
+                                        ...(prev.page?.border ?? {}),
+                                        enabled: event.target.checked,
+                                      },
+                                    },
+                                  }))
+                                }
+                                disabled={isLegacy}
+                                className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500/40"
+                              />
+                            </label>
+                            <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                              Width
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={
+                                  template.page?.border?.width === undefined
+                                    ? ""
+                                    : String(template.page.border.width)
+                                }
+                                onChange={(event) =>
+                                  setTemplate((prev) => ({
+                                    ...prev,
+                                    page: {
+                                      ...prev.page,
+                                      border: {
+                                        ...(prev.page?.border ?? {}),
+                                        width: parseNumberInput(event.target.value),
+                                      },
+                                    },
+                                  }))
+                                }
+                                disabled={isLegacy || !template.page?.border?.enabled}
+                                className="h-8 w-20 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                              />
+                            </label>
+                            <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                              Style
+                              <select
+                                value={template.page?.border?.style ?? "solid"}
+                                onChange={(event) =>
+                                  setTemplate((prev) => ({
+                                    ...prev,
+                                    page: {
+                                      ...prev.page,
+                                      border: {
+                                        ...(prev.page?.border ?? {}),
+                                        style: event.target.value,
+                                      },
+                                    },
+                                  }))
+                                }
+                                disabled={isLegacy || !template.page?.border?.enabled}
+                                className="h-8 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                              >
+                                <option value="solid">Solid</option>
+                                <option value="dashed">Dashed</option>
+                                <option value="dotted">Dotted</option>
+                              </select>
+                            </label>
+                            <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                              Color
+                              <input
+                                type="color"
+                                value={template.page?.border?.color ?? "#e5e7eb"}
+                                onChange={(event) =>
+                                  setTemplate((prev) => ({
+                                    ...prev,
+                                    page: {
+                                      ...prev.page,
+                                      border: {
+                                        ...(prev.page?.border ?? {}),
+                                        color: event.target.value,
+                                      },
+                                    },
+                                  }))
+                                }
+                                disabled={isLegacy || !template.page?.border?.enabled}
+                                className="h-8 w-16 cursor-pointer rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1"
+                              />
+                            </label>
+                          </div>
+                          <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                            Font
+                            <select
+                              value={template.theme?.fonts?.body ?? "Arial"}
+                              onChange={(event) =>
+                                setTemplate((prev) => ({
+                                  ...prev,
+                                  theme: {
+                                    ...prev.theme,
+                                    fonts: {
+                                      ...prev.theme.fonts,
+                                      body: event.target.value,
+                                      heading: event.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                              disabled={isLegacy}
+                              className="h-9 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                            >
+                              {FONT_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                            Line Height
+                            <input
+                              type="range"
+                              min="1"
+                              max="2"
+                              step="0.05"
+                              value={template.theme?.lineHeight ?? 1.5}
+                              onChange={(event) =>
+                                setTemplate((prev) => ({
+                                  ...prev,
+                                  theme: {
+                                    ...prev.theme,
+                                    lineHeight: Number(event.target.value),
+                                  },
+                                }))
+                              }
+                              disabled={isLegacy}
+                              className="h-2 w-32 accent-indigo-400"
+                            />
+                          </label>
+                          <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                            Layout Gap
+                            <input
+                              type="range"
+                              min="0"
+                              max="32"
+                              step="1"
+                              value={template.theme?.gap ?? 12}
+                              onChange={(event) =>
+                                setTemplate((prev) => ({
+                                  ...prev,
+                                  theme: {
+                                    ...prev.theme,
+                                    gap: Number(event.target.value),
+                                  },
+                                }))
+                              }
+                              disabled={isLegacy}
+                              className="h-2 w-32 accent-indigo-400"
+                            />
+                          </label>
+                          <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                            Section Gap
+                            <input
+                              type="range"
+                              min="0"
+                              max="32"
+                              step="1"
+                              value={template.theme?.sectionGap ?? 12}
+                              onChange={(event) =>
+                                setTemplate((prev) => ({
+                                  ...prev,
+                                  theme: {
+                                    ...prev.theme,
+                                    sectionGap: Number(event.target.value),
+                                  },
+                                }))
+                              }
+                              disabled={isLegacy}
+                              className="h-2 w-32 accent-indigo-400"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 rounded-xl border border-slate-800/80 bg-slate-950/70">
+                    <button
+                      type="button"
+                      onClick={() => setIsGlobalColorsOpen((prev) => !prev)}
+                      className="flex w-full items-center justify-between px-3 py-2 text-left"
+                      aria-expanded={isGlobalColorsOpen}
+                    >
+                      <h5 className="text-xs font-semibold tracking-wide text-slate-300">
+                        Colors
+                      </h5>
+                      <span
+                        className={`text-sm text-slate-400 transition-transform duration-200 ${
+                          isGlobalColorsOpen ? "rotate-180" : ""
+                        }`}
+                        aria-hidden="true"
+                      >
+                        ▾
+                      </span>
+                    </button>
+                    <div
+                      className={`overflow-hidden border-t border-slate-800/80 transition-[max-height,opacity] duration-300 ease-in-out ${
+                        isGlobalColorsOpen
+                          ? "max-h-[900px] opacity-100"
+                          : "max-h-0 opacity-0"
+                      }`}
+                    >
+                      <div
+                        className={`p-3 ${
+                          isGlobalColorsOpen ? "" : "pointer-events-none"
+                        }`}
+                      >
+                        <div className="grid gap-3">
+                          {COLOR_TOKENS.map((token) => (
+                            <label
+                              key={token.value}
+                              className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400"
+                            >
+                              {token.label}
+                              <input
+                                type="color"
+                                value={
+                                  template.theme?.colors?.[token.value] ??
+                                  "#000000"
+                                }
+                                onChange={(event) =>
+                                  setTemplate((prev) => ({
+                                    ...prev,
+                                    theme: {
+                                      ...prev.theme,
+                                      colors: {
+                                        ...prev.theme.colors,
+                                        [token.value]: event.target.value,
+                                      },
+                                    },
+                                  }))
+                                }
+                                disabled={isLegacy}
+                                className="h-9 w-16 cursor-pointer rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1"
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 rounded-xl border border-slate-800/80 bg-slate-950/70">
+                    <button
+                      type="button"
+                      onClick={() => setIsGlobalFontSizesOpen((prev) => !prev)}
+                      className="flex w-full items-center justify-between px-3 py-2 text-left"
+                      aria-expanded={isGlobalFontSizesOpen}
+                    >
+                      <h5 className="text-xs font-semibold tracking-wide text-slate-300">
+                        Font Sizes
+                      </h5>
+                      <span
+                        className={`text-sm text-slate-400 transition-transform duration-200 ${
+                          isGlobalFontSizesOpen ? "rotate-180" : ""
+                        }`}
+                        aria-hidden="true"
+                      >
+                        ▾
+                      </span>
+                    </button>
+                    <div
+                      className={`overflow-hidden border-t border-slate-800/80 transition-[max-height,opacity] duration-300 ease-in-out ${
+                        isGlobalFontSizesOpen
+                          ? "max-h-[900px] opacity-100"
+                          : "max-h-0 opacity-0"
+                      }`}
+                    >
+                      <div
+                        className={`p-3 ${
+                          isGlobalFontSizesOpen ? "" : "pointer-events-none"
+                        }`}
+                      >
+                        <div className="grid gap-3">
+                          <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                            Base
+                            <select
+                              value={template.theme?.baseFontSize ?? 14}
+                              onChange={(event) =>
+                                setTemplate((prev) => ({
+                                  ...prev,
+                                  theme: {
+                                    ...prev.theme,
+                                    baseFontSize: Number(event.target.value),
+                                  },
+                                }))
+                              }
+                              disabled={isLegacy}
+                              className="h-9 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                            >
+                              {BASE_FONT_SIZE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          {FONT_SIZE_TOKENS.map((token) => (
+                            <label
+                              key={token.value}
+                              className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400"
+                            >
+                              {token.label}
+                              <input
+                                type="number"
+                                step="0.05"
+                                min="0.6"
+                                max="2"
+                                value={
+                                  template.theme?.fontScales?.[token.value] ?? 1
+                                }
+                                onChange={(event) =>
+                                  setTemplate((prev) => ({
+                                    ...prev,
+                                    theme: {
+                                      ...prev.theme,
+                                      fontScales: {
+                                        ...(prev.theme?.fontScales ?? {}),
+                                        [token.value]: Number(event.target.value),
+                                      },
+                                    },
+                                  }))
+                                }
+                                disabled={isLegacy}
+                                className="h-9 w-20 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -662,6 +1251,12 @@ export default function TemplateBuilder() {
         </div>
       </div>
     </AppShell>
+      <Snackbar
+        message={toast?.message}
+        variant={toast?.variant}
+        onDismiss={() => setToast(null)}
+      />
+    </>
   );
 }
 

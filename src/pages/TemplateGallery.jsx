@@ -33,7 +33,6 @@ import { resolveTemplateSettings, resolveTemplateStyles } from "../utils/resumeP
 
 const FILTER_OPTIONS = [
   { label: "All", value: "all" },
-  { label: "Admin", value: "admin" },
   { label: "My templates", value: "mine" },
   { label: "Archived", value: "archived" },
 ];

@@ -5,12 +5,23 @@ export function buildHTML(template, resumeJson = {}) {
 <style>
 body {
   font-family: ${template.theme.fonts.body};
-  padding: 20px;
+  padding: 24px;
+  color: #1f2937;
 }
-.section { border-bottom:1px solid #ddd; margin:10px 0; padding-bottom:4px; }
-.row { display:flex; gap:8px; }
-.column { display:flex; flex-direction:column; gap:8px; }
-.box { border:1px dashed #ccc; padding:6px; }
+.section {
+  border-bottom: 1px solid #e2e8f0;
+  margin: 12px 0;
+  padding-bottom: 8px;
+}
+.row { display:flex; gap:12px; }
+.column { display:flex; flex-direction:column; gap:12px; }
+.box {
+  border: 1px dashed #cbd5f5;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: #475569;
+  background: #f8fafc;
+}
 </style>
 </head>
 <body>

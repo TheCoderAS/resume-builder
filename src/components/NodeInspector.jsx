@@ -28,7 +28,7 @@ export default function NodeInspector({
 
   if (!node) {
     return (
-      <div style={{ fontSize: 12, color: "#64748b" }}>
+      <div className="text-xs text-slate-400">
         Select a node to edit its properties.
       </div>
     );
@@ -70,20 +70,24 @@ export default function NodeInspector({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <h4 style={{ margin: 0 }}>Node Inspector</h4>
-      <div style={{ fontSize: 12, color: "#475569" }}>
-        Selected: {node.type} ({node.id})
+    <div className="flex flex-col gap-3">
+      <div>
+        <h4 className="text-sm font-semibold text-slate-200">Node Inspector</h4>
+        <div className="mt-1 text-xs text-slate-400">
+          Selected:{" "}
+          <span className="font-semibold text-slate-200">{node.type}</span>{" "}
+          <span className="text-slate-500">({node.id})</span>
+        </div>
       </div>
 
       {isBindable ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 12 }}>Bind to Field</span>
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Bind to Field
             <select
               value={node.bindField || ""}
               onChange={(event) => handleBindChange(event.target.value)}
-              style={{ padding: 6 }}
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             >
               <option value="">(None)</option>
               {fieldOptions.map((field) => (
@@ -96,83 +100,83 @@ export default function NodeInspector({
           <button
             type="button"
             onClick={() => setShowNewField((prev) => !prev)}
+            className="w-fit rounded-full bg-indigo-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-400"
           >
             + New Field
           </button>
           {showNewField ? (
             <div
-              style={{
-                border: "1px solid #e2e8f0",
-                padding: 8,
-                borderRadius: 6,
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-              }}
+              className="rounded-lg border border-slate-800 bg-slate-900/70 p-3"
             >
-              <input
-                placeholder="Field ID"
-                value={newFieldDraft.id}
-                onChange={(event) =>
-                  setNewFieldDraft((prev) => ({
-                    ...prev,
-                    id: event.target.value,
-                  }))
-                }
-                style={{ padding: 6 }}
-              />
-              <input
-                placeholder="Label"
-                value={newFieldDraft.label}
-                onChange={(event) =>
-                  setNewFieldDraft((prev) => ({
-                    ...prev,
-                    label: event.target.value,
-                  }))
-                }
-                style={{ padding: 6 }}
-              />
-              <input
-                placeholder="Input type"
-                value={newFieldDraft.inputType}
-                onChange={(event) =>
-                  setNewFieldDraft((prev) => ({
-                    ...prev,
-                    inputType: event.target.value,
-                  }))
-                }
-                style={{ padding: 6 }}
-              />
-              <input
-                placeholder="Source"
-                value={newFieldDraft.source}
-                onChange={(event) =>
-                  setNewFieldDraft((prev) => ({
-                    ...prev,
-                    source: event.target.value,
-                  }))
-                }
-                style={{ padding: 6 }}
-              />
-              <input
-                placeholder="Path"
-                value={newFieldDraft.path}
-                onChange={(event) =>
-                  setNewFieldDraft((prev) => ({
-                    ...prev,
-                    path: event.target.value,
-                  }))
-                }
-                style={{ padding: 6 }}
-              />
-              <button type="button" onClick={handleCreateField}>
+              <div className="grid gap-2">
+                <input
+                  placeholder="Field ID"
+                  value={newFieldDraft.id}
+                  onChange={(event) =>
+                    setNewFieldDraft((prev) => ({
+                      ...prev,
+                      id: event.target.value,
+                    }))
+                  }
+                  className="rounded-md border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                />
+                <input
+                  placeholder="Label"
+                  value={newFieldDraft.label}
+                  onChange={(event) =>
+                    setNewFieldDraft((prev) => ({
+                      ...prev,
+                      label: event.target.value,
+                    }))
+                  }
+                  className="rounded-md border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                />
+                <input
+                  placeholder="Input type"
+                  value={newFieldDraft.inputType}
+                  onChange={(event) =>
+                    setNewFieldDraft((prev) => ({
+                      ...prev,
+                      inputType: event.target.value,
+                    }))
+                  }
+                  className="rounded-md border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                />
+                <input
+                  placeholder="Source"
+                  value={newFieldDraft.source}
+                  onChange={(event) =>
+                    setNewFieldDraft((prev) => ({
+                      ...prev,
+                      source: event.target.value,
+                    }))
+                  }
+                  className="rounded-md border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                />
+                <input
+                  placeholder="Path"
+                  value={newFieldDraft.path}
+                  onChange={(event) =>
+                    setNewFieldDraft((prev) => ({
+                      ...prev,
+                      path: event.target.value,
+                    }))
+                  }
+                  className="rounded-md border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleCreateField}
+                className="mt-3 w-fit rounded-full bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-400"
+              >
                 Create & Bind
               </button>
             </div>
           ) : null}
         </div>
       ) : (
-        <p style={{ fontSize: 12, color: "#64748b" }}>
+        <p className="text-xs text-slate-400">
           Binding is available for text, bullet-list, and chip-list nodes.
         </p>
       )}

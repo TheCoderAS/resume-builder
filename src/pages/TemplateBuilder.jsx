@@ -165,6 +165,18 @@ export default function TemplateBuilder() {
     };
   }
 
+  function removeNode(node, id) {
+    if (!node) return null;
+    if (node.id === id) return null;
+    if (!node.children) return node;
+
+    const nextChildren = node.children
+      .map((child) => removeNode(child, id))
+      .filter(Boolean);
+
+    return { ...node, children: nextChildren };
+  }
+
   function addNode(type) {
     if (isLegacy) return;
     const newNode = {
@@ -240,6 +252,23 @@ export default function TemplateBuilder() {
     }));
   };
 
+  const handleDeleteNode = (nodeId) => {
+    if (nodeId === "root") return;
+
+    setTemplate((prev) => {
+      const nextRoot = removeNode(prev.layout.root, nodeId) || prev.layout.root;
+      return {
+        ...prev,
+        layout: {
+          ...prev.layout,
+          root: nextRoot,
+        },
+      };
+    });
+
+    setSelectedNodeId((current) => (current === nodeId ? "root" : current));
+  };
+
   const handleCreateField = (fieldId, fieldData) => {
     setTemplate((prev) => ({
       ...prev,
@@ -264,183 +293,243 @@ export default function TemplateBuilder() {
     : JSON.stringify(template, null, 2);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-      }}
-    >
-      <div
-        style={{
-          borderBottom: "1px solid #ccc",
-          padding: 12,
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 12,
-          alignItems: "center",
-        }}
-      >
-        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 12 }}>Name</span>
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            disabled={isLegacy}
-            style={{ padding: 6, minWidth: 180 }}
-          />
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 12 }}>Category</span>
-          <input
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
-            disabled={isLegacy}
-            style={{ padding: 6, minWidth: 160 }}
-          />
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 12 }}>Status</span>
-          <select
-            value={status}
-            onChange={(event) => setStatus(event.target.value)}
-            disabled={isLegacy}
-            style={{ padding: 6, minWidth: 120 }}
+    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+      <div className="border-b border-slate-800/80 bg-slate-950/90 px-6 py-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Name
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              disabled={isLegacy}
+              className="w-52 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Category
+            <input
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+              disabled={isLegacy}
+              className="w-44 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Status
+            <select
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              disabled={isLegacy}
+              className="w-32 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || isLegacy}
+            className="rounded-full bg-indigo-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-slate-700"
           >
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving || isLegacy}
-          style={{ padding: "8px 16px", marginTop: 16 }}
-        >
-          {saving ? "Saving..." : templateId ? "Save changes" : "Create template"}
-        </button>
-        {saveError ? (
-          <span style={{ color: "#b91c1c", fontSize: 12 }}>{saveError}</span>
-        ) : null}
+            {saving ? "Saving..." : templateId ? "Save changes" : "Create template"}
+          </button>
+          {saveError ? (
+            <span className="text-xs font-semibold text-rose-400">
+              {saveError}
+            </span>
+          ) : null}
+        </div>
       </div>
 
-      <div style={{ display: "flex", flex: 1 }}>
-        <div style={{ width: 250, borderRight: "1px solid #ccc", padding: 8 }}>
-          <h4>Add Node</h4>
-          {loadError ? (
-            <p style={{ color: "#b91c1c", fontSize: 12 }}>{loadError}</p>
-          ) : null}
-          {loadNotice ? (
-            <p style={{ color: "#1d4ed8", fontSize: 12 }}>{loadNotice}</p>
-          ) : null}
-          {NODE_TYPES.map((type) => (
-            <button
-              key={type}
-              onClick={() => addNode(type)}
-              style={{ margin: 4 }}
-              type="button"
-              disabled={isLegacy}
-            >
-              {type}
-            </button>
-          ))}
-          <h4>Tree</h4>
-          <Tree
-            node={template.layout.root}
-            selected={selectedNodeId}
-            onSelect={setSelectedNodeId}
-          />
-          {selectedNode && (
-            <div style={{ marginTop: 12, fontSize: 12, color: "#475569" }}>
-              Selected: {selectedNode.type} ({selectedNode.id})
+      <div className="flex flex-1 flex-col gap-4 px-4 py-4 md:flex-row md:gap-0 md:px-6">
+        <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 md:w-72 md:border-r md:rounded-r-none">
+          <div className="mb-4 border-b border-slate-800/70 pb-4">
+            <h4 className="text-sm font-semibold text-slate-200">Add Node</h4>
+            <p className="mt-1 text-xs text-slate-400">
+              Build layouts with reusable blocks.
+            </p>
+            {loadError ? (
+              <p className="mt-2 text-xs text-rose-400">{loadError}</p>
+            ) : null}
+            {loadNotice ? (
+              <p className="mt-2 text-xs text-indigo-300">{loadNotice}</p>
+            ) : null}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {NODE_TYPES.map((type) => (
+                <button
+                  key={type}
+                  onClick={() => addNode(type)}
+                  type="button"
+                  disabled={isLegacy}
+                  className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-indigo-400 hover:text-white disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
+                >
+                  {type}
+                </button>
+              ))}
             </div>
-          )}
-        </div>
-
-        <div style={{ flex: 1, padding: 16, background: "#f6f6f6" }}>
-          {isLegacy ? (
-            <div
-              style={{
-                border: "1px dashed #94a3b8",
-                padding: 16,
-                background: "#ffffff",
-                color: "#475569",
-              }}
-            >
-              Legacy templates are view-only in the new builder.
-            </div>
-          ) : (
-            <TemplatePreview template={template} resumeJson={resumeJson} />
-          )}
-        </div>
-
-        <div
-          style={{
-            width: 340,
-            borderLeft: "1px solid #ccc",
-            padding: 8,
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-            overflow: "auto",
-          }}
-        >
-          <NodeInspector
-            node={selectedNode}
-            template={template}
-            onUpdateNode={updateSelectedNode}
-            onCreateField={handleCreateField}
-          />
-          <FieldManager template={template} onUpdateTemplate={setTemplate} />
+          </div>
           <div>
-            <h4 style={{ margin: "0 0 8px" }}>Sample Data</h4>
-            <ResumeForm
-              template={template}
-              values={formValues}
-              onChange={setFormValues}
-            />
+            <h4 className="text-sm font-semibold text-slate-200">Tree</h4>
+            <div className="mt-3 space-y-1">
+              <Tree
+                node={template.layout.root}
+                selected={selectedNodeId}
+                onSelect={setSelectedNodeId}
+                onDelete={handleDeleteNode}
+              />
+            </div>
+            {selectedNode && (
+              <div className="mt-3 text-xs text-slate-400">
+                Selected:{" "}
+                <span className="font-semibold text-slate-200">
+                  {selectedNode.type}
+                </span>{" "}
+                <span className="text-slate-500">({selectedNode.id})</span>
+              </div>
+            )}
           </div>
-          <div style={{ flex: 1, minHeight: 200 }}>
-            <h4 style={{ margin: "0 0 8px" }}>JSON</h4>
-            <textarea
-              value={json}
-              readOnly
-              style={{ width: "100%", height: 240 }}
-            />
+        </aside>
+
+        <main className="flex-1 rounded-2xl bg-slate-100 p-6 md:mx-4 md:rounded-3xl min-h-[520px]">
+          <div className="h-full w-full rounded-2xl bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.2)]">
+            {isLegacy ? (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-4 text-sm text-slate-500">
+                Legacy templates are view-only in the new builder.
+              </div>
+            ) : (
+              <TemplatePreview
+                template={template}
+                resumeJson={resumeJson}
+                className="h-full w-full rounded-xl border border-slate-200 bg-white shadow-md"
+              />
+            )}
           </div>
-        </div>
+        </main>
+
+        <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 md:w-80 md:border-l md:rounded-l-none">
+          <div className="flex h-full flex-col gap-4 overflow-auto pr-1">
+            <div className="rounded-xl border border-slate-800/80 bg-slate-950/70 p-4">
+              <NodeInspector
+                node={selectedNode}
+                template={template}
+                onUpdateNode={updateSelectedNode}
+                onCreateField={handleCreateField}
+              />
+            </div>
+            <div className="rounded-xl border border-slate-800/80 bg-slate-950/70 p-4">
+              <FieldManager template={template} onUpdateTemplate={setTemplate} />
+            </div>
+            <div className="rounded-xl border border-slate-800/80 bg-slate-950/70 p-4">
+              <h4 className="text-sm font-semibold text-slate-200">
+                Sample Data
+              </h4>
+              <div className="mt-3">
+                <ResumeForm
+                  template={template}
+                  values={formValues}
+                  onChange={setFormValues}
+                />
+              </div>
+            </div>
+            <div className="flex-1 rounded-xl border border-slate-800/80 bg-slate-950/70 p-4">
+              <h4 className="text-sm font-semibold text-slate-200">JSON</h4>
+              <textarea
+                value={json}
+                readOnly
+                className="mt-3 h-60 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs text-slate-200"
+              />
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   );
 }
 
-function Tree({ node, selected, onSelect, depth = 0 }) {
+function Tree({ node, selected, onSelect, onDelete, depth = 0 }) {
+  const [isOpen, setIsOpen] = useState(true);
+  const isSelected = selected === node.id;
+  const canDelete = node.id !== "root";
+  const hasChildren = Boolean(node.children?.length);
+
   return (
-    <div>
+    <div className="space-y-1">
       <div
-        style={{
-          cursor: "pointer",
-          padding: 4,
-          marginLeft: depth * 10,
-          background: selected === node.id ? "#dbeafe" : "transparent",
-        }}
+        className={`group flex items-center justify-between rounded-lg px-2 py-1 text-xs transition ${
+          isSelected
+            ? "bg-indigo-500/20 text-indigo-100"
+            : "text-slate-300 hover:bg-slate-800/70"
+        }`}
+        style={{ marginLeft: depth * 12 }}
         onClick={() => onSelect(node.id)}
       >
-        {node.type} ({node.id})
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              if (hasChildren) {
+                setIsOpen((prev) => !prev);
+              }
+            }}
+            className={`flex h-5 w-5 items-center justify-center rounded-md border border-transparent text-[10px] text-slate-400 transition hover:border-slate-600 hover:text-slate-200 ${
+              hasChildren ? "" : "opacity-0"
+            }`}
+            disabled={!hasChildren}
+            aria-label={isOpen ? "Collapse node" : "Expand node"}
+          >
+            {isOpen ? "▾" : "▸"}
+          </button>
+          <span className="font-semibold text-slate-100">{node.type}</span>
+          <span className="text-[11px] text-slate-500">({node.id})</span>
+        </div>
+        {canDelete ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete?.(node.id);
+            }}
+            className={`rounded-md p-1 text-slate-400 transition hover:bg-slate-800/80 hover:text-rose-300 ${
+              isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            }`}
+            aria-label={`Delete ${node.type}`}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+            >
+              <path d="M3 6h18" />
+              <path d="M8 6V4h8v2" />
+              <path d="M19 6l-1 14H6L5 6" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+            </svg>
+          </button>
+        ) : null}
       </div>
 
-      {node.children?.map((child) => (
-        <Tree
-          key={child.id}
-          node={child}
-          selected={selected}
-          onSelect={onSelect}
-          depth={depth + 1}
-        />
-      ))}
+      {isOpen
+        ? node.children?.map((child) => (
+            <Tree
+              key={child.id}
+              node={child}
+              selected={selected}
+              onSelect={onSelect}
+              onDelete={onDelete}
+              depth={depth + 1}
+            />
+          ))
+        : null}
     </div>
   );
 }

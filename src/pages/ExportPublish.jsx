@@ -8,47 +8,49 @@ import ErrorBanner from "../components/ErrorBanner.jsx";
 import Input from "../components/Input.jsx";
 import LoadingSkeleton from "../components/LoadingSkeleton.jsx";
 import LoaderOverlay from "../components/LoaderOverlay.jsx";
-import PagePreviewFrame from "../components/PagePreviewFrame.jsx";
-import ResumePreview from "../components/ResumePreview.jsx";
 import SectionHeader from "../components/SectionHeader.jsx";
 import Snackbar from "../components/Snackbar.jsx";
 import VisibilityToggle from "../components/VisibilityToggle.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
-import {
-  DEFAULT_TEMPLATE_SETTINGS,
-  DEFAULT_TEMPLATE_STYLES,
-  resolvePageSetup,
-  resolveTemplateSettings,
-} from "../utils/resumePreview.js";
+import { TemplatePreview } from "../components/TemplatePreview.jsx";
+import { createEmptyTemplate } from "../templateModel.js";
+import { buildResumeJson } from "../utils/resumeData.js";
+import { buildHTML } from "../utils/TemplateToHTML.js";
 
 const EMPTY_RESUME = {
-  profile: {
-    fullName: "",
-    title: "",
-    email: "",
-    phone: "",
-    location: "",
-    summary: "",
-  },
-  resumeData: {
-    experience: [],
-    education: [],
-    skills: [],
-  },
-  sectionOrder: [],
-  templateStyles: DEFAULT_TEMPLATE_STYLES,
-  templateSettings: DEFAULT_TEMPLATE_SETTINGS,
+  values: {},
+  templateId: null,
+  templateName: "",
   visibility: { isPublic: false },
   publicSlug: "",
+};
+
+const BUILDER_SCHEMA_VERSION = "builder-v1";
+const PAGE_SIZES = {
+  A4: { width: 794, height: 1123 },
+  Letter: { width: 816, height: 1056 },
+  Legal: { width: 816, height: 1344 },
+};
+
+const hydrateTemplate = (layout) => {
+  const baseTemplate = createEmptyTemplate();
+  return {
+    ...baseTemplate,
+    ...layout,
+    page: { ...baseTemplate.page, ...(layout?.page ?? {}) },
+    theme: { ...baseTemplate.theme, ...(layout?.theme ?? {}) },
+    fields: { ...baseTemplate.fields, ...(layout?.fields ?? {}) },
+    layout: layout?.layout?.root ? layout.layout : baseTemplate.layout,
+  };
 };
 
 export default function ExportPublish() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const previewRef = useRef(null);
   const iframeRef = useRef(null);
   const [resume, setResume] = useState(EMPTY_RESUME);
+  const [template, setTemplate] = useState(createEmptyTemplate());
   const [loading, setLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState("");
   const [copyMessage, setCopyMessage] = useState("Copy link");
@@ -62,6 +64,14 @@ export default function ExportPublish() {
     () => window.localStorage.getItem("activeResumeId"),
     []
   );
+  const resumeJson = useMemo(
+    () => buildResumeJson(template, resume.values ?? {}),
+    [template, resume.values]
+  );
+  const pageSize = useMemo(() => {
+    const sizeKey = template?.page?.size ?? "A4";
+    return PAGE_SIZES[sizeKey] ?? PAGE_SIZES.A4;
+  }, [template?.page?.size]);
 
   useEffect(() => {
     let isMounted = true;
@@ -88,12 +98,7 @@ export default function ExportPublish() {
               ...prev.visibility,
               ...(data.visibility ?? {}),
             },
-            templateStyles:
-              data.templateStyles ?? DEFAULT_TEMPLATE_STYLES,
-            templateSettings: resolveTemplateSettings(
-              data.templateSettings ?? {},
-              data.templateStyles ?? {}
-            ),
+            values: data.values ?? data.formValues ?? {},
           }));
         }
       } catch (error) {
@@ -112,6 +117,45 @@ export default function ExportPublish() {
       isMounted = false;
     };
   }, [resumeId, user]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadTemplate = async () => {
+      if (!resume.templateId) {
+        setTemplate(createEmptyTemplate());
+        return;
+      }
+      try {
+        const snapshot = await getDoc(doc(db, "templates", resume.templateId));
+        if (!snapshot.exists()) {
+          if (isMounted) {
+            setTemplate(createEmptyTemplate());
+          }
+          return;
+        }
+        const data = snapshot.data();
+        const layout = data.layout;
+        const isBuilderLayout =
+          layout?.schemaVersion === BUILDER_SCHEMA_VERSION;
+        if (isMounted) {
+          setTemplate(isBuilderLayout ? hydrateTemplate(layout) : createEmptyTemplate());
+          if (!isBuilderLayout) {
+            setStatusMessage("This template isn't compatible with the builder format.");
+          }
+        }
+      } catch (error) {
+        if (isMounted) {
+          setTemplate(createEmptyTemplate());
+          setStatusMessage("We couldn't load the template details.");
+        }
+      }
+    };
+
+    loadTemplate();
+    return () => {
+      isMounted = false;
+    };
+  }, [resume.templateId]);
 
   const publicLink =
     resume.publicSlug || resumeId
@@ -176,40 +220,9 @@ export default function ExportPublish() {
   };
 
   const handleDownload = async () => {
-    if (!previewRef.current) return;
     setDownloadMessage("Opening print dialog...");
     setExporting(true);
     try {
-      const sourceNode = previewRef.current;
-      const cloned = sourceNode.cloneNode(true);
-      const sourceNodes = sourceNode.querySelectorAll("*");
-      const clonedNodes = cloned.querySelectorAll("*");
-      const props = [
-        "color",
-        "backgroundColor",
-        "borderTopColor",
-        "borderRightColor",
-        "borderBottomColor",
-        "borderLeftColor",
-        "outlineColor",
-        "textDecorationColor",
-        "fontFamily",
-        "fontSize",
-        "fontWeight",
-        "lineHeight",
-      ];
-      clonedNodes.forEach((node, index) => {
-        const source = sourceNodes[index];
-        if (!source) return;
-        const computed = window.getComputedStyle(source);
-        props.forEach((prop) => {
-          const value = computed[prop];
-          if (value) {
-            node.style[prop] = value;
-          }
-        });
-      });
-
       const iframe = document.createElement("iframe");
       iframe.style.position = "fixed";
       iframe.style.right = "0";
@@ -225,11 +238,8 @@ export default function ExportPublish() {
         throw new Error("Print frame unavailable");
       }
       doc.open();
-      doc.write(
-        `<!doctype html><html><head><title>Resume PDF</title></head><body style="margin:0;background:#fff;"></body></html>`
-      );
+      doc.write(buildHTML(template, resumeJson, { embedLinks: true }));
       doc.close();
-      doc.body.appendChild(cloned);
 
       setTimeout(() => {
         iframe.contentWindow?.focus();
@@ -252,36 +262,7 @@ export default function ExportPublish() {
   };
 
   useEffect(() => {
-    if (!previewOpen || !iframeRef.current || !previewRef.current) return;
-    const sourceNode = previewRef.current;
-    const cloned = sourceNode.cloneNode(true);
-    const sourceNodes = sourceNode.querySelectorAll("*");
-    const clonedNodes = cloned.querySelectorAll("*");
-    const props = [
-      "color",
-      "backgroundColor",
-      "borderTopColor",
-      "borderRightColor",
-      "borderBottomColor",
-      "borderLeftColor",
-      "outlineColor",
-      "textDecorationColor",
-      "fontFamily",
-      "fontSize",
-      "fontWeight",
-      "lineHeight",
-    ];
-    clonedNodes.forEach((node, index) => {
-      const source = sourceNodes[index];
-      if (!source) return;
-      const computed = window.getComputedStyle(source);
-      props.forEach((prop) => {
-        const value = computed[prop];
-        if (value) {
-          node.style[prop] = value;
-        }
-      });
-    });
+    if (!previewOpen || !iframeRef.current) return;
     const frameDoc = iframeRef.current.contentWindow?.document;
     if (!frameDoc) return;
     frameDoc.open();
@@ -289,25 +270,30 @@ export default function ExportPublish() {
       `<!doctype html><html><head><title>Resume Preview</title></head><body style="margin:0;background:#f8fafc;padding:24px;box-sizing:border-box;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;"></body></html>`
     );
     frameDoc.close();
-    frameDoc.body.appendChild(cloned);
-    const page = resolvePageSetup(resume.templateStyles?.page);
+    const bodyHtml = frameDoc.body;
+    bodyHtml.innerHTML = buildHTML(template, resumeJson, { embedLinks: true });
+    const innerBody = bodyHtml.querySelector("body");
+    if (innerBody) {
+      bodyHtml.innerHTML = innerBody.innerHTML;
+    }
     const applyScale = () => {
       if (!iframeRef.current) return;
       const availableWidth = iframeRef.current.clientWidth - 48;
       const availableHeight = iframeRef.current.clientHeight - 48;
       const scale = Math.min(
-        availableWidth / page.width,
-        availableHeight / page.height,
+        availableWidth / pageSize.width,
+        availableHeight / pageSize.height,
         1
       );
-      cloned.style.transform = `scale(${scale})`;
-      cloned.style.transformOrigin = "top center";
+      const body = frameDoc.body;
+      body.style.transform = `scale(${scale})`;
+      body.style.transformOrigin = "top center";
     };
     applyScale();
     const observer = new ResizeObserver(applyScale);
     observer.observe(iframeRef.current);
     return () => observer.disconnect();
-  }, [previewOpen, resume]);
+  }, [previewOpen, resumeJson, template, pageSize]);
 
   return (
     <AppShell>
@@ -356,17 +342,12 @@ export default function ExportPublish() {
                 <div
                   className="w-full max-w-[720px] overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_20px_40px_rgba(15,23,42,0.3)]"
                 >
-                  <PagePreviewFrame styles={resume.templateStyles} className="w-full">
-                    <ResumePreview
-                      ref={previewRef}
-                      data-export-preview="true"
-                      profile={resume.profile}
-                      resumeData={resume.resumeData}
-                      sectionOrder={resume.sectionOrder}
-                      styles={resume.templateStyles}
-                      settings={resume.templateSettings}
-                    />
-                  </PagePreviewFrame>
+                  <TemplatePreview
+                    template={template}
+                    resumeJson={resumeJson}
+                    embedLinks
+                    className="w-full"
+                  />
                 </div>
               )}
             </div>

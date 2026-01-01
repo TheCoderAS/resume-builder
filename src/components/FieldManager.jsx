@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { FiEdit2, FiPlus, FiTrash2 } from "react-icons/fi";
+import PromptModal from "./PromptModal.jsx";
+
+const INPUT_TYPES = ["text", "textarea", "email", "phone", "url", "date"];
 
 const DEFAULT_FIELD = {
   label: "",
@@ -7,20 +11,22 @@ const DEFAULT_FIELD = {
   inputType: "text",
   required: false,
   maxLength: "",
-  source: "",
-  path: "",
 };
 
 export default function FieldManager({
   template,
   onUpdateTemplate,
   createSignal,
+  onFieldCreated,
+  onCreateCancelled,
 }) {
   const fields = template?.fields || {};
   const [editingFieldId, setEditingFieldId] = useState(null);
   const [draftId, setDraftId] = useState("");
   const [formState, setFormState] = useState(DEFAULT_FIELD);
   const [error, setError] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const lastCreateSignal = useRef(createSignal);
 
   const fieldEntries = useMemo(
     () => Object.entries(fields).sort((a, b) => a[0].localeCompare(b[0])),
@@ -45,10 +51,13 @@ export default function FieldManager({
     setDraftId("");
     setFormState(DEFAULT_FIELD);
     setError("");
+    setIsModalOpen(true);
   };
 
   useEffect(() => {
     if (createSignal === undefined) return;
+    if (lastCreateSignal.current === createSignal) return;
+    lastCreateSignal.current = createSignal;
     startCreate();
   }, [createSignal]);
 
@@ -63,10 +72,9 @@ export default function FieldManager({
       inputType: field?.inputType || "text",
       required: Boolean(field?.required),
       maxLength: field?.maxLength ?? "",
-      source: field?.source || "",
-      path: field?.path || "",
     });
     setError("");
+    setIsModalOpen(true);
   };
 
   const handleChange = (key, value) => {
@@ -99,8 +107,6 @@ export default function FieldManager({
         required: Boolean(formState.required),
         maxLength:
           formState.maxLength === "" ? undefined : Number(formState.maxLength),
-        source: formState.source.trim(),
-        path: formState.path.trim(),
       };
 
       let root = prev.layout.root;
@@ -115,8 +121,13 @@ export default function FieldManager({
       };
     });
 
+    const isNewField = !editingFieldId;
     setEditingFieldId(trimmedId);
     setError("");
+    setIsModalOpen(false);
+    if (isNewField) {
+      onFieldCreated?.(trimmedId);
+    }
   };
 
   const handleDelete = (fieldId) => {
@@ -141,22 +152,23 @@ export default function FieldManager({
     });
 
     if (editingFieldId === fieldId) {
-      startCreate();
+      setEditingFieldId(null);
+      setDraftId("");
+      setFormState(DEFAULT_FIELD);
+      setError("");
     }
+  };
+
+  const handleCloseModal = () => {
+    if (!editingFieldId) {
+      onCreateCancelled?.();
+    }
+    setIsModalOpen(false);
+    setError("");
   };
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-slate-200">Field Manager</h4>
-        <button
-          type="button"
-          onClick={startCreate}
-          className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-indigo-400 hover:text-white"
-        >
-          Add Field
-        </button>
-      </div>
       {fieldEntries.length === 0 ? (
         <p className="text-xs text-slate-400">
           No fields yet. Create one to start binding nodes.
@@ -173,8 +185,7 @@ export default function FieldManager({
                   {field?.label || "Untitled"}
                 </div>
                 <div className="text-[11px] text-slate-400">
-                  {fieldId} · {(field?.source || "-") + "." + (field?.path || "-")} ·{" "}
-                  {field?.inputType || "text"}
+                  {fieldId} · {field?.inputType || "text"}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -184,18 +195,7 @@ export default function FieldManager({
                   className="rounded-md p-1 text-slate-300 transition hover:bg-slate-800/80 hover:text-indigo-200"
                   aria-label={`Edit ${fieldId}`}
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-4 w-4"
-                  >
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                  </svg>
+                  <FiEdit2 className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
@@ -203,34 +203,24 @@ export default function FieldManager({
                   className="rounded-md p-1 text-slate-300 transition hover:bg-slate-800/80 hover:text-rose-300"
                   aria-label={`Delete ${fieldId}`}
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-4 w-4"
-                  >
-                    <path d="M3 6h18" />
-                    <path d="M8 6V4h8v2" />
-                    <path d="M19 6l-1 14H6L5 6" />
-                    <path d="M10 11v6" />
-                    <path d="M14 11v6" />
-                  </svg>
+                  <FiTrash2 className="h-4 w-4" />
                 </button>
               </div>
             </li>
           ))}
         </ul>
       )}
-
-      <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 p-4">
-        <h5 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
-          {editingFieldId ? "Edit Field" : "Add Field"}
-        </h5>
-        <div className="mt-3 grid gap-3">
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <PromptModal
+        open={isModalOpen}
+        title={editingFieldId ? "Edit Field" : "Add Field"}
+        description="Define labels and input type for this field."
+        confirmLabel={editingFieldId ? "Save field" : "Create field"}
+        cancelLabel="Cancel"
+        onConfirm={handleSave}
+        onCancel={handleCloseModal}
+      >
+        <div className="grid gap-3">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Field ID
             <input
               value={draftId}
@@ -239,7 +229,7 @@ export default function FieldManager({
               placeholder="e.g. full_name"
             />
           </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Label
             <input
               value={formState.label}
@@ -248,7 +238,7 @@ export default function FieldManager({
               placeholder="Full Name"
             />
           </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Description
             <input
               value={formState.description}
@@ -259,7 +249,7 @@ export default function FieldManager({
               placeholder="Shown as main header at the top."
             />
           </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Placeholder
             <input
               value={formState.placeholder}
@@ -270,36 +260,23 @@ export default function FieldManager({
               placeholder="e.g. Jane Doe"
             />
           </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Input Type
-            <input
+            <select
               value={formState.inputType}
               onChange={(event) =>
                 handleChange("inputType", event.target.value)
               }
-              className="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-              placeholder="text, textarea, email"
-            />
+              className="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {INPUT_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type.toUpperCase()}
+                </option>
+              ))}
+            </select>
           </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Source
-            <input
-              value={formState.source}
-              onChange={(event) => handleChange("source", event.target.value)}
-              className="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-              placeholder="basics"
-            />
-          </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Path
-            <input
-              value={formState.path}
-              onChange={(event) => handleChange("path", event.target.value)}
-              className="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-              placeholder="name"
-            />
-          </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Max Length
             <input
               value={formState.maxLength}
@@ -313,7 +290,7 @@ export default function FieldManager({
               placeholder="80"
             />
           </label>
-          <label className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-300">
+          <label className="flex items-center gap-3 text-xs font-semibold tracking-wide text-slate-300">
             <input
               type="checkbox"
               checked={formState.required}
@@ -327,15 +304,8 @@ export default function FieldManager({
           {error ? (
             <span className="text-xs text-rose-400">{error}</span>
           ) : null}
-          <button
-            type="button"
-            onClick={handleSave}
-            className="mt-1 w-fit rounded-full bg-indigo-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-400"
-          >
-            {editingFieldId ? "Save field" : "Create field"}
-          </button>
         </div>
-      </div>
+      </PromptModal>
     </div>
   );
 }

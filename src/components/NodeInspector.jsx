@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import PromptModal from "./PromptModal.jsx";
 
 const BINDABLE_TYPES = new Set(["text", "bullet-list", "chip-list"]);
 
@@ -6,7 +7,7 @@ export default function NodeInspector({
   node,
   template,
   onUpdateNode,
-  onCreateField,
+  onRequestNewField,
 }) {
   const fields = template?.fields || {};
   const fieldOptions = useMemo(
@@ -17,15 +18,6 @@ export default function NodeInspector({
       })),
     [fields]
   );
-  const [newFieldDraft, setNewFieldDraft] = useState({
-    id: "",
-    label: "",
-    inputType: "text",
-    source: "",
-    path: "",
-  });
-  const [showNewField, setShowNewField] = useState(false);
-
   if (!node) {
     return (
       <div className="text-xs text-slate-400">
@@ -35,6 +27,12 @@ export default function NodeInspector({
   }
 
   const isBindable = BINDABLE_TYPES.has(node.type);
+  const isSection = node.type === "section";
+  const isRow = node.type === "row";
+  const isColumn = node.type === "column";
+  const isTextLike = BINDABLE_TYPES.has(node.type);
+  const sectionTitleStyle = node.titleStyle || {};
+  const [isSectionStyleOpen, setIsSectionStyleOpen] = useState(false);
 
   const handleBindChange = (value) => {
     onUpdateNode?.((current) => {
@@ -47,26 +45,94 @@ export default function NodeInspector({
     });
   };
 
-  const handleCreateField = () => {
-    const trimmedId = newFieldDraft.id.trim();
-    if (!trimmedId || fields[trimmedId]) return;
+  const handleSectionTitleChange = (value) => {
+    onUpdateNode?.((current) => ({
+      ...current,
+      title: value,
+    }));
+  };
 
-    onCreateField?.(trimmedId, {
-      label: newFieldDraft.label.trim(),
-      inputType: newFieldDraft.inputType.trim() || "text",
-      source: newFieldDraft.source.trim(),
-      path: newFieldDraft.path.trim(),
-    });
+  const handleSectionTitleToggle = (checked) => {
+    onUpdateNode?.((current) => ({
+      ...current,
+      showTitle: checked,
+    }));
+  };
 
-    onUpdateNode?.((current) => ({ ...current, bindField: trimmedId }));
-    setNewFieldDraft({
-      id: "",
-      label: "",
-      inputType: "text",
-      source: "",
-      path: "",
-    });
-    setShowNewField(false);
+  const handleSectionDividerToggle = (checked) => {
+    onUpdateNode?.((current) => ({
+      ...current,
+      showDivider: checked,
+    }));
+  };
+
+  const COLOR_OPTIONS = [
+    { label: "Primary", value: "primary" },
+    { label: "Secondary", value: "secondary" },
+    { label: "Accent", value: "accent" },
+    { label: "Meta", value: "meta" },
+  ];
+  const FONT_SIZE_TOKENS = [
+    { label: "Display", value: "display" },
+    { label: "Heading", value: "heading" },
+    { label: "Body", value: "body" },
+    { label: "Meta", value: "meta" },
+  ];
+  const ICON_OPTIONS = [
+    { label: "None", value: "" },
+    { label: "User", value: "user" },
+    { label: "Briefcase", value: "briefcase" },
+    { label: "Education", value: "book" },
+    { label: "Award", value: "award" },
+    { label: "Email", value: "mail" },
+    { label: "Phone", value: "phone" },
+    { label: "Location", value: "mapPin" },
+    { label: "Website", value: "globe" },
+    { label: "LinkedIn", value: "linkedin" },
+    { label: "GitHub", value: "github" },
+    { label: "Link", value: "link" },
+  ];
+  const ICON_SEPARATORS = [
+    { label: "Space", value: " " },
+    { label: "Bullet", value: " • " },
+    { label: "Pipe", value: " | " },
+    { label: "Dash", value: " — " },
+    { label: "Colon", value: ": " },
+    { label: "None", value: "" },
+  ];
+
+  const handleNodeAlignChange = (key, value) => {
+    onUpdateNode?.((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
+
+  const handleNodeIconChange = (key, value) => {
+    onUpdateNode?.((current) => ({
+      ...current,
+      [key]: value || undefined,
+    }));
+  };
+
+  const handleLeafStyleChange = (key, value) => {
+    onUpdateNode?.((current) => ({
+      ...current,
+      textStyle: {
+        ...(current.textStyle || {}),
+        [key]: value,
+      },
+    }));
+  };
+
+  const handleSectionTitleStyleChange = (key, value) => {
+    onUpdateNode?.((current) => ({
+      ...current,
+      titleStyle: {
+        ...(current.titleStyle || {}),
+        [key]: value,
+      },
+    }));
   };
 
   return (
@@ -80,9 +146,330 @@ export default function NodeInspector({
         </div>
       </div>
 
+      {isSection ? (
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Section Title
+            <input
+              value={node.title || ""}
+              onChange={(event) => handleSectionTitleChange(event.target.value)}
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              placeholder="Section title"
+            />
+          </label>
+          <label className="flex items-center gap-3 text-xs font-semibold tracking-wide text-slate-400">
+            <input
+              type="checkbox"
+              checked={node.showTitle !== false}
+              onChange={(event) => handleSectionTitleToggle(event.target.checked)}
+              className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500/40"
+            />
+            Show section title
+          </label>
+          <label className="flex items-center gap-3 text-xs font-semibold tracking-wide text-slate-400">
+            <input
+              type="checkbox"
+              checked={node.showDivider !== false}
+              onChange={(event) =>
+                handleSectionDividerToggle(event.target.checked)
+              }
+              className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500/40"
+            />
+            Show section divider
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Section icon
+            <select
+              value={node.iconName ?? ""}
+              onChange={(event) =>
+                handleNodeIconChange("iconName", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {ICON_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Icon separator
+            <select
+              value={node.iconSeparator ?? " "}
+              onChange={(event) =>
+                handleNodeIconChange("iconSeparator", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {ICON_SEPARATORS.map((option) => (
+                <option key={option.label} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Section Alignment
+            <select
+              value={node.align ?? "left"}
+              onChange={(event) =>
+                handleNodeAlignChange("align", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Title Alignment
+            <select
+              value={node.titleAlign ?? "left"}
+              onChange={(event) =>
+                handleNodeAlignChange("titleAlign", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => setIsSectionStyleOpen(true)}
+            className="w-fit rounded-full bg-slate-800 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-slate-700"
+          >
+            Section styling
+          </button>
+        </div>
+      ) : null}
+
+      {isRow || isColumn ? (
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Align Items
+            <select
+              value={node.alignItems ?? "flex-start"}
+              onChange={(event) =>
+                handleNodeAlignChange("alignItems", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option value="flex-start">Start</option>
+              <option value="center">Center</option>
+              <option value="flex-end">End</option>
+              <option value="stretch">Stretch</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Justify Content
+            <select
+              value={node.justifyContent ?? "flex-start"}
+              onChange={(event) =>
+                handleNodeAlignChange("justifyContent", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option value="flex-start">Start</option>
+              <option value="center">Center</option>
+              <option value="flex-end">End</option>
+              <option value="space-between">Space Between</option>
+              <option value="space-around">Space Around</option>
+              <option value="space-evenly">Space Evenly</option>
+            </select>
+          </label>
+        </div>
+      ) : null}
+
+      {isTextLike ? (
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Text Alignment
+            <select
+              value={node.textAlign ?? "left"}
+              onChange={(event) =>
+                handleNodeAlignChange("textAlign", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+              <option value="justify">Justify</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Icon
+            <select
+              value={node.iconName ?? ""}
+              onChange={(event) =>
+                handleNodeIconChange("iconName", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {ICON_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Icon separator
+            <select
+              value={node.iconSeparator ?? " "}
+              onChange={(event) =>
+                handleNodeIconChange("iconSeparator", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {ICON_SEPARATORS.map((option) => (
+                <option key={option.label} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Font Size
+            <select
+              value={node.textStyle?.fontSizeToken ?? "body"}
+              onChange={(event) =>
+                handleLeafStyleChange("fontSizeToken", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {FONT_SIZE_TOKENS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Text Color
+            <select
+              value={node.textStyle?.colorToken ?? "primary"}
+              onChange={(event) =>
+                handleLeafStyleChange("colorToken", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {COLOR_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Font Weight
+            <select
+              value={node.textStyle?.fontWeight ?? "400"}
+              onChange={(event) =>
+                handleLeafStyleChange("fontWeight", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option value="400">Regular</option>
+              <option value="600">Semi Bold</option>
+              <option value="700">Bold</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Font Style
+            <select
+              value={node.textStyle?.fontStyle ?? "normal"}
+              onChange={(event) =>
+                handleLeafStyleChange("fontStyle", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option value="normal">Normal</option>
+              <option value="italic">Italic</option>
+            </select>
+          </label>
+        </div>
+      ) : null}
+
+      <PromptModal
+        open={isSectionStyleOpen}
+        title="Section styling"
+        description="Control how section titles are styled."
+        confirmLabel="Done"
+        cancelLabel="Cancel"
+        onConfirm={() => setIsSectionStyleOpen(false)}
+        onCancel={() => setIsSectionStyleOpen(false)}
+      >
+        <div className="grid gap-3">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Title Size
+            <select
+              value={sectionTitleStyle.fontSizeToken ?? "heading"}
+              onChange={(event) =>
+                handleSectionTitleStyleChange("fontSizeToken", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {FONT_SIZE_TOKENS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Title Color
+            <select
+              value={sectionTitleStyle.colorToken ?? "primary"}
+              onChange={(event) =>
+                handleSectionTitleStyleChange("colorToken", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {COLOR_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Title Weight
+            <select
+              value={sectionTitleStyle.fontWeight ?? "600"}
+              onChange={(event) =>
+                handleSectionTitleStyleChange("fontWeight", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option value="400">Regular</option>
+              <option value="600">Semi Bold</option>
+              <option value="700">Bold</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Title Style
+            <select
+              value={sectionTitleStyle.fontStyle ?? "normal"}
+              onChange={(event) =>
+                handleSectionTitleStyleChange("fontStyle", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option value="normal">Normal</option>
+              <option value="italic">Italic</option>
+            </select>
+          </label>
+        </div>
+      </PromptModal>
+
       {isBindable ? (
         <div className="flex flex-col gap-3">
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Bind to Field
             <select
               value={node.bindField || ""}
@@ -99,81 +486,11 @@ export default function NodeInspector({
           </label>
           <button
             type="button"
-            onClick={() => setShowNewField((prev) => !prev)}
+            onClick={onRequestNewField}
             className="w-fit rounded-full bg-indigo-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-400"
           >
             + New Field
           </button>
-          {showNewField ? (
-            <div
-              className="rounded-lg border border-slate-800 bg-slate-900/70 p-3"
-            >
-              <div className="grid gap-2">
-                <input
-                  placeholder="Field ID"
-                  value={newFieldDraft.id}
-                  onChange={(event) =>
-                    setNewFieldDraft((prev) => ({
-                      ...prev,
-                      id: event.target.value,
-                    }))
-                  }
-                  className="rounded-md border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                />
-                <input
-                  placeholder="Label"
-                  value={newFieldDraft.label}
-                  onChange={(event) =>
-                    setNewFieldDraft((prev) => ({
-                      ...prev,
-                      label: event.target.value,
-                    }))
-                  }
-                  className="rounded-md border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                />
-                <input
-                  placeholder="Input type"
-                  value={newFieldDraft.inputType}
-                  onChange={(event) =>
-                    setNewFieldDraft((prev) => ({
-                      ...prev,
-                      inputType: event.target.value,
-                    }))
-                  }
-                  className="rounded-md border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                />
-                <input
-                  placeholder="Source"
-                  value={newFieldDraft.source}
-                  onChange={(event) =>
-                    setNewFieldDraft((prev) => ({
-                      ...prev,
-                      source: event.target.value,
-                    }))
-                  }
-                  className="rounded-md border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                />
-                <input
-                  placeholder="Path"
-                  value={newFieldDraft.path}
-                  onChange={(event) =>
-                    setNewFieldDraft((prev) => ({
-                      ...prev,
-                      path: event.target.value,
-                    }))
-                  }
-                  className="rounded-md border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={handleCreateField}
-                className="mt-3 w-fit rounded-full bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-400"
-              >
-                Create & Bind
-              </button>
-            </div>
-          ) : null}
         </div>
       ) : (
         <p className="text-xs text-slate-400">

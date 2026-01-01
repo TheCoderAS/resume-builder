@@ -13,125 +13,80 @@ import {
 import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
-import EntryEditor from "../components/EntryEditor.jsx";
-import EntryList from "../components/EntryList.jsx";
-import Input from "../components/Input.jsx";
-import PagePreviewFrame from "../components/PagePreviewFrame.jsx";
-import ResumePreview from "../components/ResumePreview.jsx";
+import ResumeForm from "../components/ResumeForm.jsx";
 import SectionHeader from "../components/SectionHeader.jsx";
 import Snackbar from "../components/Snackbar.jsx";
 import VisibilityToggle from "../components/VisibilityToggle.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
-import {
-  DEFAULT_TEMPLATE_SETTINGS,
-  DEFAULT_TEMPLATE_STYLES,
-  resolvePageSetup,
-  resolveTemplateSettings,
-  resolveTemplateStyles,
-} from "../utils/resumePreview.js";
+import { TemplatePreview } from "../components/TemplatePreview.jsx";
+import { createEmptyTemplate } from "../templateModel.js";
+import { buildResumeJson } from "../utils/resumeData.js";
 
-const STEPS = ["Select template", "Fill sections", "Export & publish"];
+const STEPS = ["Select template", "Fill fields", "Export & publish"];
+const BUILDER_SCHEMA_VERSION = "builder-v1";
 
-const SECTION_CONFIGS = [
-  {
-    key: "experience",
-    title: "Experience",
-    description: "Highlight impactful roles and projects.",
-    addLabel: "Add experience",
-    fields: [
-      { key: "role", label: "Role", placeholder: "Senior Product Manager" },
-      { key: "company", label: "Company", placeholder: "Company name" },
-      { key: "location", label: "Location", placeholder: "City, State" },
-      { key: "startDate", label: "Start date", placeholder: "Jan 2021" },
-      { key: "endDate", label: "End date", placeholder: "Present" },
-      {
-        key: "summary",
-        label: "Highlights",
-        placeholder: "Describe key outcomes and scope.",
-        multiline: true,
-      },
-    ],
-    getTitle: (entry) => `${entry.role || "Role"} · ${entry.company || ""}`,
-    getMeta: (entry) =>
-      [entry.location, [entry.startDate, entry.endDate].filter(Boolean).join(" - ")]
-        .filter(Boolean)
-        .join(" · "),
-  },
-  {
-    key: "education",
-    title: "Education",
-    description: "Add degrees, certificates, and credentials.",
-    addLabel: "Add education",
-    fields: [
-      { key: "school", label: "School", placeholder: "University name" },
-      { key: "degree", label: "Degree", placeholder: "B.A. in Design" },
-      { key: "location", label: "Location", placeholder: "City, State" },
-      { key: "startDate", label: "Start date", placeholder: "2016" },
-      { key: "endDate", label: "End date", placeholder: "2020" },
-      {
-        key: "summary",
-        label: "Details",
-        placeholder: "Honors, coursework, or achievements.",
-        multiline: true,
-      },
-    ],
-    getTitle: (entry) => `${entry.degree || "Degree"} · ${entry.school || ""}`,
-    getMeta: (entry) =>
-      [entry.location, [entry.startDate, entry.endDate].filter(Boolean).join(" - ")]
-        .filter(Boolean)
-        .join(" · "),
-  },
-  {
-    key: "skills",
-    title: "Skills",
-    description: "Capture technical, creative, and leadership skills.",
-    addLabel: "Add skill",
-    fields: [
-      { key: "name", label: "Skill", placeholder: "Product strategy" },
-      { key: "level", label: "Level", placeholder: "Expert, Advanced, etc." },
-      {
-        key: "summary",
-        label: "Usage notes",
-        placeholder: "Where you applied this skill.",
-        multiline: true,
-      },
-    ],
-    getTitle: (entry) => entry.name,
-    getMeta: (entry) => entry.level,
-  },
-];
-
-const DEFAULT_BLOCKS = {
-  header: true,
-  section: true,
-  list: true,
-  columns: true,
-};
-
-const resolveTemplateLayout = (template) =>
-  resolveTemplateStyles(template?.styles ?? {}, template?.layout ?? {});
-
-const resolveTemplateGlobals = (template) =>
-  resolveTemplateSettings(template?.settings ?? {}, template?.styles ?? {});
-
-const resolveTemplateBlocks = (layout = {}) => {
-  if (!Array.isArray(layout.blocks)) {
-    return DEFAULT_BLOCKS;
-  }
+const hydrateTemplate = (layout) => {
+  const baseTemplate = createEmptyTemplate();
   return {
-    header: layout.blocks.includes("header"),
-    section: layout.blocks.includes("section"),
-    list: layout.blocks.includes("list"),
-    columns: layout.blocks.includes("columns"),
+    ...baseTemplate,
+    ...layout,
+    page: { ...baseTemplate.page, ...(layout?.page ?? {}) },
+    theme: { ...baseTemplate.theme, ...(layout?.theme ?? {}) },
+    fields: { ...baseTemplate.fields, ...(layout?.fields ?? {}) },
+    layout: layout?.layout?.root ? layout.layout : baseTemplate.layout,
   };
 };
 
-const normalizeSectionOrder = (order = []) => {
-  const validSections = SECTION_CONFIGS.map((section) => section.key);
-  const filtered = order.filter((section) => validSections.includes(section));
-  const merged = [...new Set([...filtered, ...validSections])];
-  return merged;
+const buildFieldGroups = (template) => {
+  const sections = [];
+  const ungrouped = new Set();
+
+  const walk = (node, currentSection) => {
+    if (!node) return;
+    if (node.type === "section") {
+      const section = {
+        id: node.id,
+        title: (node.title || "Section").trim() || "Section",
+        showTitle: node.showTitle !== false,
+        fieldIds: new Set(),
+      };
+      sections.push(section);
+      node.children?.forEach((child) => walk(child, section));
+      return;
+    }
+
+    if (node.bindField) {
+      if (currentSection) {
+        currentSection.fieldIds.add(node.bindField);
+      } else {
+        ungrouped.add(node.bindField);
+      }
+    }
+    node.children?.forEach((child) => walk(child, currentSection));
+  };
+
+  walk(template?.layout?.root, null);
+
+  const groups = sections
+    .map((section) => ({
+      id: section.id,
+      title: section.title,
+      showTitle: section.showTitle,
+      fieldIds: Array.from(section.fieldIds),
+    }))
+    .filter((group) => group.fieldIds.length > 0);
+
+  if (ungrouped.size > 0) {
+    groups.push({
+      id: "ungrouped",
+      title: "Additional fields",
+      showTitle: true,
+      fieldIds: Array.from(ungrouped),
+    });
+  }
+
+  return groups;
 };
 
 export default function ResumeEditor() {
@@ -143,44 +98,23 @@ export default function ResumeEditor() {
   const initialSave = useRef(true);
   const [templateId, setTemplateId] = useState(null);
   const [templateName, setTemplateName] = useState("");
-  const [templateBlocks, setTemplateBlocks] = useState(DEFAULT_BLOCKS);
-
-  const [profile, setProfile] = useState({
-    fullName: "",
-    title: "",
-    email: "",
-    phone: "",
-    location: "",
-    summary: "",
-  });
-  const [resumeData, setResumeData] = useState({
-    experience: [],
-    education: [],
-    skills: [],
-  });
+  const [template, setTemplate] = useState(createEmptyTemplate());
+  const [formValues, setFormValues] = useState({});
   const [visibility, setVisibility] = useState({ isPublic: false });
-  const [activeEditor, setActiveEditor] = useState(null);
-  const [sectionOrder, setSectionOrder] = useState(
-    SECTION_CONFIGS.map((section) => section.key)
-  );
-  const [templateStyles, setTemplateStyles] = useState(DEFAULT_TEMPLATE_STYLES);
-  const [templateSettings, setTemplateSettings] = useState(
-    DEFAULT_TEMPLATE_SETTINGS
-  );
   const [templates, setTemplates] = useState([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const lastAutosaveStatus = useRef("idle");
-  const resolvedPage = resolvePageSetup(templateStyles.page);
+  const resumeJson = useMemo(
+    () => buildResumeJson(template, formValues),
+    [template, formValues]
+  );
+  const fieldGroups = useMemo(
+    () => buildFieldGroups(template),
+    [template]
+  );
 
   const currentStep = useMemo(() => STEPS[stepIndex], [stepIndex]);
-  const orderedSections = useMemo(
-    () =>
-      sectionOrder
-        .map((key) => SECTION_CONFIGS.find((section) => section.key === key))
-        .filter(Boolean),
-    [sectionOrder]
-  );
 
   useEffect(() => {
     if (!user) return;
@@ -198,51 +132,48 @@ export default function ResumeEditor() {
           : null;
       const payload = {
         userId: user.uid,
-        profile,
-        resumeData,
+        values: formValues,
         visibility,
-        sectionOrder,
-        templateStyles,
-        templateSettings,
         templateId,
         templateName,
+        templateSchemaVersion: template?.schemaVersion ?? BUILDER_SCHEMA_VERSION,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
 
       try {
-        if (storedId) {
-          const snapshot = await getDoc(doc(db, "resumes", storedId));
-          if (snapshot.exists()) {
-            const data = snapshot.data();
+        let activeId = storedId;
+        if (activeId) {
+          try {
+            const snapshot = await getDoc(doc(db, "resumes", activeId));
+            if (snapshot.exists()) {
+              const data = snapshot.data();
+              if (isMounted) {
+                setFormValues(data.values ?? data.formValues ?? {});
+                setVisibility((prev) => ({ ...prev, ...(data.visibility ?? {}) }));
+                setTemplateId(data.templateId ?? null);
+                setTemplateName(data.templateName ?? "");
+                setResumeId(activeId);
+                initialSave.current = false;
+              }
+              return;
+            }
+            await setDoc(doc(db, "resumes", activeId), payload, { merge: true });
             if (isMounted) {
-              setProfile((prev) => ({ ...prev, ...(data.profile ?? {}) }));
-              setResumeData((prev) => ({ ...prev, ...(data.resumeData ?? {}) }));
-              setVisibility((prev) => ({ ...prev, ...(data.visibility ?? {}) }));
-              setSectionOrder(normalizeSectionOrder(data.sectionOrder ?? []));
-              setTemplateStyles(
-                resolveTemplateStyles(data.templateStyles ?? {}, {})
-              );
-              setTemplateSettings(
-                resolveTemplateSettings(
-                  data.templateSettings ?? {},
-                  data.templateStyles ?? {}
-                )
-              );
-              setTemplateId(data.templateId ?? null);
-              setTemplateName(data.templateName ?? "");
-              setResumeId(storedId);
+              setResumeId(activeId);
+              window.localStorage.setItem("activeResumeOwner", user.uid);
               initialSave.current = false;
             }
             return;
+          } catch (error) {
+            if (error?.code === "permission-denied") {
+              window.localStorage.removeItem("activeResumeId");
+              window.localStorage.removeItem("activeResumeOwner");
+              activeId = null;
+            } else {
+              throw error;
+            }
           }
-          await setDoc(doc(db, "resumes", storedId), payload, { merge: true });
-          if (isMounted) {
-            setResumeId(storedId);
-            window.localStorage.setItem("activeResumeOwner", user.uid);
-            initialSave.current = false;
-          }
-          return;
         }
 
         const docRef = await addDoc(collection(db, "resumes"), {
@@ -272,11 +203,8 @@ export default function ResumeEditor() {
 
   useEffect(() => {
     if (!templateId) {
-      setTemplateBlocks(DEFAULT_BLOCKS);
       setTemplateName("");
-      setTemplateStyles(DEFAULT_TEMPLATE_STYLES);
-      setTemplateSettings(DEFAULT_TEMPLATE_SETTINGS);
-      setSectionOrder(SECTION_CONFIGS.map((section) => section.key));
+      setTemplate(createEmptyTemplate());
       return;
     }
     let isMounted = true;
@@ -286,23 +214,28 @@ export default function ResumeEditor() {
         const snapshot = await getDoc(doc(db, "templates", templateId));
         if (!snapshot.exists()) {
           if (isMounted) {
-            setTemplateBlocks(DEFAULT_BLOCKS);
+            setTemplate(createEmptyTemplate());
           }
           return;
         }
         const data = snapshot.data();
         if (isMounted) {
+          const layout = data.layout;
+          const isBuilderLayout =
+            layout?.schemaVersion === BUILDER_SCHEMA_VERSION;
           setTemplateName(data.name ?? "Untitled template");
-          setTemplateStyles(resolveTemplateLayout(data));
-          setTemplateSettings(resolveTemplateGlobals(data));
-          const nextOrder = normalizeSectionOrder(data.layout?.sectionOrder ?? []);
-          setSectionOrder(nextOrder);
-          setTemplateBlocks(resolveTemplateBlocks(data.layout ?? {}));
+          setTemplate(isBuilderLayout ? hydrateTemplate(layout) : createEmptyTemplate());
+          if (!isBuilderLayout) {
+            setToast({
+              message: "This template isn't compatible with the builder format.",
+              variant: "error",
+            });
+          }
         }
       } catch (error) {
         console.error(error);
         if (isMounted) {
-          setTemplateBlocks(DEFAULT_BLOCKS);
+          setTemplate(createEmptyTemplate());
           setToast({
             message: "Unable to load template details.",
             variant: "error",
@@ -327,12 +260,19 @@ export default function ResumeEditor() {
         const publicQuery = query(
           templatesRef,
           where("type", "==", "admin"),
-          where("status", "==", "active")
+          where("status", "==", "active"),
+          where("layout.schemaVersion", "==", BUILDER_SCHEMA_VERSION)
         );
         const [publicSnapshot, userSnapshot] = await Promise.all([
           getDocs(publicQuery),
           user
-            ? getDocs(query(templatesRef, where("ownerId", "==", user.uid)))
+            ? getDocs(
+                query(
+                  templatesRef,
+                  where("ownerId", "==", user.uid),
+                  where("layout.schemaVersion", "==", BUILDER_SCHEMA_VERSION)
+                )
+              )
             : Promise.resolve(null),
         ]);
         const publicTemplates = publicSnapshot.docs.map((docSnap) => ({
@@ -374,14 +314,11 @@ export default function ResumeEditor() {
           doc(db, "resumes", resumeId),
           {
             userId: user.uid,
-            profile,
-            resumeData,
+            values: formValues,
             visibility,
-            sectionOrder,
-            templateStyles,
-            templateSettings,
             templateId,
             templateName,
+            templateSchemaVersion: template?.schemaVersion ?? BUILDER_SCHEMA_VERSION,
             updatedAt: serverTimestamp(),
           },
           { merge: true }
@@ -395,49 +332,15 @@ export default function ResumeEditor() {
 
     return () => clearTimeout(timeout);
   }, [
-    profile,
-    resumeData,
-    sectionOrder,
-    templateStyles,
-    templateSettings,
+    formValues,
     templateId,
     templateName,
     visibility,
     resumeId,
     user,
+    template?.schemaVersion,
   ]);
 
-  const handleStartEntry = (sectionKey, index = null) => {
-    const section = SECTION_CONFIGS.find((item) => item.key === sectionKey);
-    if (!section) return;
-    const value =
-      index === null ? {} : resumeData[sectionKey][index] ?? {};
-    setActiveEditor({ sectionKey, index, value, fields: section.fields });
-  };
-
-  const handleSaveEntry = () => {
-    if (!activeEditor) return;
-    setResumeData((prev) => {
-      const next = { ...prev };
-      const list = [...(prev[activeEditor.sectionKey] ?? [])];
-      if (activeEditor.index === null) {
-        list.push(activeEditor.value);
-      } else {
-        list[activeEditor.index] = activeEditor.value;
-      }
-      next[activeEditor.sectionKey] = list;
-      return next;
-    });
-    setActiveEditor(null);
-  };
-
-  const handleRemoveEntry = (sectionKey, index) => {
-    setResumeData((prev) => {
-      const next = { ...prev };
-      next[sectionKey] = prev[sectionKey].filter((_, itemIndex) => itemIndex !== index);
-      return next;
-    });
-  };
 
   const handleNextStep = () => {
     if (stepIndex < STEPS.length - 1) {
@@ -565,8 +468,8 @@ export default function ResumeEditor() {
                       </p>
                       {templateName ? (
                         <p className="mt-1 text-xs text-slate-400">
-                          {resolvedPage.width} × {resolvedPage.height}px ·{" "}
-                          {templateSettings.fontFamily}
+                          {template?.page?.size ?? "A4"} ·{" "}
+                          {template?.theme?.fonts?.body ?? "Default font"}
                         </p>
                       ) : (
                         <p className="mt-1 text-xs text-slate-400">
@@ -580,118 +483,63 @@ export default function ResumeEditor() {
             ) : null}
 
             {stepIndex === 1 ? (
-              <section className="grid gap-6">
-                <div className="app-card">
-                  <SectionHeader
-                    title="Profile"
-                    description="Set the headline details that show on your resume."
-                  />
-                  <div className="mt-6 grid gap-4 md:grid-cols-2">
-                    <Input
-                      label="Full name"
-                      placeholder="Jordan Taylor"
-                      value={profile.fullName}
-                      onChange={(event) =>
-                        setProfile((prev) => ({
-                          ...prev,
-                          fullName: event.target.value,
-                        }))
-                      }
+              <section className="app-card">
+                <SectionHeader
+                  title="Resume fields"
+                  description="Fill in the fields defined by the selected template."
+                />
+                <div className="mt-6">
+                  {!templateId ? (
+                    <p className="text-sm text-slate-400">
+                      Choose a template to start filling resume fields.
+                    </p>
+                  ) : Object.keys(template?.fields ?? {}).length === 0 ? (
+                    <p className="text-sm text-slate-400">
+                      This template doesn’t define any fields yet.
+                    </p>
+                  ) : fieldGroups.length === 0 ? (
+                    <ResumeForm
+                      template={template}
+                      values={formValues}
+                      onChange={setFormValues}
                     />
-                    <Input
-                      label="Professional title"
-                      placeholder="Senior Product Designer"
-                      value={profile.title}
-                      onChange={(event) =>
-                        setProfile((prev) => ({
-                          ...prev,
-                          title: event.target.value,
-                        }))
-                      }
-                    />
-                    <Input
-                      label="Email"
-                      placeholder="you@email.com"
-                      value={profile.email}
-                      onChange={(event) =>
-                        setProfile((prev) => ({ ...prev, email: event.target.value }))
-                      }
-                    />
-                    <Input
-                      label="Phone"
-                      placeholder="(555) 123-4567"
-                      value={profile.phone}
-                      onChange={(event) =>
-                        setProfile((prev) => ({ ...prev, phone: event.target.value }))
-                      }
-                    />
-                    <Input
-                      label="Location"
-                      placeholder="Austin, TX"
-                      value={profile.location}
-                      onChange={(event) =>
-                        setProfile((prev) => ({
-                          ...prev,
-                          location: event.target.value,
-                        }))
-                      }
-                    />
-                    <label className="md:col-span-2 flex flex-col gap-2 text-sm font-medium text-slate-200">
-                      <span>Professional summary</span>
-                      <textarea
-                        rows={4}
-                        className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/40"
-                        placeholder="Write a 2-3 sentence summary."
-                        value={profile.summary}
-                        onChange={(event) =>
-                          setProfile((prev) => ({
-                            ...prev,
-                            summary: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                  </div>
+                  ) : (
+                    <div className="flex flex-col gap-6">
+                      {fieldGroups.map((group) => {
+                        const groupFields = Object.fromEntries(
+                          group.fieldIds
+                            .map((fieldId) => [
+                              fieldId,
+                              template?.fields?.[fieldId],
+                            ])
+                            .filter(([, field]) => Boolean(field))
+                        );
+                        const groupTemplate = {
+                          ...template,
+                          fields: groupFields,
+                        };
+
+                        return (
+                          <div
+                            key={group.id}
+                            className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-4"
+                          >
+                            <h4 className="text-sm font-semibold text-slate-200">
+                              {group.title}
+                            </h4>
+                            <div className="mt-4">
+                              <ResumeForm
+                                template={groupTemplate}
+                                values={formValues}
+                                onChange={setFormValues}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                {orderedSections.map((section) => (
-                  <div key={section.key} className="app-card">
-                    <SectionHeader
-                      title={section.title}
-                      description={section.description}
-                      action={
-                        <Button
-                          variant="ghost"
-                          className="px-4 py-2 text-xs"
-                          onClick={() => handleStartEntry(section.key)}
-                        >
-                          {section.addLabel}
-                        </Button>
-                      }
-                    />
-                    <EntryList
-                      items={resumeData[section.key]}
-                      onAdd={() => handleStartEntry(section.key)}
-                      onEdit={(index) => handleStartEntry(section.key, index)}
-                      onRemove={(index) => handleRemoveEntry(section.key, index)}
-                      addLabel={section.addLabel}
-                      emptyMessage={`No ${section.title.toLowerCase()} entries yet.`}
-                      getTitle={section.getTitle}
-                      getMeta={section.getMeta}
-                    />
-                    {activeEditor?.sectionKey === section.key ? (
-                      <EntryEditor
-                        title={`Edit ${section.title}`}
-                        fields={section.fields}
-                        value={activeEditor.value}
-                        onChange={(value) =>
-                          setActiveEditor((prev) => ({ ...prev, value }))
-                        }
-                        onSave={handleSaveEntry}
-                        onCancel={() => setActiveEditor(null)}
-                      />
-                    ) : null}
-                  </div>
-                ))}
               </section>
             ) : null}
 
@@ -745,16 +593,12 @@ export default function ResumeEditor() {
                 Live preview
               </h3>
               <div className="mt-4">
-                <PagePreviewFrame styles={templateStyles} className="w-full">
-                  <ResumePreview
-                    profile={profile}
-                    resumeData={resumeData}
-                    sectionOrder={sectionOrder}
-                    styles={templateStyles}
-                    settings={templateSettings}
-                    visibleBlocks={templateBlocks}
-                  />
-                </PagePreviewFrame>
+                <TemplatePreview
+                  template={template}
+                  resumeJson={resumeJson}
+                  embedLinks
+                  className="h-[520px] w-full rounded-xl border border-slate-800 bg-white shadow-md"
+                />
               </div>
             </div>
           </aside>

@@ -33,7 +33,6 @@ import { resolveTemplateSettings, resolveTemplateStyles } from "../utils/resumeP
 
 const FILTER_OPTIONS = [
   { label: "All", value: "all" },
-  { label: "Admin", value: "admin" },
   { label: "My templates", value: "mine" },
   { label: "Archived", value: "archived" },
 ];
@@ -356,7 +355,7 @@ export default function TemplateGallery() {
                 return (
                   <div
                     key={template.id}
-                    className="relative flex h-full flex-col gap-4 overflow-hidden rounded-[28px] border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-5 text-left shadow-[0_18px_40px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-emerald-400/60"
+                    className="relative flex h-full flex-col gap-4 rounded-[28px] border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-5 text-left shadow-[0_18px_40px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-emerald-400/60"
                   >
                     {isAdminTemplate ? (
                       <div className="absolute right-5 top-5 flex items-center gap-1 rounded-full border border-emerald-400/60 bg-emerald-400/10 px-2 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-emerald-100">

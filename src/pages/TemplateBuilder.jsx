@@ -586,7 +586,7 @@ export default function TemplateBuilder() {
                 </button>
               </div>
             </div>
-            <div className="mt-3 space-y-1">
+            <div className="mt-3 max-h-[60vh] overflow-auto space-y-1 md:max-h-[37vh] lg:max-h-[37vh]">
               <Tree
                 node={template.layout.root}
                 selected={selectedNodeId}
@@ -609,7 +609,7 @@ export default function TemplateBuilder() {
           </div>
         </aside>
 
-          <main className="min-h-[520px] flex-1 bg-slate-100 p-2 lg:mx-4">
+          <main className="min-h-[520px] flex-1 bg-slate-100 p-2 lg:mx-4 md:max-h-[65vh] md:overflow-auto lg:max-h-[65vh] lg:overflow-auto">
               <TemplatePreview
                 template={template}
                 resumeJson={resumeJson}
@@ -620,7 +620,7 @@ export default function TemplateBuilder() {
           </main>
 
           <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 lg:w-80 lg:border-l lg:rounded-l-none">
-          <div className="flex h-full flex-col gap-4 overflow-auto pr-1">
+          <div className="flex h-full flex-col gap-4 overflow-auto pr-1 md:max-h-[61.5vh] lg:max-h-[61.5vh]">
             <div className="rounded-xl border border-slate-800/80 bg-slate-950/70">
               <button
                 type="button"
@@ -732,7 +732,7 @@ export default function TemplateBuilder() {
                 }`}
               >
                 <div
-                  className={`p-4 ${
+                  className={`max-h-[520px] overflow-auto p-4 ${
                     isGlobalSettingsOpen ? "" : "pointer-events-none"
                   }`}
                 >
@@ -758,12 +758,12 @@ export default function TemplateBuilder() {
                     <div
                       className={`overflow-hidden border-t border-slate-800/80 transition-[max-height,opacity] duration-300 ease-in-out ${
                         isGlobalTypographyOpen
-                          ? "max-h-[900px] opacity-100"
+                          ? "max-h-[700px] opacity-100"
                           : "max-h-0 opacity-0"
                       }`}
                     >
                       <div
-                        className={`p-3 ${
+                        className={`max-h-[360px] overflow-auto p-3 ${
                           isGlobalTypographyOpen ? "" : "pointer-events-none"
                         }`}
                       >
@@ -1103,12 +1103,12 @@ export default function TemplateBuilder() {
                     <div
                       className={`overflow-hidden border-t border-slate-800/80 transition-[max-height,opacity] duration-300 ease-in-out ${
                         isGlobalColorsOpen
-                          ? "max-h-[900px] opacity-100"
+                          ? "max-h-[420px] opacity-100"
                           : "max-h-0 opacity-0"
                       }`}
                     >
                       <div
-                        className={`p-3 ${
+                        className={`max-h-[280px] overflow-auto p-3 ${
                           isGlobalColorsOpen ? "" : "pointer-events-none"
                         }`}
                       >
@@ -1168,12 +1168,12 @@ export default function TemplateBuilder() {
                     <div
                       className={`overflow-hidden border-t border-slate-800/80 transition-[max-height,opacity] duration-300 ease-in-out ${
                         isGlobalFontSizesOpen
-                          ? "max-h-[900px] opacity-100"
+                          ? "max-h-[420px] opacity-100"
                           : "max-h-0 opacity-0"
                       }`}
                     >
                       <div
-                        className={`p-3 ${
+                        className={`max-h-[280px] overflow-auto p-3 ${
                           isGlobalFontSizesOpen ? "" : "pointer-events-none"
                         }`}
                       >
@@ -1239,7 +1239,7 @@ export default function TemplateBuilder() {
                 </div>
               </div>
             </div>
-            <div className="flex-1 rounded-xl border border-slate-800/80 bg-slate-950/70">
+            <div className="rounded-xl border border-slate-800/80 bg-slate-950/70">
               <button
                 type="button"
                 onClick={() => setIsJsonOpen((prev) => !prev)}
@@ -1261,7 +1261,7 @@ export default function TemplateBuilder() {
                   isJsonOpen ? "max-h-[900px] opacity-100" : "max-h-0 opacity-0"
                 }`}
               >
-                <div className={`p-4 ${isJsonOpen ? "" : "pointer-events-none"}`}>
+                <div className={`${isJsonOpen ? "" : "pointer-events-none"}`}>
                   <textarea
                     value={json}
                     readOnly

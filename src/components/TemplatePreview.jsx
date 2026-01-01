@@ -7,7 +7,14 @@ const PAGE_SIZES = {
   Legal: { width: 816, height: 1344 },
 };
 
-export function TemplatePreview({ template, resumeJson, className }) {
+export function TemplatePreview({
+  template,
+  resumeJson,
+  selectedNodeId = null,
+  onSelectNode,
+  className,
+}) {
+  const highlightId = selectedNodeId === "root" ? null : selectedNodeId;
   const iframeRef = useRef(null);
   const containerRef = useRef(null);
   const [scale, setScale] = useState(1);
@@ -21,9 +28,26 @@ export function TemplatePreview({ template, resumeJson, className }) {
     const doc = iframeRef.current?.contentDocument;
     if (!doc) return;
     doc.open();
-    doc.write(buildHTML(template, resumeJson));
+    doc.write(
+      buildHTML(template, resumeJson, {
+        highlightId,
+        origin: window.location.origin,
+      })
+    );
     doc.close();
-  }, [template, resumeJson]);
+  }, [template, resumeJson, highlightId]);
+
+  useEffect(() => {
+    if (!onSelectNode) return;
+    const handleMessage = (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      if (event.data?.type !== "templateNodeSelect") return;
+      onSelectNode(event.data.nodeId);
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [onSelectNode]);
 
   useLayoutEffect(() => {
     if (!containerRef.current) return;

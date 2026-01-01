@@ -241,6 +241,28 @@ export default function TemplateBuilder() {
     return ids;
   }, [template]);
 
+  const findNodePath = (node, targetId, path = []) => {
+    if (!node) return null;
+    const nextPath = [...path, node.id];
+    if (node.id === targetId) return nextPath;
+    for (const child of node.children || []) {
+      const found = findNodePath(child, targetId, nextPath);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const handleSelectNode = (nodeId) => {
+    setSelectedNodeId(nodeId);
+    const path = findNodePath(template.layout.root, nodeId);
+    if (!path) return;
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      path.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
   function updateNode(node, id, updater) {
     if (node.id === id) return updater(node);
     if (!node.children) return node;
@@ -568,7 +590,7 @@ export default function TemplateBuilder() {
               <Tree
                 node={template.layout.root}
                 selected={selectedNodeId}
-                onSelect={setSelectedNodeId}
+                onSelect={handleSelectNode}
                 onDelete={handleDeleteNode}
                 isOpen={expandedNodes.has(template.layout.root.id)}
                 onToggle={handleToggleNode}
@@ -591,6 +613,8 @@ export default function TemplateBuilder() {
               <TemplatePreview
                 template={template}
                 resumeJson={resumeJson}
+                selectedNodeId={selectedNodeId}
+                onSelectNode={handleSelectNode}
                 className="border border-slate-200 bg-white shadow-md"
               />
           </main>

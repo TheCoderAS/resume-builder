@@ -1,4 +1,7 @@
-export function buildHTML(template, resumeJson = {}) {
+export function buildHTML(template, resumeJson = {}, options = {}) {
+  const highlightId = options?.highlightId ?? null;
+  const origin =
+    options?.origin && options.origin !== "null" ? options.origin : "*";
   const page = template?.page ?? {};
   const marginX = page.marginX ?? page.margins?.left ?? 32;
   const marginY = page.marginY ?? page.margins?.top ?? 32;
@@ -31,23 +34,52 @@ body {
 .row { display:flex; gap:${template.theme.gap ?? 12}px; }
 .column { display:flex; flex-direction:column; gap:${template.theme.gap ?? 12}px; }
 .box {
-  border: 1px dashed #cbd5f5;
-  padding: 8px 10px;
-  border-radius: 8px;
-  color: #475569;
-  background: #f8fafc;
+  border: none;
+  border-radius: 0;
+  color: inherit;
+  background: transparent;
   margin-bottom: ${template.theme.gap ?? 12}px;
+}
+.node-highlight {
+  outline: 2px solid #ef4444;
+  outline-offset: 4px;
+  border-radius: 6px;
 }
 </style>
 </head>
 <body>
-  ${renderNode(template.layout.root, template, resumeJson)}
+  ${renderNode(template.layout.root, template, resumeJson, highlightId)}
+  <script>
+    (function () {
+      function findNodeId(target) {
+        while (target && target !== document.body) {
+          if (target.dataset && target.dataset.nodeId) {
+            return target.dataset.nodeId;
+          }
+          target = target.parentElement;
+        }
+        return null;
+      }
+      document.addEventListener("click", function (event) {
+        var nodeId = findNodeId(event.target);
+        if (!nodeId) return;
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage(
+            { type: "templateNodeSelect", nodeId: nodeId },
+            "${origin}"
+          );
+        }
+      });
+    })();
+  </script>
 </body>
 </html>`;
 }
 
-export function renderNode(node, template, resumeJson) {
+export function renderNode(node, template, resumeJson, highlightId = null) {
   if (!node) return "";
+  const highlightClass = node.id === highlightId ? " node-highlight" : "";
+  const dataAttr = `data-node-id="${node.id}"`;
 
   const resolveFontSize = (token) => {
     const base = template?.theme?.baseFontSize ?? 14;
@@ -97,7 +129,7 @@ export function renderNode(node, template, resumeJson) {
         node.showDivider === false ? "border-bottom:none;" : "";
       const sectionAlign = node.align ?? "left";
       const titleAlign = node.titleAlign ?? sectionAlign;
-      return `<div class="section" style="${dividerStyle}width:100%;${textAlignStyle(
+      return `<div ${dataAttr} class="section${highlightClass}" style="${dividerStyle}width:100%;${textAlignStyle(
         sectionAlign
       )}">
         ${
@@ -107,40 +139,42 @@ export function renderNode(node, template, resumeJson) {
               )};display:block;">${title || "Section"}</strong>`
             : ""
         }
-        ${renderChildren(node, template, resumeJson)}
+        ${renderChildren(node, template, resumeJson, highlightId)}
       </div>`;
     }
 
     case "row":
-      return `<div class="row" style="${flexStyle(node)}">${renderChildren(
+      return `<div ${dataAttr} class="row${highlightClass}" style="${flexStyle(node)}">${renderChildren(
         node,
         template,
-        resumeJson
+        resumeJson,
+        highlightId
       )}</div>`;
 
     case "column":
-      return `<div class="column" style="${flexStyle(node)}">${renderChildren(
+      return `<div ${dataAttr} class="column${highlightClass}" style="${flexStyle(node)}">${renderChildren(
         node,
         template,
-        resumeJson
+        resumeJson,
+        highlightId
       )}</div>`;
 
     case "text":
-      return `<div class="box" style="${leafStyle(
+      return `<div ${dataAttr} class="box${highlightClass}" style="${leafStyle(
         node
       )}${textAlignStyle(node.textAlign ?? "left")}">${
         resolveNodeValue(node, template, resumeJson) || "Sample text"
       }</div>`;
 
     case "bullet-list":
-      return `<div class="box" style="${leafStyle(
+      return `<div ${dataAttr} class="box${highlightClass}" style="${leafStyle(
         node
       )}${textAlignStyle(node.textAlign ?? "left")}">${
         resolveNodeValue(node, template, resumeJson) || "Sample bullet list"
       }</div>`;
 
     case "chip-list":
-      return `<div class="box" style="${leafStyle(
+      return `<div ${dataAttr} class="box${highlightClass}" style="${leafStyle(
         node
       )}${textAlignStyle(node.textAlign ?? "left")}">${
         resolveNodeValue(node, template, resumeJson) || "Sample chip list"
@@ -154,9 +188,9 @@ export function renderNode(node, template, resumeJson) {
   }
 }
 
-function renderChildren(node, template, resumeJson) {
+function renderChildren(node, template, resumeJson, highlightId) {
   return (node.children || [])
-    .map((child) => renderNode(child, template, resumeJson))
+    .map((child) => renderNode(child, template, resumeJson, highlightId))
     .join("");
 }
 

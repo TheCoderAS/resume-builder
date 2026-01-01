@@ -47,6 +47,7 @@ export default function TemplateBuilder() {
   const [formValues, setFormValues] = useState({});
   const [expandedNodes, setExpandedNodes] = useState(new Set(["root"]));
   const [fieldCreateSignal, setFieldCreateSignal] = useState(0);
+  const [isFieldManagerOpen, setIsFieldManagerOpen] = useState(true);
 
   const templateId = location.state?.templateId;
 
@@ -77,6 +78,7 @@ export default function TemplateBuilder() {
       setSaveError("");
       setFormValues({});
       setExpandedNodes(new Set(["root"]));
+      setIsFieldManagerOpen(true);
     };
 
     const loadTemplate = async () => {
@@ -112,6 +114,7 @@ export default function TemplateBuilder() {
           setIsLegacy(false);
           setLegacyJson("");
           setExpandedNodes(new Set(["root"]));
+          setIsFieldManagerOpen(true);
         } else {
           setTemplate(baseTemplate);
           setSelectedNodeId("root");
@@ -124,6 +127,7 @@ export default function TemplateBuilder() {
             JSON.stringify(layout ?? data, null, 2)
           );
           setExpandedNodes(new Set(["root"]));
+          setIsFieldManagerOpen(true);
         }
       } catch (error) {
         if (isMounted) {
@@ -512,7 +516,10 @@ export default function TemplateBuilder() {
               </div>
               <button
                 type="button"
-                onClick={() => setFieldCreateSignal((prev) => prev + 1)}
+                onClick={() => {
+                  setFieldCreateSignal((prev) => prev + 1);
+                  setIsFieldManagerOpen(true);
+                }}
                 className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-indigo-400 hover:text-white"
               >
                 Add field
@@ -526,12 +533,49 @@ export default function TemplateBuilder() {
                 onCreateField={handleCreateField}
               />
             </div>
-            <div className="rounded-xl border border-slate-800/80 bg-slate-950/70 p-4">
-              <FieldManager
-                template={template}
-                onUpdateTemplate={setTemplate}
-                createSignal={fieldCreateSignal}
-              />
+            <div className="rounded-xl border border-slate-800/80 bg-slate-950/70">
+              <button
+                type="button"
+                onClick={() => setIsFieldManagerOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between px-4 py-3 text-left"
+                aria-expanded={isFieldManagerOpen}
+              >
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-200">
+                    Add Field
+                  </h4>
+                  <p className="text-xs text-slate-400">
+                    Create and manage data fields.
+                  </p>
+                </div>
+                <span
+                  className={`text-sm text-slate-400 transition-transform duration-200 ${
+                    isFieldManagerOpen ? "rotate-180" : ""
+                  }`}
+                  aria-hidden="true"
+                >
+                  ▾
+                </span>
+              </button>
+              <div
+                className={`overflow-hidden border-t border-slate-800/80 transition-[max-height,opacity] duration-300 ease-in-out ${
+                  isFieldManagerOpen
+                    ? "max-h-[900px] opacity-100"
+                    : "max-h-0 opacity-0"
+                }`}
+              >
+                <div
+                  className={`p-4 ${
+                    isFieldManagerOpen ? "" : "pointer-events-none"
+                  }`}
+                >
+                  <FieldManager
+                    template={template}
+                    onUpdateTemplate={setTemplate}
+                    createSignal={fieldCreateSignal}
+                  />
+                </div>
+              </div>
             </div>
             <div className="rounded-xl border border-slate-800/80 bg-slate-950/70 p-4">
               <h4 className="text-sm font-semibold text-slate-200">

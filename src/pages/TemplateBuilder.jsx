@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { TemplatePreview } from "../TemplatePreview.jsx";
+import { TemplatePreview } from "../components/TemplatePreview.jsx";
 import { createEmptyTemplate } from "../templateModel.js";
 
 const NODE_TYPES = ["row", "column", "section", "text", "repeat"];

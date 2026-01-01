@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { buildHTML } from "./TemplateToHTML.js";
+import { buildHTML } from "../utils/TemplateToHTML.js";
 
 export function TemplatePreview({ template }) {
   const iframeRef = useRef(null);

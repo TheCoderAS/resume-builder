@@ -19,7 +19,7 @@ body {
 </html>`;
 }
 
-function renderNode(node) {
+export function renderNode(node) {
   if (!node) return "";
 
   switch (node.type) {

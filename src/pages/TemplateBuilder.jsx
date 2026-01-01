@@ -8,6 +8,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { useLocation, useNavigate } from "react-router-dom";
+import AppShell from "../components/AppShell.jsx";
 import FieldManager from "../components/FieldManager.jsx";
 import NodeInspector from "../components/NodeInspector.jsx";
 import ResumeForm from "../components/ResumeForm.jsx";
@@ -367,62 +368,67 @@ export default function TemplateBuilder() {
     : JSON.stringify(template, null, 2);
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
-      <div className="border-b border-slate-800/80 bg-slate-950/90 px-6 py-4">
-        <div className="flex flex-wrap items-end gap-4">
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Name
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              disabled={isLegacy}
-              className="h-10 w-52 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-            />
-          </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Category
-            <input
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-              disabled={isLegacy}
-              className="h-10 w-44 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-            />
-          </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Status
-            <select
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
-              disabled={isLegacy}
-              className="h-10 w-32 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+    <AppShell>
+      <div className="flex flex-col gap-4">
+        <div className="rounded-2xl border border-slate-800/80 bg-slate-950/90 px-4 py-4 sm:px-6">
+          <div className="flex flex-wrap items-end gap-4">
+            <label className="flex w-full flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 sm:w-auto">
+              Name
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                disabled={isLegacy}
+                className="h-10 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 sm:w-52"
+              />
+            </label>
+            <label className="flex w-full flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 sm:w-auto">
+              Category
+              <input
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+                disabled={isLegacy}
+                className="h-10 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 sm:w-44"
+              />
+            </label>
+            <label className="flex w-full flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 sm:w-auto">
+              Status
+              <select
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+                disabled={isLegacy}
+                className="h-10 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 sm:w-32"
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || isLegacy}
+              className="h-10 w-full rounded-full bg-indigo-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-slate-700 sm:w-auto"
             >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || isLegacy}
-            className="h-10 rounded-full bg-indigo-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-slate-700"
-          >
-            {saving ? "Saving..." : templateId ? "Save changes" : "Create template"}
-          </button>
-          {saveError ? (
-            <span className="text-xs font-semibold text-rose-400">
-              {saveError}
-            </span>
-          ) : null}
+              {saving
+                ? "Saving..."
+                : templateId
+                  ? "Save changes"
+                  : "Create template"}
+            </button>
+            {saveError ? (
+              <span className="text-xs font-semibold text-rose-400">
+                {saveError}
+              </span>
+            ) : null}
+          </div>
         </div>
-      </div>
 
-      <div className="flex flex-1 flex-col gap-4 px-4 py-4 md:flex-row md:gap-0 md:px-6">
-        <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 md:w-72 md:border-r md:rounded-r-none">
-          <div className="mb-4 border-b border-slate-800/70 pb-4">
-            <h4 className="text-sm font-semibold text-slate-200">Add Node</h4>
+        <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:gap-0">
+          <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 lg:w-72 lg:border-r lg:rounded-r-none">
+            <div className="mb-4 border-b border-slate-800/70 pb-4">
+              <h4 className="text-sm font-semibold text-slate-200">Add Node</h4>
             <p className="mt-1 text-xs text-slate-400">
               Build layouts with reusable blocks.
             </p>
@@ -489,7 +495,7 @@ export default function TemplateBuilder() {
           </div>
         </aside>
 
-        <main className="flex-1 rounded-2xl bg-slate-100 p-6 md:mx-4 md:rounded-3xl min-h-[520px]">
+          <main className="min-h-[520px] flex-1 rounded-2xl bg-slate-100 p-6 lg:mx-4 lg:rounded-3xl">
           <div className="h-full w-full rounded-2xl bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.2)]">
             {isLegacy ? (
               <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-4 text-sm text-slate-500">
@@ -503,9 +509,9 @@ export default function TemplateBuilder() {
               />
             )}
           </div>
-        </main>
+          </main>
 
-        <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 md:w-80 md:border-l md:rounded-l-none">
+          <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 lg:w-80 lg:border-l lg:rounded-l-none">
           <div className="flex h-full flex-col gap-4 overflow-auto pr-1">
             <div className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-950/70 px-4 py-3">
               <div>
@@ -598,9 +604,10 @@ export default function TemplateBuilder() {
               />
             </div>
           </div>
-        </aside>
+          </aside>
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 

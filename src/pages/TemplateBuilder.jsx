@@ -302,7 +302,7 @@ export default function TemplateBuilder() {
               value={name}
               onChange={(event) => setName(event.target.value)}
               disabled={isLegacy}
-              className="w-52 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="h-10 w-52 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
           </label>
           <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -311,7 +311,7 @@ export default function TemplateBuilder() {
               value={category}
               onChange={(event) => setCategory(event.target.value)}
               disabled={isLegacy}
-              className="w-44 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="h-10 w-44 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
           </label>
           <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -320,7 +320,7 @@ export default function TemplateBuilder() {
               value={status}
               onChange={(event) => setStatus(event.target.value)}
               disabled={isLegacy}
-              className="w-32 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="h-10 w-32 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             >
               {STATUS_OPTIONS.map((option) => (
                 <option key={option} value={option}>
@@ -333,7 +333,7 @@ export default function TemplateBuilder() {
             type="button"
             onClick={handleSave}
             disabled={saving || isLegacy}
-            className="rounded-full bg-indigo-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-slate-700"
+            className="h-10 rounded-full bg-indigo-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-slate-700"
           >
             {saving ? "Saving..." : templateId ? "Save changes" : "Create template"}
           </button>

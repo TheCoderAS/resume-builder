@@ -1,12 +1,68 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { doc, getDoc } from "firebase/firestore";
+import { useLocation } from "react-router-dom";
 import { TemplatePreview } from "../components/TemplatePreview.jsx";
+import { db } from "../firebase.js";
 import { createEmptyTemplate } from "../templateModel.js";
 
 const NODE_TYPES = ["row", "column", "section", "text", "repeat"];
 
 export default function TemplateBuilder() {
+  const location = useLocation();
   const [template, setTemplate] = useState(createEmptyTemplate());
   const [selectedNodeId, setSelectedNodeId] = useState("root");
+  const [loadError, setLoadError] = useState("");
+
+  const templateId = location.state?.templateId;
+
+  useEffect(() => {
+    let isMounted = true;
+    const baseTemplate = createEmptyTemplate();
+
+    const hydrateTemplate = (data) => ({
+      ...baseTemplate,
+      ...data,
+      page: { ...baseTemplate.page, ...(data?.page ?? {}) },
+      theme: { ...baseTemplate.theme, ...(data?.theme ?? {}) },
+      dataSources: { ...baseTemplate.dataSources, ...(data?.dataSources ?? {}) },
+      layout: data?.layout?.root ? data.layout : baseTemplate.layout,
+    });
+
+    const loadTemplate = async () => {
+      if (!templateId) {
+        setTemplate(baseTemplate);
+        setSelectedNodeId("root");
+        setLoadError("");
+        return;
+      }
+
+      try {
+        const snapshot = await getDoc(doc(db, "templates", templateId));
+        if (!snapshot.exists()) {
+          if (isMounted) {
+            setLoadError("Template not found.");
+          }
+          return;
+        }
+        const data = snapshot.data();
+        if (isMounted) {
+          setTemplate(hydrateTemplate(data));
+          setSelectedNodeId("root");
+          setLoadError("");
+        }
+      } catch (error) {
+        if (isMounted) {
+          setLoadError("Unable to load the template.");
+        }
+      }
+    };
+
+    loadTemplate();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [templateId]);
 
   const selectedNode = useMemo(() => {
     function find(node) {
@@ -59,6 +115,9 @@ export default function TemplateBuilder() {
     <div style={{ display: "flex", height: "100vh" }}>
       <div style={{ width: 250, borderRight: "1px solid #ccc", padding: 8 }}>
         <h4>Add Node</h4>
+        {loadError ? (
+          <p style={{ color: "#b91c1c", fontSize: 12 }}>{loadError}</p>
+        ) : null}
         {NODE_TYPES.map((type) => (
           <button
             key={type}

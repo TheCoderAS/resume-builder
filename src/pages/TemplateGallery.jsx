@@ -278,8 +278,8 @@ export default function TemplateGallery() {
               Pick a layout and style to finish your resume.
             </p>
           </div>
-          <Button onClick={() => navigate("/app/template-playground")}>
-            New template
+          <Button onClick={() => navigate("/app/template-builder")}>
+            Open template builder
           </Button>
         </header>
 
@@ -335,8 +335,8 @@ export default function TemplateGallery() {
                 title="No templates match yet"
                 description="Try clearing filters or changing your search."
                 action={
-                  <Button onClick={() => navigate("/app/template-playground")}>
-                    Create a new template
+                  <Button onClick={() => navigate("/app/template-builder")}>
+                    Open template builder
                   </Button>
                 }
               />
@@ -401,7 +401,7 @@ export default function TemplateGallery() {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            navigate("/app/template-playground", {
+                            navigate("/app/template-builder", {
                               state: { templateId: template.id },
                             });
                             setMenuOpenId(null);
@@ -409,7 +409,7 @@ export default function TemplateGallery() {
                           className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-slate-200 transition hover:bg-slate-800"
                         >
                           <FiEdit3 className="h-4 w-4" />
-                          Edit
+                          Edit in builder
                         </button>
                         <button
                           type="button"

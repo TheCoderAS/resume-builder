@@ -199,7 +199,7 @@ export default function AdminTemplates() {
           <div className="app-card">
             <h2 className="app-section-title">Upload or edit a template</h2>
             <p className="app-subtitle">
-              Paste template JSON from the playground or upload a new layout.
+              Paste template JSON from the builder flow or upload a new layout.
             </p>
             <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
               <Input

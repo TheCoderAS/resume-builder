@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { buildHTML } from "../utils/TemplateToHTML.js";
 
-export function TemplatePreview({ template, resumeJson }) {
+export function TemplatePreview({ template, resumeJson, className }) {
   const iframeRef = useRef(null);
 
   useEffect(() => {
@@ -16,12 +16,7 @@ export function TemplatePreview({ template, resumeJson }) {
     <iframe
       ref={iframeRef}
       title="Template preview"
-      style={{
-        width: "100%",
-        height: "100%",
-        border: "1px solid #ddd",
-        background: "white",
-      }}
+      className={className}
     />
   );
 }

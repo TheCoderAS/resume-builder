@@ -83,12 +83,7 @@ function resolveNodeValue(node, template, resumeJson) {
   const def = fields[fieldId];
   if (!def) return "";
 
-  const source = def.source;
-  const path = def.path;
-  if (!source || !path) return "";
-
-  const bucket = resumeJson?.[source] || {};
-  const value = bucket[path];
+  const value = resumeJson?.[fieldId];
 
   return value != null ? String(value) : "";
 }

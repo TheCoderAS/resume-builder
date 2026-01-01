@@ -29,10 +29,10 @@ const NAV_ITEMS = [
   },
 ];
 
-const linkBase =
-  "group flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold transition";
 const mobileLinkBase =
   "group flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-[0.6rem] font-semibold uppercase tracking-wide transition";
+const horizontalLinkBase =
+  "group flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-semibold transition";
 
 export default function AppShell({ children }) {
   const navigate = useNavigate();
@@ -88,39 +88,30 @@ export default function AppShell({ children }) {
           ))}
         </nav>
       </div>
-      <div className="app-body">
-        <aside className="app-sidebar">
-          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">
-            Navigation
-          </p>
-          <nav className="mt-4 flex flex-col gap-2">
+      <div className="hidden border-b border-slate-900/80 bg-slate-950/70 lg:block">
+        <div className="mx-auto w-full max-w-7xl px-4 py-3">
+          <nav className="flex flex-wrap items-center justify-start gap-3">
             {NAV_ITEMS.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.to === "/app"}
                 className={({ isActive }) =>
-                  `${linkBase} ${
+                  `${horizontalLinkBase} ${
                     isActive
-                      ? "border-emerald-400/60 bg-emerald-400/10 text-emerald-100"
-                      : "border-transparent text-slate-300 hover:border-slate-700 hover:bg-slate-900/60 hover:text-slate-100"
+                      ? "rounded-2xl bg-emerald-400/10 text-emerald-100"
+                      : "text-slate-300 hover:text-slate-100"
                   }`
                 }
               >
                 <item.icon className="h-4 w-4 text-emerald-200 transition group-hover:text-emerald-100" />
-                <div className="text-left">
-                  <p>{item.label}</p>
-                  <p className="text-xs font-normal text-slate-400">
-                    {item.description}
-                  </p>
-                </div>
+                <span>{item.label}</span>
               </NavLink>
             ))}
           </nav>
-          <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-xs text-slate-400">
-            Manage every step of your resume from one unified workspace.
-          </div>
-        </aside>
+        </div>
+      </div>
+      <div className="app-body">
         <main className="app-main">{children}</main>
       </div>
     </div>

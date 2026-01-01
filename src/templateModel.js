@@ -19,11 +19,6 @@ export const createEmptyTemplate = () => ({
       muted: "#666",
     },
   },
-  dataSources: {
-    basics: "$.basics",
-    work: "$.work[]",
-    skills: "$.skills[]",
-  },
   fields: {},
   layout: {
     root: {

@@ -14,6 +14,7 @@ import NodeInspector from "../components/NodeInspector.jsx";
 import ResumeForm from "../components/ResumeForm.jsx";
 import { TemplatePreview } from "../components/TemplatePreview.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { FiTrash2 } from "react-icons/fi";
 import { db } from "../firebase.js";
 import { createEmptyTemplate } from "../templateModel.js";
 import { buildResumeJson } from "../utils/resumeData.js";
@@ -29,6 +30,24 @@ const NODE_TYPES = [
 ];
 const STATUS_OPTIONS = ["draft", "active", "archived"];
 const BUILDER_SCHEMA_VERSION = "builder-v1";
+
+const sanitizeForFirestore = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => sanitizeForFirestore(item))
+      .filter((item) => item !== undefined);
+  }
+  if (value && typeof value === "object") {
+    return Object.entries(value).reduce((acc, [key, val]) => {
+      const cleaned = sanitizeForFirestore(val);
+      if (cleaned !== undefined) {
+        acc[key] = cleaned;
+      }
+      return acc;
+    }, {});
+  }
+  return value === undefined ? undefined : value;
+};
 
 export default function TemplateBuilder() {
   const navigate = useNavigate();
@@ -49,6 +68,9 @@ export default function TemplateBuilder() {
   const [expandedNodes, setExpandedNodes] = useState(new Set(["root"]));
   const [fieldCreateSignal, setFieldCreateSignal] = useState(0);
   const [isFieldManagerOpen, setIsFieldManagerOpen] = useState(true);
+  const [isSampleDataOpen, setIsSampleDataOpen] = useState(true);
+  const [isJsonOpen, setIsJsonOpen] = useState(true);
+  const [pendingBindNodeId, setPendingBindNodeId] = useState(null);
 
   const templateId = location.state?.templateId;
 
@@ -61,7 +83,6 @@ export default function TemplateBuilder() {
       ...layout,
       page: { ...baseTemplate.page, ...(layout?.page ?? {}) },
       theme: { ...baseTemplate.theme, ...(layout?.theme ?? {}) },
-      dataSources: { ...baseTemplate.dataSources, ...(layout?.dataSources ?? {}) },
       fields: { ...baseTemplate.fields, ...(layout?.fields ?? {}) },
       layout: layout?.layout?.root ? layout.layout : baseTemplate.layout,
     });
@@ -236,7 +257,7 @@ export default function TemplateBuilder() {
     setSaving(true);
     setSaveError("");
     try {
-      const payload = {
+      const payload = sanitizeForFirestore({
         name: name.trim() || "Untitled template",
         category: category.trim() || "Professional",
         status,
@@ -248,7 +269,7 @@ export default function TemplateBuilder() {
         creatorName: user.displayName ?? user.email ?? "Resume Studio",
         type: "builder",
         updatedAt: serverTimestamp(),
-      };
+      });
 
       if (templateId) {
         await updateDoc(doc(db, "templates", templateId), payload);
@@ -263,6 +284,7 @@ export default function TemplateBuilder() {
         });
       }
     } catch (error) {
+      console.error(error)
       setSaveError("Unable to save this template.");
     } finally {
       setSaving(false);
@@ -324,23 +346,31 @@ export default function TemplateBuilder() {
     setSelectedNodeId((current) => (current === nodeId ? "root" : current));
   };
 
-  const handleCreateField = (fieldId, fieldData) => {
+  const handleRequestNewField = () => {
+    setFieldCreateSignal((prev) => prev + 1);
+    setPendingBindNodeId(selectedNodeId);
+    if (!isFieldManagerOpen) {
+      setIsFieldManagerOpen(true);
+    }
+  };
+
+  const handleFieldCreated = (fieldId) => {
+    if (!pendingBindNodeId) return;
     setTemplate((prev) => ({
       ...prev,
-      fields: {
-        ...(prev.fields || {}),
-        [fieldId]: {
-          label: fieldData.label || "",
-          description: fieldData.description || "",
-          placeholder: fieldData.placeholder || "",
-          inputType: fieldData.inputType || "text",
-          required: Boolean(fieldData.required),
-          maxLength: fieldData.maxLength,
-          source: fieldData.source || "",
-          path: fieldData.path || "",
-        },
+      layout: {
+        ...prev.layout,
+        root: updateNode(prev.layout.root, pendingBindNodeId, (node) => ({
+          ...node,
+          bindField: fieldId,
+        })),
       },
     }));
+    setPendingBindNodeId(null);
+  };
+
+  const handleFieldCreateCancelled = () => {
+    setPendingBindNodeId(null);
   };
 
   const handleToggleNode = (nodeId) => {
@@ -513,30 +543,12 @@ export default function TemplateBuilder() {
 
           <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 lg:w-80 lg:border-l lg:rounded-l-none">
           <div className="flex h-full flex-col gap-4 overflow-auto pr-1">
-            <div className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-950/70 px-4 py-3">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-200">Fields</h4>
-                <p className="text-xs text-slate-400">
-                  Create fields to bind to template nodes.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setFieldCreateSignal((prev) => prev + 1);
-                  setIsFieldManagerOpen(true);
-                }}
-                className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-indigo-400 hover:text-white"
-              >
-                Add field
-              </button>
-            </div>
             <div className="rounded-xl border border-slate-800/80 bg-slate-950/70 p-4">
               <NodeInspector
                 node={selectedNode}
                 template={template}
                 onUpdateNode={updateSelectedNode}
-                onCreateField={handleCreateField}
+                onRequestNewField={handleRequestNewField}
               />
             </div>
             <div className="rounded-xl border border-slate-800/80 bg-slate-950/70">
@@ -548,11 +560,9 @@ export default function TemplateBuilder() {
               >
                 <div>
                   <h4 className="text-sm font-semibold text-slate-200">
-                    Add Field
+                    Field Manager
                   </h4>
-                  <p className="text-xs text-slate-400">
-                    Create and manage data fields.
-                  </p>
+                
                 </div>
                 <span
                   className={`text-sm text-slate-400 transition-transform duration-200 ${
@@ -579,29 +589,81 @@ export default function TemplateBuilder() {
                     template={template}
                     onUpdateTemplate={setTemplate}
                     createSignal={fieldCreateSignal}
+                    onFieldCreated={handleFieldCreated}
+                    onCreateCancelled={handleFieldCreateCancelled}
                   />
                 </div>
               </div>
             </div>
-            <div className="rounded-xl border border-slate-800/80 bg-slate-950/70 p-4">
-              <h4 className="text-sm font-semibold text-slate-200">
-                Sample Data
-              </h4>
-              <div className="mt-3">
-                <ResumeForm
-                  template={template}
-                  values={formValues}
-                  onChange={setFormValues}
-                />
+            <div className="rounded-xl border border-slate-800/80 bg-slate-950/70">
+              <button
+                type="button"
+                onClick={() => setIsSampleDataOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between px-4 py-3 text-left"
+                aria-expanded={isSampleDataOpen}
+              >
+                <h4 className="text-sm font-semibold text-slate-200">
+                  Sample Data
+                </h4>
+                <span
+                  className={`text-sm text-slate-400 transition-transform duration-200 ${
+                    isSampleDataOpen ? "rotate-180" : ""
+                  }`}
+                  aria-hidden="true"
+                >
+                  ▾
+                </span>
+              </button>
+              <div
+                className={`overflow-hidden border-t border-slate-800/80 transition-[max-height,opacity] duration-300 ease-in-out ${
+                  isSampleDataOpen
+                    ? "max-h-[900px] opacity-100"
+                    : "max-h-0 opacity-0"
+                }`}
+              >
+                <div
+                  className={`p-4 ${
+                    isSampleDataOpen ? "" : "pointer-events-none"
+                  }`}
+                >
+                  <ResumeForm
+                    template={template}
+                    values={formValues}
+                    onChange={setFormValues}
+                  />
+                </div>
               </div>
             </div>
-            <div className="flex-1 rounded-xl border border-slate-800/80 bg-slate-950/70 p-4">
-              <h4 className="text-sm font-semibold text-slate-200">JSON</h4>
-              <textarea
-                value={json}
-                readOnly
-                className="mt-3 h-60 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs text-slate-200"
-              />
+            <div className="flex-1 rounded-xl border border-slate-800/80 bg-slate-950/70">
+              <button
+                type="button"
+                onClick={() => setIsJsonOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between px-4 py-3 text-left"
+                aria-expanded={isJsonOpen}
+              >
+                <h4 className="text-sm font-semibold text-slate-200">JSON</h4>
+                <span
+                  className={`text-sm text-slate-400 transition-transform duration-200 ${
+                    isJsonOpen ? "rotate-180" : ""
+                  }`}
+                  aria-hidden="true"
+                >
+                  ▾
+                </span>
+              </button>
+              <div
+                className={`overflow-hidden border-t border-slate-800/80 transition-[max-height,opacity] duration-300 ease-in-out ${
+                  isJsonOpen ? "max-h-[900px] opacity-100" : "max-h-0 opacity-0"
+                }`}
+              >
+                <div className={`p-4 ${isJsonOpen ? "" : "pointer-events-none"}`}>
+                  <textarea
+                    value={json}
+                    readOnly
+                    className="ui-scrollbar h-60 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs text-slate-200"
+                  />
+                </div>
+              </div>
             </div>
           </div>
           </aside>
@@ -666,21 +728,7 @@ function Tree({
             }`}
             aria-label={`Delete ${node.type}`}
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-            >
-              <path d="M3 6h18" />
-              <path d="M8 6V4h8v2" />
-              <path d="M19 6l-1 14H6L5 6" />
-              <path d="M10 11v6" />
-              <path d="M14 11v6" />
-            </svg>
+            <FiTrash2 className="h-4 w-4" />
           </button>
         ) : null}
       </div>

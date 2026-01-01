@@ -5,13 +5,8 @@ export function buildResumeJson(template, values) {
   Object.entries(fields).forEach(([fieldId, def]) => {
     const value = values?.[fieldId];
     if (value === undefined || value === "") return;
-
-    const source = def?.source;
-    const path = def?.path;
-    if (!source || !path) return;
-
-    if (!result[source]) result[source] = {};
-    result[source][path] = value;
+    if (!def) return;
+    result[fieldId] = value;
   });
 
   return result;

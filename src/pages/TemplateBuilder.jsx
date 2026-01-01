@@ -8,12 +8,24 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { useLocation, useNavigate } from "react-router-dom";
+import FieldManager from "../components/FieldManager.jsx";
+import NodeInspector from "../components/NodeInspector.jsx";
+import ResumeForm from "../components/ResumeForm.jsx";
 import { TemplatePreview } from "../components/TemplatePreview.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
 import { createEmptyTemplate } from "../templateModel.js";
+import { buildResumeJson } from "../utils/resumeData.js";
 
-const NODE_TYPES = ["row", "column", "section", "text", "repeat"];
+const NODE_TYPES = [
+  "row",
+  "column",
+  "section",
+  "text",
+  "bullet-list",
+  "chip-list",
+  "repeat",
+];
 const STATUS_OPTIONS = ["draft", "active", "archived"];
 const BUILDER_SCHEMA_VERSION = "builder-v1";
 
@@ -32,6 +44,7 @@ export default function TemplateBuilder() {
   const [saveError, setSaveError] = useState("");
   const [isLegacy, setIsLegacy] = useState(false);
   const [legacyJson, setLegacyJson] = useState("");
+  const [formValues, setFormValues] = useState({});
 
   const templateId = location.state?.templateId;
 
@@ -45,6 +58,7 @@ export default function TemplateBuilder() {
       page: { ...baseTemplate.page, ...(layout?.page ?? {}) },
       theme: { ...baseTemplate.theme, ...(layout?.theme ?? {}) },
       dataSources: { ...baseTemplate.dataSources, ...(layout?.dataSources ?? {}) },
+      fields: { ...baseTemplate.fields, ...(layout?.fields ?? {}) },
       layout: layout?.layout?.root ? layout.layout : baseTemplate.layout,
     });
 
@@ -59,6 +73,7 @@ export default function TemplateBuilder() {
       setCategory("Professional");
       setStatus("draft");
       setSaveError("");
+      setFormValues({});
     };
 
     const loadTemplate = async () => {
@@ -133,6 +148,11 @@ export default function TemplateBuilder() {
     return find(template.layout.root);
   }, [template, selectedNodeId]);
 
+  const resumeJson = useMemo(
+    () => buildResumeJson(template, formValues),
+    [template, formValues]
+  );
+
   function updateNode(node, id, updater) {
     if (node.id === id) return updater(node);
     if (!node.children) return node;
@@ -150,7 +170,10 @@ export default function TemplateBuilder() {
     const newNode = {
       id: `${type}-${Date.now()}`,
       type,
-      children: type === "text" ? undefined : [],
+      children:
+        type === "text" || type === "bullet-list" || type === "chip-list"
+          ? undefined
+          : [],
     };
 
     setTemplate((prev) => ({
@@ -205,6 +228,35 @@ export default function TemplateBuilder() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const updateSelectedNode = (updater) => {
+    setTemplate((prev) => ({
+      ...prev,
+      layout: {
+        ...prev.layout,
+        root: updateNode(prev.layout.root, selectedNodeId, updater),
+      },
+    }));
+  };
+
+  const handleCreateField = (fieldId, fieldData) => {
+    setTemplate((prev) => ({
+      ...prev,
+      fields: {
+        ...(prev.fields || {}),
+        [fieldId]: {
+          label: fieldData.label || "",
+          description: fieldData.description || "",
+          placeholder: fieldData.placeholder || "",
+          inputType: fieldData.inputType || "text",
+          required: Boolean(fieldData.required),
+          maxLength: fieldData.maxLength,
+          source: fieldData.source || "",
+          path: fieldData.path || "",
+        },
+      },
+    }));
   };
 
   const json = isLegacy
@@ -277,36 +329,36 @@ export default function TemplateBuilder() {
 
       <div style={{ display: "flex", flex: 1 }}>
         <div style={{ width: 250, borderRight: "1px solid #ccc", padding: 8 }}>
-        <h4>Add Node</h4>
-        {loadError ? (
-          <p style={{ color: "#b91c1c", fontSize: 12 }}>{loadError}</p>
-        ) : null}
-        {loadNotice ? (
-          <p style={{ color: "#1d4ed8", fontSize: 12 }}>{loadNotice}</p>
-        ) : null}
-        {NODE_TYPES.map((type) => (
-          <button
-            key={type}
-            onClick={() => addNode(type)}
-            style={{ margin: 4 }}
-            type="button"
-            disabled={isLegacy}
-          >
-            {type}
-          </button>
-        ))}
-        <h4>Tree</h4>
-        <Tree
-          node={template.layout.root}
-          selected={selectedNodeId}
-          onSelect={setSelectedNodeId}
-        />
-        {selectedNode && (
-          <div style={{ marginTop: 12, fontSize: 12, color: "#475569" }}>
-            Selected: {selectedNode.type} ({selectedNode.id})
-          </div>
-        )}
-      </div>
+          <h4>Add Node</h4>
+          {loadError ? (
+            <p style={{ color: "#b91c1c", fontSize: 12 }}>{loadError}</p>
+          ) : null}
+          {loadNotice ? (
+            <p style={{ color: "#1d4ed8", fontSize: 12 }}>{loadNotice}</p>
+          ) : null}
+          {NODE_TYPES.map((type) => (
+            <button
+              key={type}
+              onClick={() => addNode(type)}
+              style={{ margin: 4 }}
+              type="button"
+              disabled={isLegacy}
+            >
+              {type}
+            </button>
+          ))}
+          <h4>Tree</h4>
+          <Tree
+            node={template.layout.root}
+            selected={selectedNodeId}
+            onSelect={setSelectedNodeId}
+          />
+          {selectedNode && (
+            <div style={{ marginTop: 12, fontSize: 12, color: "#475569" }}>
+              Selected: {selectedNode.type} ({selectedNode.id})
+            </div>
+          )}
+        </div>
 
         <div style={{ flex: 1, padding: 16, background: "#f6f6f6" }}>
           {isLegacy ? (
@@ -321,17 +373,44 @@ export default function TemplateBuilder() {
               Legacy templates are view-only in the new builder.
             </div>
           ) : (
-            <TemplatePreview template={template} />
+            <TemplatePreview template={template} resumeJson={resumeJson} />
           )}
         </div>
 
-        <div style={{ width: 300, borderLeft: "1px solid #ccc", padding: 8 }}>
-          <h4>JSON</h4>
-          <textarea
-            value={json}
-            readOnly
-            style={{ width: "100%", height: "90%" }}
+        <div
+          style={{
+            width: 340,
+            borderLeft: "1px solid #ccc",
+            padding: 8,
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            overflow: "auto",
+          }}
+        >
+          <NodeInspector
+            node={selectedNode}
+            template={template}
+            onUpdateNode={updateSelectedNode}
+            onCreateField={handleCreateField}
           />
+          <FieldManager template={template} onUpdateTemplate={setTemplate} />
+          <div>
+            <h4 style={{ margin: "0 0 8px" }}>Sample Data</h4>
+            <ResumeForm
+              template={template}
+              values={formValues}
+              onChange={setFormValues}
+            />
+          </div>
+          <div style={{ flex: 1, minHeight: 200 }}>
+            <h4 style={{ margin: "0 0 8px" }}>JSON</h4>
+            <textarea
+              value={json}
+              readOnly
+              style={{ width: "100%", height: 240 }}
+            />
+          </div>
         </div>
       </div>
     </div>

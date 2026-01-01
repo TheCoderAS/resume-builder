@@ -24,6 +24,7 @@ export const createEmptyTemplate = () => ({
     work: "$.work[]",
     skills: "$.skills[]",
   },
+  fields: {},
   layout: {
     root: {
       id: "root",

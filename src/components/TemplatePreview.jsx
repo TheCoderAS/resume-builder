@@ -1,16 +1,16 @@
 import { useEffect, useRef } from "react";
 import { buildHTML } from "../utils/TemplateToHTML.js";
 
-export function TemplatePreview({ template }) {
+export function TemplatePreview({ template, resumeJson }) {
   const iframeRef = useRef(null);
 
   useEffect(() => {
     const doc = iframeRef.current?.contentDocument;
     if (!doc) return;
     doc.open();
-    doc.write(buildHTML(template));
+    doc.write(buildHTML(template, resumeJson));
     doc.close();
-  }, [template]);
+  }, [template, resumeJson]);
 
   return (
     <iframe

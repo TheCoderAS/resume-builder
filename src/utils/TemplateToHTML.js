@@ -1,5 +1,6 @@
 export function buildHTML(template, resumeJson = {}, options = {}) {
   const highlightId = options?.highlightId ?? null;
+  const embedLinks = options?.embedLinks ?? false;
   const origin =
     options?.origin && options.origin !== "null" ? options.origin : "*";
   const page = template?.page ?? {};
@@ -45,10 +46,34 @@ body {
   outline-offset: 4px;
   border-radius: 6px;
 }
+.node-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.25em;
+  vertical-align: -0.125em;
+}
+.node-icon svg {
+  width: 1em;
+  height: 1em;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 </style>
 </head>
 <body>
-  ${renderNode(template.layout.root, template, resumeJson, highlightId)}
+  ${renderNode(
+    template.layout.root,
+    template,
+    resumeJson,
+    highlightId,
+    embedLinks
+  )}
   <script>
     (function () {
       function findNodeId(target) {
@@ -76,7 +101,13 @@ body {
 </html>`;
 }
 
-export function renderNode(node, template, resumeJson, highlightId = null) {
+export function renderNode(
+  node,
+  template,
+  resumeJson,
+  highlightId = null,
+  embedLinks = false
+) {
   if (!node) return "";
   const highlightClass = node.id === highlightId ? " node-highlight" : "";
   const dataAttr = `data-node-id="${node.id}"`;
@@ -120,6 +151,61 @@ export function renderNode(node, template, resumeJson, highlightId = null) {
   const textAlignStyle = (value) =>
     value ? `text-align:${value};` : "";
 
+  const iconSvg = (name) => {
+    const icons = {
+      user: `<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+      briefcase: `<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><path d="M2 12h20"/></svg>`,
+      book: `<svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14H6a4 4 0 0 0-4 4V3z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14h6a4 4 0 0 1 4 4V3z"/></svg>`,
+      award: `<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>`,
+      mail: `<svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2"/><polyline points="22,6 12,13 2,6"/></svg>`,
+      phone: `<svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.81.31 1.6.57 2.35a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.73-1.13a2 2 0 0 1 2.11-.45c.75.26 1.54.45 2.35.57A2 2 0 0 1 22 16.92z"/></svg>`,
+      mapPin: `<svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
+      globe: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+      linkedin: `<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="7" y1="9" x2="7" y2="17"/><line x1="7" y1="7" x2="7" y2="7"/><path d="M11 17v-4a2 2 0 0 1 4 0v4"/><line x1="11" y1="9" x2="11" y2="17"/></svg>`,
+      github: `<svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>`,
+      link: `<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 1 0-7l2-2a5 5 0 0 1 7 7l-1 1"/><path d="M14 11a5 5 0 0 1 0 7l-2 2a5 5 0 0 1-7-7l1-1"/></svg>`,
+    };
+    return icons[name] || "";
+  };
+
+  const renderIcon = (node) => {
+    if (!node.iconName) return "";
+    const svg = iconSvg(node.iconName);
+    if (!svg) return "";
+    const separator = node.iconSeparator ?? " ";
+    const safeSeparator = separator === "" ? "" : separator;
+    return `<span class="node-icon">${svg}</span>${safeSeparator}`;
+  };
+
+  const formatLinkValue = (fieldId, value) => {
+    if (!embedLinks || !fieldId || value == null) return null;
+    const def = template?.fields?.[fieldId];
+    if (!def) return null;
+    const inputType = def.inputType;
+    const raw = String(value).trim();
+    if (!raw) return null;
+    if (inputType === "email") {
+      return { href: `mailto:${raw}`, label: raw };
+    }
+    if (inputType === "phone") {
+      const digits = raw.replace(/[^\d+]/g, "");
+      return { href: `tel:${digits || raw}`, label: raw };
+    }
+    if (inputType === "url") {
+      const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+      return { href, label: raw };
+    }
+    return null;
+  };
+
+  const renderValue = (node) => {
+    const value = resolveNodeValue(node, template, resumeJson);
+    const link = formatLinkValue(node?.bindField, value);
+    const content = `${renderIcon(node)}${value || ""}`;
+    if (!link) return content;
+    return `<a href="${link.href}" style="color:inherit;text-decoration:none;">${content}</a>`;
+  };
+
   switch (node.type) {
     case "section": {
       const title = (node.title || "Section").trim();
@@ -136,10 +222,10 @@ export function renderNode(node, template, resumeJson, highlightId = null) {
           showTitle
             ? `<strong style="${titleStyle}${textAlignStyle(
                 titleAlign
-              )};display:block;">${title || "Section"}</strong>`
+              )};display:block;">${renderIcon(node)}${title || "Section"}</strong>`
             : ""
         }
-        ${renderChildren(node, template, resumeJson, highlightId)}
+        ${renderChildren(node, template, resumeJson, highlightId, embedLinks)}
       </div>`;
     }
 
@@ -148,7 +234,8 @@ export function renderNode(node, template, resumeJson, highlightId = null) {
         node,
         template,
         resumeJson,
-        highlightId
+        highlightId,
+        embedLinks
       )}</div>`;
 
     case "column":
@@ -156,28 +243,29 @@ export function renderNode(node, template, resumeJson, highlightId = null) {
         node,
         template,
         resumeJson,
-        highlightId
+        highlightId,
+        embedLinks
       )}</div>`;
 
     case "text":
       return `<div ${dataAttr} class="box${highlightClass}" style="${leafStyle(
         node
       )}${textAlignStyle(node.textAlign ?? "left")}">${
-        resolveNodeValue(node, template, resumeJson) || "Sample text"
+        renderValue(node) || "Sample text"
       }</div>`;
 
     case "bullet-list":
       return `<div ${dataAttr} class="box${highlightClass}" style="${leafStyle(
         node
       )}${textAlignStyle(node.textAlign ?? "left")}">${
-        resolveNodeValue(node, template, resumeJson) || "Sample bullet list"
+        renderValue(node) || "Sample bullet list"
       }</div>`;
 
     case "chip-list":
       return `<div ${dataAttr} class="box${highlightClass}" style="${leafStyle(
         node
       )}${textAlignStyle(node.textAlign ?? "left")}">${
-        resolveNodeValue(node, template, resumeJson) || "Sample chip list"
+        renderValue(node) || "Sample chip list"
       }</div>`;
 
     case "repeat":
@@ -188,9 +276,11 @@ export function renderNode(node, template, resumeJson, highlightId = null) {
   }
 }
 
-function renderChildren(node, template, resumeJson, highlightId) {
+function renderChildren(node, template, resumeJson, highlightId, embedLinks) {
   return (node.children || [])
-    .map((child) => renderNode(child, template, resumeJson, highlightId))
+    .map((child) =>
+      renderNode(child, template, resumeJson, highlightId, embedLinks)
+    )
     .join("");
 }
 

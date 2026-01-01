@@ -66,13 +66,6 @@ export default function NodeInspector({
     }));
   };
 
-  const handleNodeAlignChange = (key, value) => {
-    onUpdateNode?.((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  };
-
   const COLOR_OPTIONS = [
     { label: "Primary", value: "primary" },
     { label: "Secondary", value: "secondary" },
@@ -85,6 +78,42 @@ export default function NodeInspector({
     { label: "Body", value: "body" },
     { label: "Meta", value: "meta" },
   ];
+  const ICON_OPTIONS = [
+    { label: "None", value: "" },
+    { label: "User", value: "user" },
+    { label: "Briefcase", value: "briefcase" },
+    { label: "Education", value: "book" },
+    { label: "Award", value: "award" },
+    { label: "Email", value: "mail" },
+    { label: "Phone", value: "phone" },
+    { label: "Location", value: "mapPin" },
+    { label: "Website", value: "globe" },
+    { label: "LinkedIn", value: "linkedin" },
+    { label: "GitHub", value: "github" },
+    { label: "Link", value: "link" },
+  ];
+  const ICON_SEPARATORS = [
+    { label: "Space", value: " " },
+    { label: "Bullet", value: " • " },
+    { label: "Pipe", value: " | " },
+    { label: "Dash", value: " — " },
+    { label: "Colon", value: ": " },
+    { label: "None", value: "" },
+  ];
+
+  const handleNodeAlignChange = (key, value) => {
+    onUpdateNode?.((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
+
+  const handleNodeIconChange = (key, value) => {
+    onUpdateNode?.((current) => ({
+      ...current,
+      [key]: value || undefined,
+    }));
+  };
 
   const handleLeafStyleChange = (key, value) => {
     onUpdateNode?.((current) => ({
@@ -147,6 +176,38 @@ export default function NodeInspector({
               className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500/40"
             />
             Show section divider
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Section icon
+            <select
+              value={node.iconName ?? ""}
+              onChange={(event) =>
+                handleNodeIconChange("iconName", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {ICON_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Icon separator
+            <select
+              value={node.iconSeparator ?? " "}
+              onChange={(event) =>
+                handleNodeIconChange("iconSeparator", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {ICON_SEPARATORS.map((option) => (
+                <option key={option.label} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Section Alignment
@@ -238,6 +299,38 @@ export default function NodeInspector({
               <option value="center">Center</option>
               <option value="right">Right</option>
               <option value="justify">Justify</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Icon
+            <select
+              value={node.iconName ?? ""}
+              onChange={(event) =>
+                handleNodeIconChange("iconName", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {ICON_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Icon separator
+            <select
+              value={node.iconSeparator ?? " "}
+              onChange={(event) =>
+                handleNodeIconChange("iconSeparator", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {ICON_SEPARATORS.map((option) => (
+                <option key={option.label} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
@@ -407,9 +500,3 @@ export default function NodeInspector({
     </div>
   );
 }
-  const COLOR_OPTIONS = [
-    { label: "Primary", value: "primary" },
-    { label: "Secondary", value: "secondary" },
-    { label: "Accent", value: "accent" },
-    { label: "Meta", value: "meta" },
-  ];

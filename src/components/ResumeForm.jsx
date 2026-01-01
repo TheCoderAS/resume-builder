@@ -1,4 +1,4 @@
-const INPUT_TYPES = ["text", "textarea", "email", "url", "date"];
+const INPUT_TYPES = ["text", "textarea", "email", "phone", "url", "date"];
 
 export default function ResumeForm({ template, values, onChange }) {
   const fields = template?.fields || {};

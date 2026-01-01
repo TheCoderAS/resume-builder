@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FiEdit2, FiPlus, FiTrash2 } from "react-icons/fi";
 import PromptModal from "./PromptModal.jsx";
 
-const INPUT_TYPES = ["text", "textarea", "email", "url", "date"];
+const INPUT_TYPES = ["text", "textarea", "email", "phone", "url", "date"];
 
 const DEFAULT_FIELD = {
   label: "",

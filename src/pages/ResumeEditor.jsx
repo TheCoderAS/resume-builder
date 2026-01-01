@@ -596,6 +596,7 @@ export default function ResumeEditor() {
                 <TemplatePreview
                   template={template}
                   resumeJson={resumeJson}
+                  embedLinks
                   className="h-[520px] w-full rounded-xl border border-slate-800 bg-white shadow-md"
                 />
               </div>

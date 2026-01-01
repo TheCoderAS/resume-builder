@@ -238,7 +238,7 @@ export default function ExportPublish() {
         throw new Error("Print frame unavailable");
       }
       doc.open();
-      doc.write(buildHTML(template, resumeJson));
+      doc.write(buildHTML(template, resumeJson, { embedLinks: true }));
       doc.close();
 
       setTimeout(() => {
@@ -271,7 +271,7 @@ export default function ExportPublish() {
     );
     frameDoc.close();
     const bodyHtml = frameDoc.body;
-    bodyHtml.innerHTML = buildHTML(template, resumeJson);
+    bodyHtml.innerHTML = buildHTML(template, resumeJson, { embedLinks: true });
     const innerBody = bodyHtml.querySelector("body");
     if (innerBody) {
       bodyHtml.innerHTML = innerBody.innerHTML;
@@ -345,6 +345,7 @@ export default function ExportPublish() {
                   <TemplatePreview
                     template={template}
                     resumeJson={resumeJson}
+                    embedLinks
                     className="w-full"
                   />
                 </div>

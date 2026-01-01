@@ -12,6 +12,7 @@ export function TemplatePreview({
   resumeJson,
   selectedNodeId = null,
   onSelectNode,
+  embedLinks = false,
   className,
 }) {
   const highlightId = selectedNodeId === "root" ? null : selectedNodeId;
@@ -32,10 +33,11 @@ export function TemplatePreview({
       buildHTML(template, resumeJson, {
         highlightId,
         origin: window.location.origin,
+        embedLinks,
       })
     );
     doc.close();
-  }, [template, resumeJson, highlightId]);
+  }, [template, resumeJson, highlightId, embedLinks]);
 
   useEffect(() => {
     if (!onSelectNode) return;

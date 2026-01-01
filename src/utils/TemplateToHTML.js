@@ -34,11 +34,14 @@ export function renderNode(node, template, resumeJson) {
   if (!node) return "";
 
   switch (node.type) {
-    case "section":
+    case "section": {
+      const title = (node.title || "Section").trim();
+      const showTitle = node.showTitle !== false;
       return `<div class="section">
-        <strong>SECTION</strong>
+        ${showTitle ? `<strong>${title || "Section"}</strong>` : ""}
         ${renderChildren(node, template, resumeJson)}
       </div>`;
+    }
 
     case "row":
       return `<div class="row">${renderChildren(node, template, resumeJson)}</div>`;

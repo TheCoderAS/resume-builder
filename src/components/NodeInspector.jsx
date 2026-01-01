@@ -26,6 +26,7 @@ export default function NodeInspector({
   }
 
   const isBindable = BINDABLE_TYPES.has(node.type);
+  const isSection = node.type === "section";
 
   const handleBindChange = (value) => {
     onUpdateNode?.((current) => {
@@ -38,6 +39,20 @@ export default function NodeInspector({
     });
   };
 
+  const handleSectionTitleChange = (value) => {
+    onUpdateNode?.((current) => ({
+      ...current,
+      title: value,
+    }));
+  };
+
+  const handleSectionTitleToggle = (checked) => {
+    onUpdateNode?.((current) => ({
+      ...current,
+      showTitle: checked,
+    }));
+  };
+
   return (
     <div className="flex flex-col gap-3">
       <div>
@@ -48,6 +63,29 @@ export default function NodeInspector({
           <span className="text-slate-500">({node.id})</span>
         </div>
       </div>
+
+      {isSection ? (
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Section Title
+            <input
+              value={node.title || ""}
+              onChange={(event) => handleSectionTitleChange(event.target.value)}
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              placeholder="Section title"
+            />
+          </label>
+          <label className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <input
+              type="checkbox"
+              checked={node.showTitle !== false}
+              onChange={(event) => handleSectionTitleToggle(event.target.checked)}
+              className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500/40"
+            />
+            Show section title
+          </label>
+        </div>
+      ) : null}
 
       {isBindable ? (
         <div className="flex flex-col gap-3">

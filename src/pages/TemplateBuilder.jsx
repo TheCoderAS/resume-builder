@@ -525,20 +525,12 @@ export default function TemplateBuilder() {
           </div>
         </aside>
 
-          <main className="min-h-[520px] flex-1 rounded-2xl bg-slate-100 p-6 lg:mx-4 lg:rounded-3xl">
-          <div className="h-full w-full rounded-2xl bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.2)]">
-            {isLegacy ? (
-              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-4 text-sm text-slate-500">
-                Legacy templates are view-only in the new builder.
-              </div>
-            ) : (
+          <main className="min-h-[520px] flex-1 bg-slate-100 p-2 lg:mx-4">
               <TemplatePreview
                 template={template}
                 resumeJson={resumeJson}
-                className="h-full w-full rounded-xl border border-slate-200 bg-white shadow-md"
+                className="border border-slate-200 bg-white shadow-md"
               />
-            )}
-          </div>
           </main>
 
           <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 lg:w-80 lg:border-l lg:rounded-l-none">

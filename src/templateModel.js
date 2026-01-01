@@ -1,5 +1,6 @@
 export const createEmptyTemplate = () => ({
   templateId: "template-1",
+  schemaVersion: "builder-v1",
   version: "1.0",
   page: {
     size: "A4",

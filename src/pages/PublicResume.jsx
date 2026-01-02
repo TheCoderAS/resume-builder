@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
 import { useParams } from "react-router-dom";
-import PagePreviewFrame from "../components/PagePreviewFrame.jsx";
-import ResumePreview from "../components/ResumePreview.jsx";
+
 import { db } from "../firebase.js";
 import {
   DEFAULT_TEMPLATE_STYLES,
@@ -83,15 +82,6 @@ export default function PublicResume() {
   return (
     <div className="min-h-screen bg-slate-950 px-6 py-12 text-slate-100">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <header className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold text-slate-100">
-            Public resume
-          </h1>
-          <p className="text-sm text-slate-300">
-            This view is read-only and reflects the latest published version.
-          </p>
-        </header>
-
         {status === "loading" ? (
           <div className="rounded-[24px] border border-slate-800 bg-slate-900/60 p-6 text-sm text-slate-300">
             Loading resume...
@@ -114,15 +104,7 @@ export default function PublicResume() {
           <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
             <div className="flex justify-center">
               <div className="w-full max-w-[760px] rounded-[22px] bg-white p-4 shadow-[0_20px_40px_rgba(15,23,42,0.3)]">
-                <PagePreviewFrame styles={resume.templateStyles} className="w-full">
-                  <ResumePreview
-                    profile={resume.profile}
-                    resumeData={resume.resumeData}
-                    sectionOrder={resume.sectionOrder}
-                    styles={resume.templateStyles}
-                    settings={resume.templateSettings}
-                  />
-                </PagePreviewFrame>
+                
               </div>
             </div>
           </div>

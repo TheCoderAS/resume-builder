@@ -33,7 +33,6 @@ body {
 .section {
   border-bottom: 1px solid ${template.theme.sectionDividerColor ?? "#e2e8f0"};
   margin: ${template.theme.sectionGap ?? 12}px 0;
-  padding-bottom: 8px;
 }
 .row { display:flex; gap:${template.theme.gap ?? 12}px; }
 .column { display:flex; flex-direction:column; gap:${template.theme.gap ?? 12}px; }
@@ -239,7 +238,7 @@ export function renderNode(
         }
         ${
           showTitle && showTitleDivider
-            ? `<div style="border-bottom:${titleDividerWidth}px ${titleDividerStyle} ${titleDividerColor};margin-top:${titleDividerSpacing}px;width:100%;"></div>`
+            ? `<div style="border-bottom:${titleDividerWidth}px ${titleDividerStyle} ${titleDividerColor};margin-top:${titleDividerSpacing}px;margin-bottom:${titleDividerSpacing}px;width:100%;"></div>`
             : ""
         }
         ${renderChildren(node, template, resumeJson, highlightId, embedLinks)}

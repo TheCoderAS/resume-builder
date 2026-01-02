@@ -12,6 +12,9 @@ export function buildHTML(template, resumeJson = {}, options = {}) {
 <html>
 <head>
 <style>
+@page {
+  margin: 0;
+}
 body {
   font-family: ${template.theme.fonts.body};
   font-size: ${template.theme.baseFontSize ?? 14}px;
@@ -28,7 +31,7 @@ body {
   };
 }
 .section {
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid ${template.theme.sectionDividerColor ?? "#e2e8f0"};
   margin: ${template.theme.sectionGap ?? 12}px 0;
   padding-bottom: 8px;
 }
@@ -215,6 +218,15 @@ export function renderNode(
         node.showDivider === false ? "border-bottom:none;" : "";
       const sectionAlign = node.align ?? "left";
       const titleAlign = node.titleAlign ?? sectionAlign;
+      const titleDivider = node.titleDivider ?? {};
+      const showTitleDivider = titleDivider.enabled === true;
+      const titleDividerColor =
+        titleDivider.color ??
+        template.theme.sectionDividerColor ??
+        "#e2e8f0";
+      const titleDividerWidth = titleDivider.width ?? 1;
+      const titleDividerStyle = titleDivider.style ?? "solid";
+      const titleDividerSpacing = titleDivider.spacing ?? 6;
       return `<div ${dataAttr} class="section${highlightClass}" style="${dividerStyle}width:100%;${textAlignStyle(
         sectionAlign
       )}">
@@ -223,6 +235,11 @@ export function renderNode(
             ? `<strong style="${titleStyle}${textAlignStyle(
                 titleAlign
               )};display:block;">${renderIcon(node)}${title || "Section"}</strong>`
+            : ""
+        }
+        ${
+          showTitle && showTitleDivider
+            ? `<div style="border-bottom:${titleDividerWidth}px ${titleDividerStyle} ${titleDividerColor};margin-top:${titleDividerSpacing}px;width:100%;"></div>`
             : ""
         }
         ${renderChildren(node, template, resumeJson, highlightId, embedLinks)}

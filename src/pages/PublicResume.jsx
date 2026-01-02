@@ -52,6 +52,7 @@ export default function PublicResume() {
   const [exporting, setExporting] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState("");
   const [commentOpen, setCommentOpen] = useState(false);
+  const [commenterName, setCommenterName] = useState("");
   const [commentText, setCommentText] = useState("");
   const [toast, setToast] = useState(null);
 
@@ -235,6 +236,10 @@ export default function PublicResume() {
   };
 
   const handleSubmitComment = async () => {
+    if (!commenterName.trim()) {
+      setToast({ message: "Add your name before submitting.", variant: "error" });
+      return;
+    }
     if (!commentText.trim()) {
       setToast({ message: "Add a comment before submitting.", variant: "error" });
       return;
@@ -244,12 +249,15 @@ export default function PublicResume() {
       return;
     }
     const text = commentText.trim();
+    const name = commenterName.trim();
     setCommentText("");
+    setCommenterName("");
     setCommentOpen(false);
     try {
       await addDoc(collection(db, "resumeComments"), {
         resumeId,
         publicSlug: resume.publicSlug || slug || null,
+        commenterName: name,
         comment: text,
         createdAt: serverTimestamp(),
         userAgent: navigator.userAgent,
@@ -339,16 +347,29 @@ export default function PublicResume() {
         onCancel={() => setCommentOpen(false)}
         onConfirm={handleSubmitComment}
       >
-        <label className="flex flex-col gap-2 text-xs font-semibold uppercase  text-slate-400">
-          Comment
-          <textarea
-            value={commentText}
-            onChange={(event) => setCommentText(event.target.value)}
-            rows={4}
-            className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500"
-            placeholder="What stood out? Any suggestions?"
-          />
-        </label>
+        <div className="flex flex-col gap-4">
+          <label className="flex flex-col gap-2 text-xs font-semibold uppercase text-slate-400">
+            Your name
+            <input
+              value={commenterName}
+              onChange={(event) => setCommenterName(event.target.value)}
+              className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500"
+              placeholder="e.g. Jamie Chen"
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold uppercase text-slate-400">
+            Comment
+            <textarea
+              value={commentText}
+              onChange={(event) => setCommentText(event.target.value)}
+              rows={4}
+              className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500"
+              placeholder="What stood out? Any suggestions?"
+              required
+            />
+          </label>
+        </div>
       </PromptModal>
       <Snackbar
         message={toast?.message}

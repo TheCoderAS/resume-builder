@@ -44,12 +44,13 @@ export default function Dashboard() {
           query(
             collection(db, "resumes"),
             where("userId", "==", user.uid),
-            where("visibility.isPublic", "==", true),
             orderBy("updatedAt", "desc"),
-            limit(1)
+            limit(10)
           )
         );
-        const docSnap = snapshot.docs[0];
+        const docSnap = snapshot.docs.find(
+          (item) => item.data()?.visibility?.isPublic === true
+        );
         if (isMounted) {
           setPublishedResume(
             docSnap
@@ -93,7 +94,13 @@ export default function Dashboard() {
             limit(50)
           )
         );
-        const resumeIds = resumeSnapshot.docs.map((docSnap) => docSnap.id);
+        const resumeMap = new Map(
+          resumeSnapshot.docs.map((docSnap) => [
+            docSnap.id,
+            docSnap.data(),
+          ])
+        );
+        const resumeIds = Array.from(resumeMap.keys());
         if (resumeIds.length === 0) {
           if (isMounted) {
             setComments([]);
@@ -114,7 +121,16 @@ export default function Dashboard() {
             )
           );
           commentsSnapshot.docs.forEach((docSnap) => {
-            results.push({ id: docSnap.id, ...docSnap.data() });
+            const data = docSnap.data();
+            const resume = resumeMap.get(data.resumeId);
+            results.push({
+              id: docSnap.id,
+              ...data,
+              resumeTitle:
+                resume?.resumeTitle ||
+                resume?.profile?.fullName ||
+                "Resume",
+            });
           });
         }
         results.sort((a, b) => {
@@ -328,6 +344,12 @@ export default function Dashboard() {
                 >
                   <p className="text-slate-100">{comment.comment}</p>
                   <p className="mt-2 text-xs text-slate-400">
+                    {comment.commenterName
+                      ? `${comment.commenterName} · `
+                      : ""}
+                    {comment.resumeTitle
+                      ? `${comment.resumeTitle} · `
+                      : ""}
                     {comment.createdAt?.toDate?.().toLocaleString() ||
                       "Just now"}
                   </p>

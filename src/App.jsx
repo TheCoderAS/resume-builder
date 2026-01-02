@@ -8,7 +8,6 @@ import ResumeEditor from "./pages/ResumeEditor.jsx";
 import Drafts from "./pages/Drafts.jsx";
 import TemplateGallery from "./pages/TemplateGallery.jsx";
 import TemplateBuilder from "./pages/TemplateBuilder.jsx";
-import ExportPublish from "./pages/ExportPublish.jsx";
 import PublicResume from "./pages/PublicResume.jsx";
 import AdminTemplates from "./pages/AdminTemplates.jsx";
 import Profile from "./pages/Profile.jsx";
@@ -69,14 +68,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute requireAdmin>
             <AdminTemplates />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/app/export"
-        element={
-          <ProtectedRoute>
-            <ExportPublish />
           </ProtectedRoute>
         }
       />

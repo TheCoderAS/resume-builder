@@ -3,8 +3,6 @@ export const NODE_TYPES = [
   "column",
   "section",
   "text",
-  "bullet-list",
-  "chip-list",
   "repeat",
 ];
 

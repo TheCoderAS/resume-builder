@@ -135,7 +135,9 @@ export default function Drafts() {
                 >
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
                     <p className="text-sm font-semibold text-slate-100">
-                      {draft.profile?.fullName || "Untitled resume"}
+                      {draft.resumeTitle ||
+                        draft.profile?.fullName ||
+                        "Untitled resume"}
                     </p>
                     <p className="mt-1 text-xs text-slate-400">
                       {draft.profile?.title || "No headline yet"}

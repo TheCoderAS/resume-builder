@@ -962,6 +962,23 @@ export default function TemplateBuilder() {
                               className="h-2 w-32 accent-indigo-400"
                             />
                           </label>
+                          <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                            Section Divider
+                            <input
+                              type="color"
+                              value={template.theme?.sectionDividerColor ?? "#e2e8f0"}
+                              onChange={(event) =>
+                                setTemplate((prev) => ({
+                                  ...prev,
+                                  theme: {
+                                    ...prev.theme,
+                                    sectionDividerColor: event.target.value,
+                                  },
+                                }))
+                              }
+                              className="h-8 w-16 cursor-pointer rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1"
+                            />
+                          </label>
                         </div>
                       </div>
                     </div>

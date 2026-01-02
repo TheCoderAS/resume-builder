@@ -26,6 +26,7 @@ export const createEmptyTemplate = () => ({
     lineHeight: 1.5,
     gap: 12,
     sectionGap: 12,
+    sectionDividerColor: "#e2e8f0",
     fontScales: {
       display: 1.6,
       heading: 1.25,

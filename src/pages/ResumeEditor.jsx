@@ -10,9 +10,10 @@ import {
   setDoc,
   where,
 } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
+import Input from "../components/Input.jsx";
 import ResumeForm from "../components/ResumeForm.jsx";
 import SectionHeader from "../components/SectionHeader.jsx";
 import Snackbar from "../components/Snackbar.jsx";
@@ -22,6 +23,7 @@ import { db } from "../firebase.js";
 import { TemplatePreview } from "../components/TemplatePreview.jsx";
 import { createEmptyTemplate } from "../templateModel.js";
 import { buildResumeJson } from "../utils/resumeData.js";
+import { buildHTML } from "../utils/TemplateToHTML.js";
 
 const STEPS = ["Select template", "Fill fields", "Export & publish"];
 const BUILDER_SCHEMA_VERSION = "builder-v1";
@@ -91,6 +93,7 @@ const buildFieldGroups = (template) => {
 
 export default function ResumeEditor() {
   const { user } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
   const [resumeId, setResumeId] = useState(null);
@@ -98,12 +101,16 @@ export default function ResumeEditor() {
   const initialSave = useRef(true);
   const [templateId, setTemplateId] = useState(null);
   const [templateName, setTemplateName] = useState("");
+  const [resumeTitle, setResumeTitle] = useState("Untitled resume");
   const [template, setTemplate] = useState(createEmptyTemplate());
   const [formValues, setFormValues] = useState({});
   const [visibility, setVisibility] = useState({ isPublic: false });
   const [templates, setTemplates] = useState([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [copyMessage, setCopyMessage] = useState("Copy link");
+  const [downloadMessage, setDownloadMessage] = useState("");
+  const [exporting, setExporting] = useState(false);
   const lastAutosaveStatus = useRef("idle");
   const resumeJson = useMemo(
     () => buildResumeJson(template, formValues),
@@ -115,6 +122,22 @@ export default function ResumeEditor() {
   );
 
   const currentStep = useMemo(() => STEPS[stepIndex], [stepIndex]);
+
+  useEffect(() => {
+    const originalTitle = document.title;
+    const nextTitle = resumeTitle ? `${resumeTitle} | Resumiate` : originalTitle;
+    document.title = nextTitle;
+    return () => {
+      document.title = originalTitle;
+    };
+  }, [resumeTitle]);
+
+  useEffect(() => {
+    const nextStep = location.state?.stepIndex;
+    if (typeof nextStep === "number" && nextStep >= 0) {
+      setStepIndex(Math.min(nextStep, STEPS.length - 1));
+    }
+  }, [location.state]);
 
   useEffect(() => {
     if (!user) return;
@@ -130,12 +153,14 @@ export default function ResumeEditor() {
         storedOwner === user.uid
           ? window.localStorage.getItem("activeResumeId")
           : null;
-      const payload = {
-        userId: user.uid,
-        values: formValues,
-        visibility,
-        templateId,
-        templateName,
+        const payload = {
+          userId: user.uid,
+          values: formValues,
+          visibility,
+          resumeTitle,
+          templateId,
+          templateName,
+          templateSnapshot: template,
         templateSchemaVersion: template?.schemaVersion ?? BUILDER_SCHEMA_VERSION,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -151,6 +176,7 @@ export default function ResumeEditor() {
               if (isMounted) {
                 setFormValues(data.values ?? data.formValues ?? {});
                 setVisibility((prev) => ({ ...prev, ...(data.visibility ?? {}) }));
+                setResumeTitle(data.resumeTitle ?? "Untitled resume");
                 setTemplateId(data.templateId ?? null);
                 setTemplateName(data.templateName ?? "");
                 setResumeId(activeId);
@@ -316,8 +342,10 @@ export default function ResumeEditor() {
             userId: user.uid,
             values: formValues,
             visibility,
+            resumeTitle,
             templateId,
             templateName,
+            templateSnapshot: template,
             templateSchemaVersion: template?.schemaVersion ?? BUILDER_SCHEMA_VERSION,
             updatedAt: serverTimestamp(),
           },
@@ -333,12 +361,14 @@ export default function ResumeEditor() {
     return () => clearTimeout(timeout);
   }, [
     formValues,
+    resumeTitle,
     templateId,
     templateName,
     visibility,
     resumeId,
     user,
     template?.schemaVersion,
+    template,
   ]);
 
 
@@ -353,7 +383,70 @@ export default function ResumeEditor() {
       }
       setStepIndex((current) => current + 1);
     } else {
-      navigate("/app/export");
+      navigate("/app");
+    }
+  };
+
+  const publicLink =
+    resumeId && visibility.isPublic
+      ? `${window.location.origin}/r/${resumeId}`
+      : "";
+
+  const handleCopyLink = async () => {
+    if (!publicLink) return;
+    try {
+      await navigator.clipboard.writeText(publicLink);
+      setCopyMessage("Copied!");
+      setTimeout(() => setCopyMessage("Copy link"), 2000);
+    } catch (error) {
+      setCopyMessage("Copy failed");
+      setTimeout(() => setCopyMessage("Copy link"), 2000);
+    }
+  };
+
+  const handleDownload = async () => {
+    setDownloadMessage("Opening print dialog...");
+    setExporting(true);
+    const originalTitle = document.title;
+    try {
+      document.title = resumeTitle || originalTitle;
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.setAttribute("aria-hidden", "true");
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentWindow?.document;
+      if (!doc) {
+        throw new Error("Print frame unavailable");
+      }
+      doc.open();
+      doc.write(buildHTML(template, resumeJson, { embedLinks: true }));
+      doc.close();
+
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          iframe.remove();
+          document.title = originalTitle;
+        }, 1000);
+      }, 300);
+      setToast({
+        message: "Print dialog opened. Save as PDF to download.",
+        variant: "success",
+      });
+    } catch (error) {
+      console.error(error);
+      setDownloadMessage("Unable to open print dialog.");
+      setToast({ message: "PDF export failed.", variant: "error" });
+      document.title = originalTitle;
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -421,7 +514,7 @@ export default function ResumeEditor() {
           })}
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+        <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
           <div className="flex flex-col gap-6">
             {stepIndex === 0 ? (
               <section className="app-card">
@@ -430,7 +523,13 @@ export default function ResumeEditor() {
                   description="Templates define the sections, styling, and layout for your resume."
                 />
                 <div className="mt-6 grid gap-4 rounded-2xl border border-slate-800 bg-slate-950/70 px-5 py-4 text-sm text-slate-200">
-                  <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">
+                  <Input
+                    label="Resume title"
+                    value={resumeTitle}
+                    onChange={(event) => setResumeTitle(event.target.value)}
+                    placeholder="e.g. Senior Product Designer Resume"
+                  />
+                  <label className="flex flex-col gap-2 text-xs font-semibold uppercase  text-slate-400">
                     Template
                     <select
                       value={templateId ?? ""}
@@ -460,7 +559,7 @@ export default function ResumeEditor() {
                   </label>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.1em] text-slate-400">
+                      <p className="text-xs uppercase  text-slate-400">
                         Selected template
                       </p>
                       <p className="text-base font-semibold text-slate-100">
@@ -549,17 +648,53 @@ export default function ResumeEditor() {
                   title="Export & publish"
                   description="Review privacy, then export or share your resume."
                 />
-                <div className="mt-6 grid gap-4">
-                  <VisibilityToggle
-                    enabled={visibility.isPublic}
-                    onChange={(nextValue) =>
-                      setVisibility((prev) => ({ ...prev, isPublic: nextValue }))
-                    }
-                  />
-                  <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-xs text-slate-300">
-                    {visibility.isPublic
-                      ? "Public resumes are visible on your shareable link."
-                      : "Your resume stays private until you publish it."}
+                <div className="mt-6 grid gap-5">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      onClick={handleDownload}
+                      disabled={!resumeId || exporting}
+                    >
+                      Print PDF
+                    </Button>
+                    <span className="text-xs text-slate-400">
+                      {downloadMessage || "Print-ready export."}
+                    </span>
+                  </div>
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-sm font-semibold text-slate-100">
+                        Public link
+                      </div>
+                      <VisibilityToggle
+                        enabled={visibility.isPublic}
+                        onChange={(nextValue) =>
+                          setVisibility((prev) => ({
+                            ...prev,
+                            isPublic: nextValue,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="mt-4 grid gap-3">
+                      <Input
+                        label="Shareable link"
+                        value={publicLink}
+                        readOnly
+                        className="text-xs"
+                      />
+                      <Button
+                        variant="ghost"
+                        onClick={handleCopyLink}
+                        disabled={!visibility.isPublic || !publicLink}
+                      >
+                        {copyMessage}
+                      </Button>
+                      <p className="text-xs text-slate-400">
+                        {visibility.isPublic
+                          ? "Anyone with the link can view your resume."
+                          : "Enable the toggle to create a public link."}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -580,7 +715,7 @@ export default function ResumeEditor() {
                 ) : null}
                 <Button onClick={handleNextStep}>
                   {stepIndex === STEPS.length - 1
-                    ? "Export & publish"
+                    ? "Back to dashboard"
                     : "Next"}
                 </Button>
               </div>
@@ -588,18 +723,13 @@ export default function ResumeEditor() {
           </div>
 
           <aside className="flex flex-col gap-6">
-            <div className="app-card">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-300">
-                Live preview
-              </h3>
-              <div className="mt-4">
-                <TemplatePreview
-                  template={template}
-                  resumeJson={resumeJson}
-                  embedLinks
-                  className="h-[520px] w-full rounded-xl border border-slate-800 bg-white shadow-md"
-                />
-              </div>
+            <div className="flex-1 bg-slate-100 p-2">
+              <TemplatePreview
+                template={template}
+                resumeJson={resumeJson}
+                embedLinks
+                className="border border-slate-200 bg-white shadow-md"
+              />
             </div>
           </aside>
         </div>

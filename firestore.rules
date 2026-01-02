@@ -12,6 +12,11 @@ service cloud.firestore {
           == request.auth.uid;
     }
 
+    function isPublicResume(resumeId) {
+      return get(/databases/$(database)/documents/resumes/$(resumeId))
+        .data.visibility.isPublic == true;
+    }
+
     match /users/{userId} {
       allow read, create, update, delete: if isSignedIn()
         && request.auth.uid == userId;
@@ -42,6 +47,20 @@ service cloud.firestore {
       allow read: if resource.data.isPublic == true
         || isResumeOwner(resumeId);
       allow create, update, delete: if isResumeOwner(resumeId);
+    }
+
+    match /resumeComments/{commentId} {
+      allow create: if request.resource.data.resumeId != null
+        && isPublicResume(request.resource.data.resumeId)
+        && (
+          request.resource.data.publicSlug == null
+          || request.resource.data.publicSlug
+            == get(/databases/$(database)/documents/resumes/$(request.resource.data.resumeId))
+              .data.publicSlug
+          || request.resource.data.publicSlug == request.resource.data.resumeId
+        );
+      allow read: if isResumeOwner(resource.data.resumeId);
+      allow delete: if isResumeOwner(resource.data.resumeId);
     }
   }
 }

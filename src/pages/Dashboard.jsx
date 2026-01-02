@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  where,
+} from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
@@ -15,6 +22,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [publishedLoading, setPublishedLoading] = useState(true);
   const [publishedResume, setPublishedResume] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
   const drafts = [];
 
   useEffect(() => {
@@ -35,12 +44,13 @@ export default function Dashboard() {
           query(
             collection(db, "resumes"),
             where("userId", "==", user.uid),
-            where("visibility.isPublic", "==", true),
             orderBy("updatedAt", "desc"),
-            limit(1)
+            limit(10)
           )
         );
-        const docSnap = snapshot.docs[0];
+        const docSnap = snapshot.docs.find(
+          (item) => item.data()?.visibility?.isPublic === true
+        );
         if (isMounted) {
           setPublishedResume(
             docSnap
@@ -63,6 +73,86 @@ export default function Dashboard() {
     };
 
     loadPublishedResume();
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadComments = async () => {
+      if (!user) {
+        setCommentsLoading(false);
+        return;
+      }
+      setCommentsLoading(true);
+      try {
+        const resumeSnapshot = await getDocs(
+          query(
+            collection(db, "resumes"),
+            where("userId", "==", user.uid),
+            limit(50)
+          )
+        );
+        const resumeMap = new Map(
+          resumeSnapshot.docs.map((docSnap) => [
+            docSnap.id,
+            docSnap.data(),
+          ])
+        );
+        const resumeIds = Array.from(resumeMap.keys());
+        if (resumeIds.length === 0) {
+          if (isMounted) {
+            setComments([]);
+          }
+          return;
+        }
+        const chunks = [];
+        for (let i = 0; i < resumeIds.length; i += 10) {
+          chunks.push(resumeIds.slice(i, i + 10));
+        }
+        const results = [];
+        for (const chunk of chunks) {
+          const commentsSnapshot = await getDocs(
+            query(
+              collection(db, "resumeComments"),
+              where("resumeId", "in", chunk),
+              limit(50)
+            )
+          );
+          commentsSnapshot.docs.forEach((docSnap) => {
+            const data = docSnap.data();
+            const resume = resumeMap.get(data.resumeId);
+            results.push({
+              id: docSnap.id,
+              ...data,
+              resumeTitle:
+                resume?.resumeTitle ||
+                resume?.profile?.fullName ||
+                "Resume",
+            });
+          });
+        }
+        results.sort((a, b) => {
+          const aTime = a.createdAt?.toMillis?.() ?? 0;
+          const bTime = b.createdAt?.toMillis?.() ?? 0;
+          return bTime - aTime;
+        });
+        if (isMounted) {
+          setComments(results.slice(0, 8));
+        }
+      } catch (error) {
+        if (isMounted) {
+          setComments([]);
+        }
+      } finally {
+        if (isMounted) {
+          setCommentsLoading(false);
+        }
+      }
+    };
+
+    loadComments();
     return () => {
       isMounted = false;
     };
@@ -145,7 +235,9 @@ export default function Dashboard() {
               ) : publishedResume ? (
                 <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
                   <p className="text-sm font-semibold text-slate-100">
-                    {publishedResume.profile?.fullName || "Published resume"}
+                    {publishedResume.resumeTitle ||
+                      publishedResume.profile?.fullName ||
+                      "Published resume"}
                   </p>
                   <p className="mt-1 text-xs text-slate-400">
                     {publishedResume.profile?.title || "Public link live"}
@@ -163,7 +255,9 @@ export default function Dashboard() {
                     ) : null}
                     <Button
                       variant="ghost"
-                      onClick={() => navigate("/app/export")}
+                      onClick={() =>
+                        navigate("/app/resume", { state: { stepIndex: 2 } })
+                      }
                     >
                       Manage visibility
                     </Button>
@@ -174,7 +268,11 @@ export default function Dashboard() {
                   title="No published resume yet"
                   description="Publish a resume to unlock a shareable link."
                   action={
-                    <Button onClick={() => navigate("/app/export")}>
+                    <Button
+                      onClick={() =>
+                        navigate("/app/resume", { state: { stepIndex: 2 } })
+                      }
+                    >
                       Publish resume
                     </Button>
                   }
@@ -221,6 +319,42 @@ export default function Dashboard() {
                   </p>
                 ) : null}
               </div>
+            )}
+          </div>
+        </section>
+
+        <section className="app-card">
+          <h2 className="app-section-title">Recent comments</h2>
+          <p className="app-subtitle">
+            Feedback left on your public resumes.
+          </p>
+          <div className="mt-6 grid gap-3">
+            {commentsLoading ? (
+              <LoadingSkeleton variant="panel" />
+            ) : comments.length === 0 ? (
+              <EmptyState
+                title="No comments yet"
+                description="Share your public link to collect feedback."
+              />
+            ) : (
+              comments.map((comment) => (
+                <div
+                  key={comment.id}
+                  className="rounded-2xl border border-slate-800 bg-slate-950/70 px-5 py-4 text-sm text-slate-100"
+                >
+                  <p className="text-slate-100">{comment.comment}</p>
+                  <p className="mt-2 text-xs text-slate-400">
+                    {comment.commenterName
+                      ? `${comment.commenterName} · `
+                      : ""}
+                    {comment.resumeTitle
+                      ? `${comment.resumeTitle} · `
+                      : ""}
+                    {comment.createdAt?.toDate?.().toLocaleString() ||
+                      "Just now"}
+                  </p>
+                </div>
+              ))
             )}
           </div>
         </section>

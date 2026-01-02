@@ -33,7 +33,6 @@ body {
 .section {
   border-bottom: 1px solid ${template.theme.sectionDividerColor ?? "#e2e8f0"};
   margin: ${template.theme.sectionGap ?? 12}px 0;
-  padding-bottom: 8px;
 }
 .row { display:flex; gap:${template.theme.gap ?? 12}px; }
 .column { display:flex; flex-direction:column; gap:${template.theme.gap ?? 12}px; }
@@ -43,6 +42,34 @@ body {
   color: inherit;
   background: transparent;
   margin-bottom: ${template.theme.gap ?? 12}px;
+}
+.rich-text {
+  --rich-text-gap: ${template.theme.gap ?? 12}px;
+  --chip-padding-y: ${Math.max(3, Math.round((template.theme.gap ?? 12) / 4))}px;
+  --chip-padding-x: ${Math.max(8, Math.round((template.theme.gap ?? 12) / 2))}px;
+}
+.rich-text :where(p, ul, ol, li) {
+  margin: 0;
+  padding: 0;
+}
+.rich-text :where(ul, ol) {
+  padding-left: 1.25em;
+}
+.rich-text :where(ul.chip-list) {
+  list-style: none;
+  padding-left: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rich-text-gap);
+}
+.rich-text :where(ul.chip-list > li) {
+  padding: var(--chip-padding-y) var(--chip-padding-x);
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  line-height: 1.2;
+}
+.rich-text :where(p + p, p + ul, p + ol, ul + p, ol + p, ul + ul, ol + ol, ul + ol, ol + ul) {
+  margin-top: var(--rich-text-gap);
 }
 .node-highlight {
   outline: 2px solid #ef4444;
@@ -239,7 +266,7 @@ export function renderNode(
         }
         ${
           showTitle && showTitleDivider
-            ? `<div style="border-bottom:${titleDividerWidth}px ${titleDividerStyle} ${titleDividerColor};margin-top:${titleDividerSpacing}px;width:100%;"></div>`
+            ? `<div style="border-bottom:${titleDividerWidth}px ${titleDividerStyle} ${titleDividerColor};margin-top:${titleDividerSpacing}px;margin-bottom:${titleDividerSpacing}px;width:100%;"></div>`
             : ""
         }
         ${renderChildren(node, template, resumeJson, highlightId, embedLinks)}
@@ -265,21 +292,21 @@ export function renderNode(
       )}</div>`;
 
     case "text":
-      return `<div ${dataAttr} class="box${highlightClass}" style="${leafStyle(
+      return `<div ${dataAttr} class="box rich-text${highlightClass}" style="${leafStyle(
         node
       )}${textAlignStyle(node.textAlign ?? "left")}">${
         renderValue(node) || "Sample text"
       }</div>`;
 
     case "bullet-list":
-      return `<div ${dataAttr} class="box${highlightClass}" style="${leafStyle(
+      return `<div ${dataAttr} class="box rich-text${highlightClass}" style="${leafStyle(
         node
       )}${textAlignStyle(node.textAlign ?? "left")}">${
         renderValue(node) || "Sample bullet list"
       }</div>`;
 
     case "chip-list":
-      return `<div ${dataAttr} class="box${highlightClass}" style="${leafStyle(
+      return `<div ${dataAttr} class="box rich-text${highlightClass}" style="${leafStyle(
         node
       )}${textAlignStyle(node.textAlign ?? "left")}">${
         renderValue(node) || "Sample chip list"

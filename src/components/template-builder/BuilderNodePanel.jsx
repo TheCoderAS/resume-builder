@@ -15,6 +15,8 @@ export default function BuilderNodePanel({
   expandedNodes,
   onToggleNode,
   selectedNode,
+  canAddChild,
+  onMoveNode,
 }) {
   return (
     <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 lg:w-72 lg:border-r lg:rounded-r-none">
@@ -35,7 +37,7 @@ export default function BuilderNodePanel({
               key={type}
               onClick={() => onAddNode(type)}
               type="button"
-              disabled={isLegacy}
+              disabled={isLegacy || !canAddChild}
               className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold tracking-wide text-slate-200 transition hover:border-indigo-400 hover:text-white disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
             >
               {type}
@@ -72,6 +74,8 @@ export default function BuilderNodePanel({
             isOpen={expandedNodes.has(treeRoot.id)}
             onToggle={onToggleNode}
             expandedNodes={expandedNodes}
+            onMove={onMoveNode}
+            isLegacy={isLegacy}
           />
         </div>
         {selectedNode && (

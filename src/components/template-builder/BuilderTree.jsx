@@ -1,4 +1,4 @@
-import { FiTrash2 } from "react-icons/fi";
+import { FiChevronDown, FiChevronUp, FiTrash2 } from "react-icons/fi";
 
 export default function BuilderTree({
   node,
@@ -9,10 +9,23 @@ export default function BuilderTree({
   isOpen,
   onToggle,
   expandedNodes,
+  onMove,
+  siblingIndex,
+  siblingCount,
+  isLegacy,
 }) {
   const isSelected = selected === node.id;
   const canDelete = node.id !== "root";
   const hasChildren = Boolean(node.children?.length);
+  const canReorder = Boolean(
+    onMove &&
+      !isLegacy &&
+      typeof siblingIndex === "number" &&
+      typeof siblingCount === "number" &&
+      siblingCount > 1
+  );
+  const canMoveUp = canReorder && siblingIndex > 0;
+  const canMoveDown = canReorder && siblingIndex < siblingCount - 1;
 
   return (
     <div className="space-y-1">
@@ -43,25 +56,55 @@ export default function BuilderTree({
           <span className="font-semibold text-slate-100">{node.type}</span>
           <span className="text-[11px] text-slate-500">({node.id})</span>
         </div>
-        {canDelete ? (
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onDelete?.(node.id);
+              onMove?.(node.id, "up");
             }}
-            className={`rounded-md p-1 text-slate-400 transition hover:bg-slate-800/80 hover:text-rose-300 ${
+            disabled={!canMoveUp}
+            className={`rounded-md p-1 text-slate-400 transition hover:bg-slate-800/80 hover:text-slate-100 disabled:cursor-not-allowed disabled:text-slate-600 ${
               isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
             }`}
-            aria-label={`Delete ${node.type}`}
+            aria-label={`Move ${node.type} up`}
           >
-            <FiTrash2 className="h-4 w-4" />
+            <FiChevronUp className="h-4 w-4" />
           </button>
-        ) : null}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onMove?.(node.id, "down");
+            }}
+            disabled={!canMoveDown}
+            className={`rounded-md p-1 text-slate-400 transition hover:bg-slate-800/80 hover:text-slate-100 disabled:cursor-not-allowed disabled:text-slate-600 ${
+              isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            }`}
+            aria-label={`Move ${node.type} down`}
+          >
+            <FiChevronDown className="h-4 w-4" />
+          </button>
+          {canDelete ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete?.(node.id);
+              }}
+              className={`rounded-md p-1 text-slate-400 transition hover:bg-slate-800/80 hover:text-rose-300 ${
+                isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              }`}
+              aria-label={`Delete ${node.type}`}
+            >
+              <FiTrash2 className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {isOpen
-        ? node.children?.map((child) => (
+        ? node.children?.map((child, index) => (
             <BuilderTree
               key={child.id}
               node={child}
@@ -72,6 +115,10 @@ export default function BuilderTree({
               isOpen={expandedNodes?.has(child.id)}
               onToggle={onToggle}
               expandedNodes={expandedNodes}
+              onMove={onMove}
+              siblingIndex={index}
+              siblingCount={node.children?.length ?? 0}
+              isLegacy={isLegacy}
             />
           ))
         : null}

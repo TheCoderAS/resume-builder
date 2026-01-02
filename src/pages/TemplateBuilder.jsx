@@ -32,6 +32,7 @@ import {
 } from "./templateBuilderOptions.js";
 
 const BUILDER_SCHEMA_VERSION = "builder-v1";
+const LEAF_NODE_TYPES = new Set(["text", "bullet-list", "chip-list"]);
 
 const sanitizeForFirestore = (value) => {
   if (Array.isArray(value)) {
@@ -185,6 +186,11 @@ export default function TemplateBuilder() {
     return find(template.layout.root);
   }, [template, selectedNodeId]);
 
+  const canAddChild = useMemo(() => {
+    if (isLegacy || !selectedNode) return false;
+    return !LEAF_NODE_TYPES.has(selectedNode.type);
+  }, [isLegacy, selectedNode]);
+
   const resumeJson = useMemo(
     () => buildResumeJson(template, {}),
     [template]
@@ -264,7 +270,7 @@ export default function TemplateBuilder() {
   };
 
   function addNode(type) {
-    if (isLegacy) return;
+    if (isLegacy || !canAddChild) return;
     const newNode = {
       id: `${type}-${Date.now()}`,
       type,
@@ -291,6 +297,38 @@ export default function TemplateBuilder() {
       return next;
     });
   }
+
+  const moveNodeWithinParent = (node, nodeId, direction) => {
+    if (!node?.children) return node;
+    const nodeIndex = node.children.findIndex((child) => child.id === nodeId);
+    if (nodeIndex !== -1) {
+      const nextIndex = direction === "up" ? nodeIndex - 1 : nodeIndex + 1;
+      if (nextIndex < 0 || nextIndex >= node.children.length) {
+        return node;
+      }
+      const nextChildren = [...node.children];
+      const [moved] = nextChildren.splice(nodeIndex, 1);
+      nextChildren.splice(nextIndex, 0, moved);
+      return { ...node, children: nextChildren };
+    }
+    return {
+      ...node,
+      children: node.children.map((child) =>
+        moveNodeWithinParent(child, nodeId, direction)
+      ),
+    };
+  };
+
+  const handleMoveNode = (nodeId, direction) => {
+    if (isLegacy) return;
+    setTemplate((prev) => ({
+      ...prev,
+      layout: {
+        ...prev.layout,
+        root: moveNodeWithinParent(prev.layout.root, nodeId, direction),
+      },
+    }));
+  };
 
   const handleSave = async () => {
     if (isLegacy) return;
@@ -485,6 +523,8 @@ export default function TemplateBuilder() {
             expandedNodes={expandedNodes}
             onToggleNode={handleToggleNode}
             selectedNode={selectedNode}
+            canAddChild={canAddChild}
+            onMoveNode={handleMoveNode}
           />
 
           <main className="min-h-[520px] flex-1 bg-slate-100 p-2 lg:mx-4 md:max-h-[65vh] md:overflow-auto lg:max-h-[65vh] lg:overflow-auto">

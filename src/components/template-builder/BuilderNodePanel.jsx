@@ -3,8 +3,6 @@ import BuilderTree from "./BuilderTree.jsx";
 export default function BuilderNodePanel({
   nodeTypes,
   loadError,
-  loadNotice,
-  isLegacy,
   onAddNode,
   onExpandAll,
   onCollapseAll,
@@ -28,16 +26,13 @@ export default function BuilderNodePanel({
         {loadError ? (
           <p className="mt-2 text-xs text-rose-400">{loadError}</p>
         ) : null}
-        {loadNotice ? (
-          <p className="mt-2 text-xs text-indigo-300">{loadNotice}</p>
-        ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           {nodeTypes.map((type) => (
             <button
               key={type}
               onClick={() => onAddNode(type)}
               type="button"
-              disabled={isLegacy || !canAddChild}
+              disabled={!canAddChild}
               className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold tracking-wide text-slate-200 transition hover:border-indigo-400 hover:text-white disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
             >
               {type}
@@ -75,7 +70,6 @@ export default function BuilderNodePanel({
             onToggle={onToggleNode}
             expandedNodes={expandedNodes}
             onMove={onMoveNode}
-            isLegacy={isLegacy}
           />
         </div>
         {selectedNode && (

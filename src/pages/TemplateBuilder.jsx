@@ -59,15 +59,12 @@ export default function TemplateBuilder() {
   const [template, setTemplate] = useState(createEmptyTemplate());
   const [selectedNodeId, setSelectedNodeId] = useState("root");
   const [loadError, setLoadError] = useState("");
-  const [loadNotice, setLoadNotice] = useState("");
   const [name, setName] = useState("Untitled template");
   const [category, setCategory] = useState("Professional");
   const [status, setStatus] = useState("draft");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [toast, setToast] = useState(null);
-  const [isLegacy, setIsLegacy] = useState(false);
-  const [legacyJson, setLegacyJson] = useState("");
   const [expandedNodes, setExpandedNodes] = useState(new Set(["root"]));
   const [fieldCreateSignal, setFieldCreateSignal] = useState(0);
   const [isFieldManagerOpen, setIsFieldManagerOpen] = useState(false);
@@ -99,9 +96,6 @@ export default function TemplateBuilder() {
       setTemplate(baseTemplate);
       setSelectedNodeId("root");
       setLoadError("");
-      setLoadNotice("");
-      setIsLegacy(false);
-      setLegacyJson("");
       setName("Untitled template");
       setCategory("Professional");
       setStatus("draft");
@@ -126,8 +120,6 @@ export default function TemplateBuilder() {
         }
         const data = snapshot.data();
         const layout = data.layout;
-        const isBuilderLayout =
-          layout?.schemaVersion === BUILDER_SCHEMA_VERSION;
 
         if (!isMounted) return;
 
@@ -135,29 +127,11 @@ export default function TemplateBuilder() {
         setCategory(data.category ?? "Professional");
         setStatus(data.status ?? "draft");
 
-        if (isBuilderLayout) {
-          setTemplate(hydrateTemplate(layout));
-          setSelectedNodeId("root");
-          setLoadError("");
-          setLoadNotice("");
-          setIsLegacy(false);
-          setLegacyJson("");
-          setExpandedNodes(new Set(["root"]));
-          setIsFieldManagerOpen(false);
-        } else {
-          setTemplate(baseTemplate);
-          setSelectedNodeId("root");
-          setLoadError("");
-          setLoadNotice(
-            "Legacy template detected. This template is view-only in the new builder."
-          );
-          setIsLegacy(true);
-          setLegacyJson(
-            JSON.stringify(layout ?? data, null, 2)
-          );
-          setExpandedNodes(new Set(["root"]));
-          setIsFieldManagerOpen(false);
-        }
+        setTemplate(hydrateTemplate(layout));
+        setSelectedNodeId("root");
+        setLoadError("");
+        setExpandedNodes(new Set(["root"]));
+        setIsFieldManagerOpen(false);
       } catch (error) {
         if (isMounted) {
           setLoadError("Unable to load the template.");
@@ -187,9 +161,9 @@ export default function TemplateBuilder() {
   }, [template, selectedNodeId]);
 
   const canAddChild = useMemo(() => {
-    if (isLegacy || !selectedNode) return false;
+    if (!selectedNode) return false;
     return !LEAF_NODE_TYPES.has(selectedNode.type);
-  }, [isLegacy, selectedNode]);
+  }, [selectedNode]);
 
   const resumeJson = useMemo(
     () => buildResumeJson(template, {}),
@@ -270,7 +244,7 @@ export default function TemplateBuilder() {
   };
 
   function addNode(type) {
-    if (isLegacy || !canAddChild) return;
+    if (!canAddChild) return;
     const newNode = {
       id: `${type}-${Date.now()}`,
       type,
@@ -320,7 +294,6 @@ export default function TemplateBuilder() {
   };
 
   const handleMoveNode = (nodeId, direction) => {
-    if (isLegacy) return;
     setTemplate((prev) => ({
       ...prev,
       layout: {
@@ -331,7 +304,6 @@ export default function TemplateBuilder() {
   };
 
   const handleSave = async () => {
-    if (isLegacy) return;
     if (!user) {
       setSaveError("Sign in to save templates.");
       return;
@@ -477,9 +449,7 @@ export default function TemplateBuilder() {
     setExpandedNodes(new Set());
   };
 
-  const json = isLegacy
-    ? legacyJson
-    : JSON.stringify(template, null, 2);
+  const json = JSON.stringify(template, null, 2);
 
   const parseNumberInput = (value) => {
     if (value === "") return undefined;
@@ -501,7 +471,6 @@ export default function TemplateBuilder() {
           categoryOptions={CATEGORY_OPTIONS}
           statusOptions={STATUS_OPTIONS}
           saving={saving}
-          isLegacy={isLegacy}
           saveError={saveError}
           onSave={handleSave}
           templateId={templateId}
@@ -511,8 +480,6 @@ export default function TemplateBuilder() {
           <BuilderNodePanel
             nodeTypes={NODE_TYPES}
             loadError={loadError}
-            loadNotice={loadNotice}
-            isLegacy={isLegacy}
             onAddNode={addNode}
             onExpandAll={handleExpandAll}
             onCollapseAll={handleCollapseAll}
@@ -696,7 +663,7 @@ export default function TemplateBuilder() {
                                   page: { ...prev.page, size: event.target.value },
                                 }))
                               }
-                              disabled={isLegacy}
+                              
                               className="h-9 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                             >
                               {PAGE_OPTIONS.map((option) => (
@@ -729,7 +696,7 @@ export default function TemplateBuilder() {
                                     },
                                   }))
                                 }
-                                disabled={isLegacy}
+                                
                                 className="h-8 w-20 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                               />
                             </label>
@@ -752,7 +719,7 @@ export default function TemplateBuilder() {
                                     },
                                   }))
                                 }
-                                disabled={isLegacy}
+                                
                                 className="h-8 w-20 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                               />
                             </label>
@@ -780,7 +747,7 @@ export default function TemplateBuilder() {
                                     },
                                   }))
                                 }
-                                disabled={isLegacy}
+                                
                                 className="h-8 w-20 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                               />
                             </label>
@@ -803,7 +770,7 @@ export default function TemplateBuilder() {
                                     },
                                   }))
                                 }
-                                disabled={isLegacy}
+                                
                                 className="h-8 w-20 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                               />
                             </label>
@@ -829,7 +796,7 @@ export default function TemplateBuilder() {
                                     },
                                   }))
                                 }
-                                disabled={isLegacy}
+                                
                                 className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500/40"
                               />
                             </label>
@@ -855,7 +822,7 @@ export default function TemplateBuilder() {
                                     },
                                   }))
                                 }
-                                disabled={isLegacy || !template.page?.border?.enabled}
+                                disabled={!template.page?.border?.enabled}
                                 className="h-8 w-20 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                               />
                             </label>
@@ -875,7 +842,7 @@ export default function TemplateBuilder() {
                                     },
                                   }))
                                 }
-                                disabled={isLegacy || !template.page?.border?.enabled}
+                                disabled={!template.page?.border?.enabled}
                                 className="h-8 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                               >
                                 <option value="solid">Solid</option>
@@ -900,7 +867,7 @@ export default function TemplateBuilder() {
                                     },
                                   }))
                                 }
-                                disabled={isLegacy || !template.page?.border?.enabled}
+                                disabled={!template.page?.border?.enabled}
                                 className="h-8 w-16 cursor-pointer rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1"
                               />
                             </label>
@@ -922,7 +889,7 @@ export default function TemplateBuilder() {
                                   },
                                 }))
                               }
-                              disabled={isLegacy}
+                              
                               className="h-9 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                             >
                               {FONT_OPTIONS.map((option) => (
@@ -949,7 +916,7 @@ export default function TemplateBuilder() {
                                   },
                                 }))
                               }
-                              disabled={isLegacy}
+                              
                               className="h-2 w-32 accent-indigo-400"
                             />
                           </label>
@@ -970,7 +937,7 @@ export default function TemplateBuilder() {
                                   },
                                 }))
                               }
-                              disabled={isLegacy}
+                              
                               className="h-2 w-32 accent-indigo-400"
                             />
                           </label>
@@ -991,7 +958,7 @@ export default function TemplateBuilder() {
                                   },
                                 }))
                               }
-                              disabled={isLegacy}
+                              
                               className="h-2 w-32 accent-indigo-400"
                             />
                           </label>
@@ -1055,7 +1022,7 @@ export default function TemplateBuilder() {
                                     },
                                   }))
                                 }
-                                disabled={isLegacy}
+                                
                                 className="h-9 w-16 cursor-pointer rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1"
                               />
                             </label>
@@ -1109,7 +1076,7 @@ export default function TemplateBuilder() {
                                   },
                                 }))
                               }
-                              disabled={isLegacy}
+                              
                               className="h-9 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                             >
                               {BASE_FONT_SIZE_OPTIONS.map((option) => (
@@ -1145,7 +1112,7 @@ export default function TemplateBuilder() {
                                     },
                                   }))
                                 }
-                                disabled={isLegacy}
+                                
                                 className="h-9 w-20 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                               />
                             </label>

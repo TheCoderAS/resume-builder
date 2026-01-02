@@ -12,14 +12,12 @@ export default function BuilderTree({
   onMove,
   siblingIndex,
   siblingCount,
-  isLegacy,
 }) {
   const isSelected = selected === node.id;
   const canDelete = node.id !== "root";
   const hasChildren = Boolean(node.children?.length);
   const canReorder = Boolean(
     onMove &&
-      !isLegacy &&
       typeof siblingIndex === "number" &&
       typeof siblingCount === "number" &&
       siblingCount > 1
@@ -118,7 +116,6 @@ export default function BuilderTree({
               onMove={onMove}
               siblingIndex={index}
               siblingCount={node.children?.length ?? 0}
-              isLegacy={isLegacy}
             />
           ))
         : null}

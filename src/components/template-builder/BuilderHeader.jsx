@@ -10,7 +10,6 @@ export default function BuilderHeader({
   categoryOptions,
   statusOptions,
   saving,
-  isLegacy,
   saveError,
   onSave,
   templateId,
@@ -23,7 +22,6 @@ export default function BuilderHeader({
           <input
             value={name}
             onChange={(event) => onNameChange(event.target.value)}
-            disabled={isLegacy}
             className="h-10 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 sm:w-52"
           />
         </label>
@@ -32,7 +30,6 @@ export default function BuilderHeader({
           <select
             value={category}
             onChange={(event) => onCategoryChange(event.target.value)}
-            disabled={isLegacy}
             className="h-10 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 sm:w-44"
           >
             {categoryOptions.map((option) => (
@@ -47,7 +44,6 @@ export default function BuilderHeader({
           <select
             value={status}
             onChange={(event) => onStatusChange(event.target.value)}
-            disabled={isLegacy}
             className="h-10 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 sm:w-32"
           >
             {statusOptions.map((option) => (
@@ -60,7 +56,7 @@ export default function BuilderHeader({
         <Button
           type="button"
           onClick={onSave}
-          disabled={saving || isLegacy}
+          disabled={saving}
           className="h-10 w-full px-5 py-2 sm:w-auto"
         >
           {saving

@@ -19,7 +19,7 @@ import BuilderNodePanel from "../components/template-builder/BuilderNodePanel.js
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
 import { createEmptyTemplate } from "../templateModel.js";
-import { buildResumeJson } from "../utils/resumeData.js";
+import { buildPreviewResumeJson } from "../utils/resumeData.js";
 import {
   BASE_FONT_SIZE_OPTIONS,
   CATEGORY_OPTIONS,
@@ -170,7 +170,7 @@ export default function TemplateBuilder() {
   }, [selectedNode]);
 
   const resumeJson = useMemo(
-    () => buildResumeJson(template, {}),
+    () => buildPreviewResumeJson(template, {}),
     [template]
   );
 

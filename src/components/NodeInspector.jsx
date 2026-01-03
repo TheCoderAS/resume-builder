@@ -18,6 +18,7 @@ export default function NodeInspector({
       })),
     [fields]
   );
+  const [isSectionStyleOpen, setIsSectionStyleOpen] = useState(false);
   if (!node) {
     return (
       <div className="text-xs text-slate-400">
@@ -32,7 +33,6 @@ export default function NodeInspector({
   const isColumn = node.type === "column";
   const isTextLike = BINDABLE_TYPES.has(node.type);
   const sectionTitleStyle = node.titleStyle || {};
-  const [isSectionStyleOpen, setIsSectionStyleOpen] = useState(false);
 
   const handleBindChange = (value) => {
     onUpdateNode?.((current) => {

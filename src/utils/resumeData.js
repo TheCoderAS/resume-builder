@@ -27,3 +27,14 @@ export function buildResumeJson(template, values) {
 
   return result;
 }
+
+export function buildPreviewResumeJson(template, values) {
+  const result = buildResumeJson(template, values);
+  const repeatIds = new Set();
+  collectRepeatIds(template?.layout?.root, repeatIds);
+  repeatIds.forEach((repeatId) => {
+    if (Array.isArray(result[repeatId]) && result[repeatId].length > 0) return;
+    result[repeatId] = [{}];
+  });
+  return result;
+}

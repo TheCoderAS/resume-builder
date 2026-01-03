@@ -162,7 +162,11 @@ export default function TemplateBuilder() {
 
   const canAddChild = useMemo(() => {
     if (!selectedNode) return false;
-    return !LEAF_NODE_TYPES.has(selectedNode.type);
+    if (LEAF_NODE_TYPES.has(selectedNode.type)) return false;
+    if (selectedNode.type === "repeat") {
+      return (selectedNode.children || []).length < 1;
+    }
+    return true;
   }, [selectedNode]);
 
   const resumeJson = useMemo(

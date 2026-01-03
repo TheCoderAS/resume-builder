@@ -102,7 +102,8 @@ body {
     template,
     resumeJson,
     highlightId,
-    embedLinks
+    embedLinks,
+    {}
   )}
   <script>
     (function () {
@@ -136,7 +137,8 @@ export function renderNode(
   template,
   resumeJson,
   highlightId = null,
-  embedLinks = false
+  embedLinks = false,
+  scope = {}
 ) {
   if (!node) return "";
   const highlightClass = node.id === highlightId ? " node-highlight" : "";
@@ -229,7 +231,7 @@ export function renderNode(
   };
 
   const renderValue = (node) => {
-    const value = resolveNodeValue(node, template, resumeJson);
+    const value = resolveNodeValue(node, template, resumeJson, scope);
     const link = formatLinkValue(node?.bindField, value);
     const content = `${renderIcon(node)}${value || ""}`;
     if (!link) return content;
@@ -269,26 +271,39 @@ export function renderNode(
             ? `<div style="border-bottom:${titleDividerWidth}px ${titleDividerStyle} ${titleDividerColor};margin-top:${titleDividerSpacing}px;margin-bottom:${titleDividerSpacing}px;width:100%;"></div>`
             : ""
         }
-        ${renderChildren(node, template, resumeJson, highlightId, embedLinks)}
+        ${renderChildren(
+          node,
+          template,
+          resumeJson,
+          highlightId,
+          embedLinks,
+          scope
+        )}
       </div>`;
     }
 
     case "row":
-      return `<div ${dataAttr} class="row${highlightClass}" style="${flexStyle(node)}">${renderChildren(
+      return `<div ${dataAttr} class="row${highlightClass}" style="${flexStyle(
+        node
+      )}">${renderChildren(
         node,
         template,
         resumeJson,
         highlightId,
-        embedLinks
+        embedLinks,
+        scope
       )}</div>`;
 
     case "column":
-      return `<div ${dataAttr} class="column${highlightClass}" style="${flexStyle(node)}">${renderChildren(
+      return `<div ${dataAttr} class="column${highlightClass}" style="${flexStyle(
+        node
+      )}">${renderChildren(
         node,
         template,
         resumeJson,
         highlightId,
-        embedLinks
+        embedLinks,
+        scope
       )}</div>`;
 
     case "text":
@@ -312,25 +327,59 @@ export function renderNode(
         renderValue(node) || "Sample chip list"
       }</div>`;
 
-    case "repeat":
-      return `<div class="box">Repeat Block</div>`;
+    case "repeat": {
+      const items = Array.isArray(scope?.[node.id])
+        ? scope[node.id]
+        : Array.isArray(resumeJson?.[node.id])
+          ? resumeJson[node.id]
+          : [];
+      if (!node.children?.length) {
+        return `<div ${dataAttr} class="box${highlightClass}">Repeat Block</div>`;
+      }
+      if (items.length === 0) {
+        return "";
+      }
+      return items
+        .map((item) =>
+          renderChildren(
+            node,
+            template,
+            resumeJson,
+            highlightId,
+            embedLinks,
+            item && typeof item === "object" ? item : {}
+          )
+        )
+        .join("");
+    }
 
     default:
       return `<div class="box">${node.type}</div>`;
   }
 }
 
-function renderChildren(node, template, resumeJson, highlightId, embedLinks) {
+function renderChildren(
+  node,
+  template,
+  resumeJson,
+  highlightId,
+  embedLinks,
+  scope
+) {
   return (node.children || [])
     .map((child) =>
-      renderNode(child, template, resumeJson, highlightId, embedLinks)
+      renderNode(child, template, resumeJson, highlightId, embedLinks, scope)
     )
     .join("");
 }
 
-function resolveNodeValue(node, template, resumeJson) {
+function resolveNodeValue(node, template, resumeJson, scope) {
   const fieldId = node?.bindField;
   if (!fieldId) return "";
+
+  if (scope && scope[fieldId] != null && scope[fieldId] !== "") {
+    return String(scope[fieldId]);
+  }
 
   const fields = template?.fields || {};
   const def = fields[fieldId];

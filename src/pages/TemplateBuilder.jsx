@@ -1558,6 +1558,56 @@ export default function TemplateBuilder() {
                               />
                             </label>
                           ))}
+                          <div className="rounded-lg border border-slate-800/80 bg-slate-950/60 p-3">
+                            <h6 className="text-[11px] font-semibold tracking-wide text-slate-500">
+                              Timeline
+                            </h6>
+                            <div className="mt-3 grid gap-3">
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Line Color
+                                <input
+                                  type="color"
+                                  value={
+                                    template.theme?.timelineLineColor ??
+                                    template.theme?.sectionDividerColor ??
+                                    "#e2e8f0"
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        timelineLineColor: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                  className="h-9 w-16 cursor-pointer rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1"
+                                />
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Dot Size
+                                <input
+                                  type="number"
+                                  min="2"
+                                  max="24"
+                                  step="1"
+                                  value={template.theme?.timelineDotSize ?? ""}
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        timelineDotSize: parseNumberInput(
+                                          event.target.value
+                                        ),
+                                      },
+                                    }))
+                                  }
+                                  className="h-9 w-20 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                />
+                              </label>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

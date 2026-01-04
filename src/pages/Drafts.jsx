@@ -67,6 +67,18 @@ export default function Drafts() {
     };
   }, [user]);
 
+  useEffect(() => {
+    if (!menuOpenId) return;
+    const handleClick = (event) => {
+      if (event.target.closest("[data-context-menu='true']")) return;
+      setMenuOpenId(null);
+    };
+    document.addEventListener("click", handleClick);
+    return () => {
+      document.removeEventListener("click", handleClick);
+    };
+  }, [menuOpenId]);
+
   const draftCount = useMemo(() => drafts.length, [drafts]);
 
   const handleOpenDraft = (draftId) => {
@@ -92,12 +104,17 @@ export default function Drafts() {
   return (
     <AppShell>
       <div className="flex w-full flex-col gap-6">
-        {/* <header>
-          <h1 className="app-title">Resumes</h1>
-          <p className="app-subtitle">
-            {draftCount} saved resume{draftCount === 1 ? "" : "s"}
-          </p>
-        </header> */}
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="app-title">Resumes</h1>
+            <p className="app-subtitle">
+              {draftCount} saved resume{draftCount === 1 ? "" : "s"}
+            </p>
+          </div>
+          <Button onClick={() => navigate("/app/resume/new")}>
+            New resume
+          </Button>
+        </header>
 
         {error ? <ErrorBanner message={error} /> : null}
 
@@ -162,13 +179,17 @@ export default function Drafts() {
                       current === draft.id ? null : draft.id
                     );
                   }}
-                  className="absolute right-4 top-4 rounded-full p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
+                  className="context-menu-trigger absolute right-4 top-4 rounded-full p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
                   aria-label="Open draft menu"
+                  data-context-menu="true"
                 >
                   <FiMoreVertical className="h-4 w-4" />
                 </button>
                 {menuOpenId === draft.id ? (
-                  <div className="absolute right-4 top-14 z-10 w-40 rounded-2xl border border-slate-800 bg-slate-950/95 p-2 text-sm shadow-[0_18px_40px_rgba(15,23,42,0.6)]">
+                  <div
+                    className="context-menu absolute right-4 top-14 z-10 w-40 rounded-2xl border border-slate-800 bg-slate-950/95 p-2 text-sm shadow-[0_18px_40px_rgba(15,23,42,0.6)]"
+                    data-context-menu="true"
+                  >
                     <button
                       type="button"
                       onClick={(event) => {

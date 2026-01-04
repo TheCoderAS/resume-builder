@@ -14,7 +14,7 @@ export default function BuilderHeader({
   autosaveLabel,
 }) {
   return (
-    <div className="rounded-2xl border border-slate-800/80 bg-slate-950/90 px-4 py-4 sm:px-6">
+    <div className="builder-header rounded-2xl border border-slate-800/80 bg-slate-950/90 px-4 py-4 sm:px-6">
       <div className="flex flex-wrap items-center gap-4">
         <label className="flex w-full flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400 sm:w-auto">
           Name

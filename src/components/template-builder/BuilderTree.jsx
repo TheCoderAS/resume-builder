@@ -30,14 +30,14 @@ export default function BuilderTree({
   const canMoveDown = canReorder && siblingIndex < siblingCount - 1;
 
   return (
-    <div className="space-y-1">
+    <div className="builder-tree space-y-1 pr-2">
       <div
-        className={`group flex items-center justify-between rounded-lg px-2 py-1 text-xs transition ${
+        className={`group flex w-full items-center justify-between rounded-lg px-2 py-1 text-xs transition ${
           isSelected
             ? "bg-indigo-500/20 text-indigo-100"
             : "text-slate-300 hover:bg-slate-800/70"
         }`}
-        style={{ marginLeft: depth * 12 }}
+        style={{ paddingLeft: depth * 12 + 8 }}
         onClick={() => onSelect(node.id)}
       >
         <div className="flex items-center gap-2">

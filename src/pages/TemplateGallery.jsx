@@ -413,9 +413,9 @@ export default function TemplateGallery() {
                 return (
                   <div
                     key={template.id}
-                    className={`relative flex h-full flex-col gap-4 rounded-[28px] border border-slate-800 p-5 text-left shadow-[0_18px_40px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-emerald-400/60 ${
+                    className={`template-card relative flex h-full flex-col gap-4 rounded-[28px] border border-slate-800 p-5 text-left shadow-[0_18px_40px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-emerald-400/60 ${
                       isPublicTemplate
-                        ? "bg-gradient-to-br from-slate-900 via-slate-900/90 to-amber-950/30"
+                        ? "template-card--public bg-gradient-to-br from-slate-900 via-slate-900/90 to-amber-950/30"
                         : "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
                     }`}
                     onClick={() =>
@@ -433,7 +433,7 @@ export default function TemplateGallery() {
                             current === template.id ? null : template.id
                           );
                         }}
-                        className="absolute right-5 top-5 rounded-full border border-slate-800 bg-slate-950/70 p-2 text-slate-300 transition hover:border-emerald-400/60 hover:text-emerald-100"
+                        className="context-menu-trigger absolute right-5 top-5 rounded-full border border-slate-800 bg-slate-950/70 p-2 text-slate-300 transition hover:border-emerald-400/60 hover:text-emerald-100"
                         aria-label="Open template menu"
                         data-template-menu="true"
                       >
@@ -442,7 +442,7 @@ export default function TemplateGallery() {
                     ) : null}
                     {menuOpenId === template.id && (isUserTemplate || isPublicTemplate) ? (
                       <div
-                        className="absolute right-5 top-14 z-20 w-48 rounded-2xl border border-slate-800 bg-slate-950/95 p-2 text-sm shadow-[0_18px_40px_rgba(15,23,42,0.6)]"
+                        className="context-menu absolute right-5 top-14 z-20 w-48 rounded-2xl border border-slate-800 bg-slate-950/95 p-2 text-sm shadow-[0_18px_40px_rgba(15,23,42,0.6)]"
                         data-template-menu="true"
                       >
                         {isUserTemplate ? (

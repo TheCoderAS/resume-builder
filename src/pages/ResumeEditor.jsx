@@ -515,7 +515,7 @@ export default function ResumeEditor() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto lg:pr-2">
             {stepIndex === 0 ? (
               <section className="app-card">
                 <SectionHeader
@@ -722,7 +722,7 @@ export default function ResumeEditor() {
             </div>
           </div>
 
-          <aside className="flex flex-col gap-6">
+          <aside className="flex flex-col gap-6 lg:sticky lg:top-24">
             <div className="flex-1 bg-slate-100 p-2">
               <TemplatePreview
                 template={template}

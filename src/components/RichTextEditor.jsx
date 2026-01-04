@@ -149,12 +149,18 @@ export default function RichTextEditor({
     if (command === "chipList") {
       const selection = document.getSelection();
       const listNode = findClosestList(selection?.anchorNode);
-      if (!listNode || listNode.tagName !== "UL") {
+      const hasSelection =
+        selection && selection.rangeCount > 0 && !selection.isCollapsed;
+      if (listNode && listNode.tagName === "UL") {
+        listNode.classList.toggle("chip-list");
+      } else if (hasSelection) {
         document.execCommand("insertUnorderedList", false, null);
-      }
-      const nextList = findClosestList(document.getSelection()?.anchorNode);
-      if (nextList) {
-        nextList.classList.toggle("chip-list");
+        const nextList = findClosestList(document.getSelection()?.anchorNode);
+        if (nextList) {
+          nextList.classList.add("chip-list");
+        }
+      } else {
+        return;
       }
     } else {
       document.execCommand(command, false, null);

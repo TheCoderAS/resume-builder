@@ -30,6 +30,7 @@ export default function NodeInspector({
   const isRow = node.type === "row";
   const isColumn = node.type === "column";
   const isTextLike = BINDABLE_TYPES.has(node.type);
+  const isRepeat = node.type === "repeat";
 
   const handleBindChange = (value) => {
     onUpdateNode?.((current) => {
@@ -60,6 +61,13 @@ export default function NodeInspector({
     onUpdateNode?.((current) => ({
       ...current,
       showDivider: checked,
+    }));
+  };
+
+  const handleRepeatTimelineToggle = (checked) => {
+    onUpdateNode?.((current) => ({
+      ...current,
+      showTimeline: checked,
     }));
   };
 
@@ -373,6 +381,22 @@ export default function NodeInspector({
               <option value="normal">Normal</option>
               <option value="italic">Italic</option>
             </select>
+          </label>
+        </div>
+      ) : null}
+
+      {isRepeat ? (
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center gap-3 text-xs font-semibold tracking-wide text-slate-400">
+            <input
+              type="checkbox"
+              checked={node.showTimeline === true}
+              onChange={(event) =>
+                handleRepeatTimelineToggle(event.target.checked)
+              }
+              className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500/40"
+            />
+            Show vertical timeline
           </label>
         </div>
       ) : null}

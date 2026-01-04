@@ -57,6 +57,42 @@ body {
 .repeat-item > * {
   margin-bottom: 0;
 }
+.repeat-group {
+  display: contents;
+}
+.repeat-timeline {
+  --timeline-gap: ${template.theme.gap ?? 12}px;
+  --timeline-line-color: ${template.theme.sectionDividerColor ?? "#e2e8f0"};
+  --timeline-dot-size: 8px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--timeline-gap);
+  padding-left: calc(var(--timeline-dot-size) + 12px);
+}
+.repeat-timeline::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--timeline-dot-size) / 2);
+  width: 1px;
+  background: var(--timeline-line-color);
+}
+.repeat-timeline .repeat-item {
+  display: block;
+  position: relative;
+}
+.repeat-timeline .repeat-item::before {
+  content: "";
+  position: absolute;
+  top: 0.35em;
+  left: calc(-1 * (var(--timeline-dot-size) + 12px));
+  width: var(--timeline-dot-size);
+  height: var(--timeline-dot-size);
+  border-radius: 999px;
+  background: var(--timeline-line-color);
+}
 .rich-text {
   --rich-text-gap: ${template.theme.gap ?? 12}px;
   --chip-padding-y: ${Math.max(3, Math.round((template.theme.gap ?? 12) / 4))}px;
@@ -532,7 +568,10 @@ export function renderNode(
           inlineNode
         )}${textAlignStyle(inlineNode.textAlign ?? "left")}">${inlineContent}</div>`;
       }
-      return items
+      const repeatClass = node.showTimeline
+        ? "repeat-timeline"
+        : "repeat-group";
+      const repeatItems = items
         .map(
           (item) =>
             `<div class="repeat-item">${renderChildren(
@@ -546,6 +585,7 @@ export function renderNode(
             )}</div>`
         )
         .join("");
+      return `<div ${dataAttr} class="${repeatClass}${highlightClass}">${repeatItems}</div>`;
     }
 
     default:

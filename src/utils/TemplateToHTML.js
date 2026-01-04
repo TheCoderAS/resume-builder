@@ -62,8 +62,12 @@ body {
 }
 .repeat-timeline {
   --timeline-gap: ${template.theme.gap ?? 12}px;
-  --timeline-line-color: ${template.theme.sectionDividerColor ?? "#e2e8f0"};
-  --timeline-dot-size: 8px;
+  --timeline-line-color: ${
+    template.theme.timelineLineColor ??
+    template.theme.sectionDividerColor ??
+    "#e2e8f0"
+  };
+  --timeline-dot-size: ${template.theme.timelineDotSize ?? 8}px;
   position: relative;
   display: flex;
   flex-direction: column;

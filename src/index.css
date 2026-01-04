@@ -72,7 +72,7 @@
   }
 
   .app-pill {
-    @apply rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide transition;
+    @apply rounded-full border px-4 py-2 text-xs font-semibold tracking-wide transition;
   }
 
   .ui-scrollbar {

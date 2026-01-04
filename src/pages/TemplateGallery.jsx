@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   query,
   serverTimestamp,
@@ -14,7 +15,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   FiArchive,
   FiCheckCircle,
-  FiEdit3,
+  FiCopy,
   FiMoreVertical,
   FiStar,
   FiTrash2,
@@ -29,7 +30,6 @@ import PromptModal from "../components/PromptModal.jsx";
 import Snackbar from "../components/Snackbar.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
-import { resolveTemplateSettings, resolveTemplateStyles } from "../utils/resumePreview.js";
 
 const FILTER_OPTIONS = [
   { label: "All", value: "all" },
@@ -40,11 +40,6 @@ const FILTER_OPTIONS = [
 const getTemplateCategory = (template) =>
   template.category ?? template.tags?.[0] ?? "Professional";
 
-const resolveTemplateLayout = (template) =>
-  resolveTemplateStyles(template?.styles ?? {}, template?.layout ?? {});
-
-const resolveTemplateGlobals = (template) =>
-  resolveTemplateSettings(template?.settings ?? {}, template?.styles ?? {});
 
 export default function TemplateGallery() {
   const navigate = useNavigate();
@@ -55,7 +50,6 @@ export default function TemplateGallery() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [savingId, setSavingId] = useState(null);
   const [defaultTemplateId, setDefaultTemplateId] = useState(() =>
     window.localStorage.getItem("defaultTemplateId")
   );
@@ -64,10 +58,36 @@ export default function TemplateGallery() {
   const [confirming, setConfirming] = useState(false);
   const [toast, setToast] = useState(null);
 
-  const resumeId = useMemo(
-    () => window.localStorage.getItem("activeResumeId"),
-    []
-  );
+  useEffect(() => {
+    if (!user) {
+      setDefaultTemplateId(window.localStorage.getItem("defaultTemplateId"));
+      return;
+    }
+    let isMounted = true;
+    const loadDefaultTemplate = async () => {
+      try {
+        const snapshot = await getDoc(doc(db, "users", user.uid));
+        if (!isMounted) return;
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          setDefaultTemplateId(
+            data.defaultTemplateId ?? window.localStorage.getItem("defaultTemplateId")
+          );
+        } else {
+          setDefaultTemplateId(window.localStorage.getItem("defaultTemplateId"));
+        }
+      } catch (error) {
+        if (isMounted) {
+          setDefaultTemplateId(window.localStorage.getItem("defaultTemplateId"));
+        }
+      }
+    };
+    loadDefaultTemplate();
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
 
   useEffect(() => {
     let isMounted = true;
@@ -76,33 +96,54 @@ export default function TemplateGallery() {
       setLoading(true);
       setError("");
       try {
+        const safeGetDocs = async (queryRef, label) => {
+          try {
+            return await getDocs(queryRef);
+          } catch (queryError) {
+            if (queryError?.code === "permission-denied") {
+              console.error(`Template query permission denied: ${label}`, queryError);
+              return null;
+            }
+            throw queryError;
+          }
+        };
         const templatesRef = collection(db, "templates");
-        const publicQuery = query(
+        const publicSharedQuery = query(
           templatesRef,
-          where("type", "==", "admin"),
+          where("isPublic", "==", true),
           where("status", "==", "active")
         );
         const [publicSnapshot, userSnapshot] = await Promise.all([
-          getDocs(publicQuery),
+          safeGetDocs(publicSharedQuery, "public"),
           user
-            ? getDocs(query(templatesRef, where("ownerId", "==", user.uid)))
+            ? safeGetDocs(
+                query(templatesRef, where("ownerId", "==", user.uid)),
+                "owner"
+              )
             : Promise.resolve(null),
         ]);
-        const publicTemplates = publicSnapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data(),
-        }));
+        const sharedTemplates = publicSnapshot
+          ? publicSnapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            }))
+          : [];
         const userTemplates = userSnapshot
           ? userSnapshot.docs.map((docSnap) => ({
               id: docSnap.id,
               ...docSnap.data(),
             }))
           : [];
-        const nextTemplates = [...publicTemplates, ...userTemplates];
+        const combined = [...sharedTemplates, ...userTemplates];
+        const templateMap = new Map(
+          combined.map((template) => [template.id, template])
+        );
+        const nextTemplates = Array.from(templateMap.values());
         if (isMounted) {
           setTemplates(nextTemplates);
         }
       } catch (fetchError) {
+        console.error(fetchError)
         if (isMounted) {
           setError("Unable to load templates right now.");
         }
@@ -143,11 +184,9 @@ export default function TemplateGallery() {
     return templates.filter((template) => {
       const category = getTemplateCategory(template);
       const status = template.status ?? "active";
-      const isAdminTemplate = template.type === "admin";
       const isUserTemplate = user && template.ownerId === user.uid;
       const matchesFilter = (() => {
         if (filter === "all") return true;
-        if (filter === "admin") return isAdminTemplate;
         if (filter === "mine") return isUserTemplate;
         if (filter === "archived") return status === "archived";
         return category.toLowerCase() === filter.toLowerCase();
@@ -162,44 +201,24 @@ export default function TemplateGallery() {
     });
   }, [filter, search, templates, user]);
 
-  const handleSelectTemplate = async (template) => {
-    if (!resumeId || !user) return;
-    setSavingId(template.id);
-    const templateStyles = resolveTemplateLayout(template);
-    const templateSettings = resolveTemplateGlobals(template);
-    const sectionOrder = template.layout?.sectionOrder ?? [];
-    try {
-      await setDoc(
-        doc(db, "resumes", resumeId),
-        {
-          userId: user.uid,
-          templateId: template.id,
-          templateName: template.name ?? "Untitled template",
-          templateStyles,
-          templateSettings,
-          sectionOrder,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-      setToast({
-        message: `Template "${template.name ?? "Untitled"}" applied.`,
-        variant: "success",
-      });
-      navigate("/app/resume");
-    } catch (error) {
-      setToast({
-        message: "Unable to apply this template.",
-        variant: "error",
-      });
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  const handleSetDefault = (templateId) => {
+  const handleSetDefault = async (templateId) => {
     window.localStorage.setItem("defaultTemplateId", templateId);
     setDefaultTemplateId(templateId);
+    if (user) {
+      try {
+        await setDoc(
+          doc(db, "users", user.uid),
+          { defaultTemplateId: templateId },
+          { merge: true }
+        );
+      } catch (error) {
+        setToast({
+          message: "Unable to sync default template.",
+          variant: "error",
+        });
+        return;
+      }
+    }
     setToast({ message: "Default template updated.", variant: "success" });
     setMenuOpenId(null);
   };
@@ -233,6 +252,51 @@ export default function TemplateGallery() {
     }
   };
 
+  const handleSetDraft = async (template) => {
+    try {
+      await updateDoc(doc(db, "templates", template.id), {
+        status: "draft",
+        updatedAt: serverTimestamp(),
+      });
+      setTemplates((prev) =>
+        prev.map((item) =>
+          item.id === template.id ? { ...item, status: "draft" } : item
+        )
+      );
+      setToast({ message: "Template moved to draft.", variant: "success" });
+    } catch (error) {
+      setToast({ message: "Unable to update template status.", variant: "error" });
+    } finally {
+      setMenuOpenId(null);
+    }
+  };
+
+  const handleDuplicateTemplate = async (template) => {
+    if (!user) return;
+    try {
+      const payload = {
+        ...template,
+        name: `Copy - ${template.name ?? "Untitled template"}`,
+        status: template.isPublic ? "active" : "draft",
+        isPublic: false,
+        ownerId: user.uid,
+        type: "builder",
+        updatedAt: serverTimestamp(),
+      };
+      delete payload.id;
+      await setDoc(doc(collection(db, "templates")), {
+        ...payload,
+        createdAt: serverTimestamp(),
+      });
+      setToast({ message: "Template duplicated.", variant: "success" });
+    } catch (error) {
+      setToast({ message: "Unable to duplicate template.", variant: "error" });
+    } finally {
+      setMenuOpenId(null);
+    }
+  };
+
+
   const handleDeleteTemplate = async (template) => {
     if (template.id === defaultTemplateId) {
       setToast({
@@ -258,6 +322,8 @@ export default function TemplateGallery() {
     try {
       if (confirmAction.type === "delete") {
         await handleDeleteTemplate(confirmAction.template);
+      } else if (confirmAction.type === "draft") {
+        await handleSetDraft(confirmAction.template);
       } else {
         await handleToggleArchive(confirmAction.template);
       }
@@ -278,15 +344,9 @@ export default function TemplateGallery() {
             </p>
           </div>
           <Button onClick={() => navigate("/app/template-builder")}>
-            Open template builder
+            New template
           </Button>
         </header>
-
-        {!resumeId ? (
-          <div className="rounded-[24px] border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
-            Start a resume draft before selecting a template.
-          </div>
-        ) : null}
 
         <div className="app-card flex flex-col gap-4">
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
@@ -335,7 +395,7 @@ export default function TemplateGallery() {
                 description="Try clearing filters or changing your search."
                 action={
                   <Button onClick={() => navigate("/app/template-builder")}>
-                    Open template builder
+                    New template
                   </Button>
                 }
               />
@@ -344,26 +404,27 @@ export default function TemplateGallery() {
           {!loading && !error
             ? filteredTemplates.map((template) => {
                 const category = getTemplateCategory(template);
-                const usage = template.usageCount ?? 0;
-                const isSaving = savingId === template.id;
-                const isAdminTemplate = template.type === "admin";
                 const isUserTemplate = user && template.ownerId === user.uid;
                 const status = template.status ?? "active";
+                const isPublicTemplate = template.isPublic === true;
                 const isDefaultTemplate =
                   defaultTemplateId && defaultTemplateId === template.id;
 
                 return (
                   <div
                     key={template.id}
-                    className="relative flex h-full flex-col gap-4 rounded-[28px] border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-5 text-left shadow-[0_18px_40px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-emerald-400/60"
+                    className={`relative flex h-full flex-col gap-4 rounded-[28px] border border-slate-800 p-5 text-left shadow-[0_18px_40px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-emerald-400/60 ${
+                      isPublicTemplate
+                        ? "bg-gradient-to-br from-slate-900 via-slate-900/90 to-amber-950/30"
+                        : "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
+                    }`}
+                    onClick={() =>
+                      navigate("/app/template-builder", {
+                        state: { templateId: template.id },
+                      })
+                    }
                   >
-                    {isAdminTemplate ? (
-                      <div className="absolute right-5 top-5 flex items-center gap-1 rounded-full border border-emerald-400/60 bg-emerald-400/10 px-2 py-1 text-[0.6rem] font-semibold uppercase  text-emerald-100">
-                        <FiStar className="h-3 w-3" />
-                        Featured
-                      </div>
-                    ) : null}
-                    {isUserTemplate ? (
+                    {isUserTemplate || isPublicTemplate ? (
                       <button
                         type="button"
                         onClick={(event) => {
@@ -379,102 +440,123 @@ export default function TemplateGallery() {
                         <FiMoreVertical className="h-4 w-4" />
                       </button>
                     ) : null}
-                    {menuOpenId === template.id && isUserTemplate ? (
+                    {menuOpenId === template.id && (isUserTemplate || isPublicTemplate) ? (
                       <div
                         className="absolute right-5 top-14 z-20 w-48 rounded-2xl border border-slate-800 bg-slate-950/95 p-2 text-sm shadow-[0_18px_40px_rgba(15,23,42,0.6)]"
                         data-template-menu="true"
                       >
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleSetDefault(template.id);
-                          }}
-                          disabled={isDefaultTemplate}
-                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-emerald-100 transition hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <FiCheckCircle className="h-4 w-4" />
-                          {isDefaultTemplate ? "Default template" : "Set as default"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            navigate("/app/template-builder", {
-                              state: { templateId: template.id },
-                            });
-                            setMenuOpenId(null);
-                          }}
-                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-slate-200 transition hover:bg-slate-800"
-                        >
-                          <FiEdit3 className="h-4 w-4" />
-                          Edit in builder
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setConfirmAction({
-                              type: status === "archived" ? "unarchive" : "archive",
-                              template,
-                            });
-                            setMenuOpenId(null);
-                          }}
-                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-slate-200 transition hover:bg-slate-800"
-                        >
-                          <FiArchive className="h-4 w-4" />
-                          {status === "archived" ? "Unarchive" : "Archive"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setConfirmAction({ type: "delete", template });
-                            setMenuOpenId(null);
-                          }}
-                          disabled={isDefaultTemplate}
-                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-rose-200 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <FiTrash2 className="h-4 w-4" />
-                          Delete
-                        </button>
-                        {isDefaultTemplate ? (
-                          <p className="px-3 pb-2 pt-1 text-xs text-emerald-200">
-                            Default templates can’t be deleted.
-                          </p>
-                        ) : null}
+                        {isUserTemplate ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleSetDefault(template.id);
+                              }}
+                              disabled={isDefaultTemplate}
+                              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-emerald-100 transition hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <FiCheckCircle className="h-4 w-4" />
+                              {isDefaultTemplate
+                                ? "Default template"
+                                : "Set as default"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleDuplicateTemplate(template);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-slate-200 transition hover:bg-slate-800"
+                            >
+                              <FiCopy className="h-4 w-4" />
+                              Duplicate
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setConfirmAction({
+                                  type:
+                                    status === "archived"
+                                      ? "unarchive"
+                                      : "archive",
+                                  template,
+                                });
+                                setMenuOpenId(null);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-slate-200 transition hover:bg-slate-800"
+                            >
+                              <FiArchive className="h-4 w-4" />
+                              {status === "archived" ? "Unarchive" : "Archive"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setConfirmAction({ type: "draft", template });
+                                setMenuOpenId(null);
+                              }}
+                              disabled={status === "draft"}
+                              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <FiArchive className="h-4 w-4" />
+                              {status === "draft" ? "Draft" : "Set to draft"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setConfirmAction({ type: "delete", template });
+                                setMenuOpenId(null);
+                              }}
+                              disabled={isDefaultTemplate}
+                              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-rose-200 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <FiTrash2 className="h-4 w-4" />
+                              Delete
+                            </button>
+                            {isDefaultTemplate ? (
+                              <p className="px-3 pb-2 pt-1 text-xs text-emerald-200">
+                                Default templates can’t be deleted.
+                              </p>
+                            ) : null}
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleDuplicateTemplate(template);
+                            }}
+                            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-slate-200 transition hover:bg-slate-800"
+                          >
+                            <FiCopy className="h-4 w-4" />
+                            Duplicate
+                          </button>
+                        )}
                       </div>
                     ) : null}
                     <div className="flex flex-1 flex-col gap-3">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-200">
+                        <p className="text-xs font-semibold tracking-wide text-emerald-200">
                           {category}
                         </p>
-                        <h2 className="text-lg font-semibold text-slate-100">
+                        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+                          {isDefaultTemplate ? (
+                            <FiStar className="h-4 w-4 text-emerald-300" />
+                          ) : null}
                           {template.name ?? "Untitled template"}
                         </h2>
-                        {isDefaultTemplate ? (
-                          <span className="mt-2 inline-flex items-center rounded-full border border-emerald-400/50 bg-emerald-400/10 px-2 py-1 text-[0.6rem] font-semibold uppercase  text-emerald-100">
-                            Default
-                          </span>
-                        ) : null}
                         <p className="text-sm text-slate-400">
                           Created by {template.creatorName ?? "Resume Studio"}
                         </p>
                       </div>
                       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
-                        <span>{usage.toLocaleString()} uses</span>
-                        <span className="rounded-full border border-slate-800 px-3 py-1 text-[0.6rem] uppercase  text-slate-400">
+                        <span className="rounded-full border border-slate-800 px-3 py-1 text-[0.6rem] text-slate-400">
                           {status}
                         </span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSelectTemplate(template)}
-                        disabled={!resumeId || isSaving}
-                      >
-                        {isSaving ? "Applying..." : "Use template"}
-                      </Button>
                     </div>
                   </div>
                 );
@@ -489,18 +571,24 @@ export default function TemplateGallery() {
             ? "Delete template?"
             : confirmAction?.type === "archive"
               ? "Archive template?"
+              : confirmAction?.type === "draft"
+                ? "Set template to draft?"
               : "Restore template?"
         }
         description={
           confirmAction?.type === "delete"
-            ? "This action cannot be undone."
-            : "You can change this later from the template menu."
+            ? "This action cannot be undone. Any resume using this template will no longer be viewable or editable."
+            : confirmAction?.type === "archive" || confirmAction?.type === "draft"
+              ? "Any resume using this template will no longer be viewable or editable."
+              : "You can change this later from the template menu."
         }
         confirmLabel={
           confirmAction?.type === "delete"
             ? "Delete"
             : confirmAction?.type === "archive"
               ? "Archive"
+              : confirmAction?.type === "draft"
+                ? "Set to draft"
               : "Restore"
         }
         onConfirm={handleConfirmAction}

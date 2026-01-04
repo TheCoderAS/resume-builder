@@ -5,17 +5,20 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   query,
   serverTimestamp,
+  updateDoc,
   setDoc,
   where,
 } from "firebase/firestore";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import Input from "../components/Input.jsx";
 import ResumeForm from "../components/ResumeForm.jsx";
 import SectionHeader from "../components/SectionHeader.jsx";
+import PromptModal from "../components/PromptModal.jsx";
 import Snackbar from "../components/Snackbar.jsx";
 import VisibilityToggle from "../components/VisibilityToggle.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
@@ -95,6 +98,7 @@ export default function ResumeEditor() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const { resumeId: resumeIdParam } = useParams();
   const [stepIndex, setStepIndex] = useState(0);
   const [resumeId, setResumeId] = useState(null);
   const [autosaveStatus, setAutosaveStatus] = useState("idle");
@@ -108,11 +112,17 @@ export default function ResumeEditor() {
   const [visibility, setVisibility] = useState({ isPublic: false });
   const [templates, setTemplates] = useState([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [templateWarning, setTemplateWarning] = useState("");
+  const [templateWarningId, setTemplateWarningId] = useState(null);
   const [toast, setToast] = useState(null);
   const [copyMessage, setCopyMessage] = useState("Copy link");
   const [downloadMessage, setDownloadMessage] = useState("");
   const [exporting, setExporting] = useState(false);
   const lastAutosaveStatus = useRef("idle");
+  const lastUsageTemplateId = useRef(null);
+  const [blockedTemplate, setBlockedTemplate] = useState(null);
+  const creatingResumeRef = useRef(false);
+  const createdNewResumeRef = useRef(false);
   const resumeJson = useMemo(
     () => buildResumeJson(template, formValues),
     [template, formValues]
@@ -133,6 +143,8 @@ export default function ResumeEditor() {
   }, [templateId, fieldGroups]);
 
   const currentStep = useMemo(() => STEPS[stepIndex], [stepIndex]);
+  const isNewResume = resumeIdParam === "new";
+  const isNewDraftStep = isNewResume && !resumeId && stepIndex === 0;
 
   useEffect(() => {
     const originalTitle = document.title;
@@ -144,41 +156,41 @@ export default function ResumeEditor() {
   }, [resumeTitle]);
 
   useEffect(() => {
-    const nextStep = location.state?.stepIndex;
-    if (typeof nextStep === "number" && nextStep >= 0) {
-      setStepIndex(Math.min(nextStep, STEPS.length - 1));
+    if (resumeIdParam === "new") {
+      setResumeId(null);
+      setFormValues({});
+      setVisibility({ isPublic: false });
+      setResumeTitle("Untitled resume");
+      setTemplateId(null);
+      setTemplateName("");
+      setTemplate(createEmptyTemplate());
+      setTemplateWarning("");
+      setTemplateWarningId(null);
+      setBlockedTemplate(null);
+      lastUsageTemplateId.current = null;
+      initialSave.current = true;
+      createdNewResumeRef.current = false;
+      creatingResumeRef.current = false;
+      return;
     }
-  }, [location.state]);
+    if (resumeIdParam) {
+      createdNewResumeRef.current = false;
+      creatingResumeRef.current = false;
+    }
+  }, [resumeIdParam]);
 
   useEffect(() => {
     if (!user) return;
     let isMounted = true;
 
     const ensureResume = async () => {
-      const storedOwner = window.localStorage.getItem("activeResumeOwner");
-      if (storedOwner && storedOwner !== user.uid) {
-        window.localStorage.removeItem("activeResumeId");
-        window.localStorage.removeItem("activeResumeOwner");
-      }
-      const storedId =
-        storedOwner === user.uid
-          ? window.localStorage.getItem("activeResumeId")
-          : null;
-        const payload = {
-          userId: user.uid,
-          values: formValues,
-          visibility,
-          resumeTitle,
-          templateId,
-          templateName,
-          templateSnapshot: template,
-        templateSchemaVersion: template?.schemaVersion ?? BUILDER_SCHEMA_VERSION,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
+      const activeId =
+        resumeIdParam && resumeIdParam !== "new" ? resumeIdParam : null;
 
       try {
-        let activeId = storedId;
+        if (!activeId) {
+          return;
+        }
         if (activeId) {
           try {
             const snapshot = await getDoc(doc(db, "resumes", activeId));
@@ -190,39 +202,25 @@ export default function ResumeEditor() {
                 setResumeTitle(data.resumeTitle ?? "Untitled resume");
                 setTemplateId(data.templateId ?? null);
                 setTemplateName(data.templateName ?? "");
+                lastUsageTemplateId.current = data.templateId ?? null;
                 setResumeId(activeId);
                 initialSave.current = false;
               }
               return;
             }
-            await setDoc(doc(db, "resumes", activeId), payload, { merge: true });
-            if (isMounted) {
-              setResumeId(activeId);
-              window.localStorage.setItem("activeResumeOwner", user.uid);
-              initialSave.current = false;
-            }
-            return;
           } catch (error) {
-            if (error?.code === "permission-denied") {
-              window.localStorage.removeItem("activeResumeId");
-              window.localStorage.removeItem("activeResumeOwner");
-              activeId = null;
-            } else {
+            if (error?.code !== "permission-denied") {
               throw error;
+            }
+            if (isMounted) {
+              setToast({
+                message: "You don't have access to that resume.",
+                variant: "error",
+              });
             }
           }
         }
 
-        const docRef = await addDoc(collection(db, "resumes"), {
-          ...payload,
-          createdAt: serverTimestamp(),
-        });
-        if (isMounted) {
-          setResumeId(docRef.id);
-          window.localStorage.setItem("activeResumeId", docRef.id);
-          window.localStorage.setItem("activeResumeOwner", user.uid);
-          initialSave.current = false;
-        }
       } catch (error) {
         console.error(error);
         if (isMounted) {
@@ -236,12 +234,48 @@ export default function ResumeEditor() {
     return () => {
       isMounted = false;
     };
-  }, [user]);
+  }, [user, resumeIdParam, navigate]);
+
+  const createNewResume = async () => {
+    if (!user) return null;
+    if (createdNewResumeRef.current || creatingResumeRef.current) {
+      return resumeId;
+    }
+    creatingResumeRef.current = true;
+    createdNewResumeRef.current = true;
+    const newResumePayload = {
+      userId: user.uid,
+      values: formValues,
+      visibility,
+      resumeTitle,
+      templateId,
+      templateName,
+      templateSnapshot: template,
+      templateSchemaVersion: template?.schemaVersion ?? BUILDER_SCHEMA_VERSION,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    try {
+      const docRef = await addDoc(collection(db, "resumes"), newResumePayload);
+      setResumeId(docRef.id);
+      navigate(`/app/resume/${docRef.id}`, { replace: true });
+      initialSave.current = false;
+      return docRef.id;
+    } catch (error) {
+      console.error(error);
+      creatingResumeRef.current = false;
+      createdNewResumeRef.current = false;
+      setAutosaveStatus("error");
+      return null;
+    }
+  };
 
   useEffect(() => {
     if (!templateId) {
       setTemplateName("");
       setTemplate(createEmptyTemplate());
+      setTemplateWarning("");
+      setBlockedTemplate(null);
       return;
     }
     let isMounted = true;
@@ -252,16 +286,43 @@ export default function ResumeEditor() {
         if (!snapshot.exists()) {
           if (isMounted) {
             setTemplate(createEmptyTemplate());
+            setBlockedTemplate(null);
           }
           return;
         }
         const data = snapshot.data();
+        const status = data.status ?? "active";
+        if (status !== "active") {
+          if (isMounted) {
+            setTemplateName(data.name ?? "Untitled template");
+            setTemplate(createEmptyTemplate());
+            setBlockedTemplate({
+              id: templateId,
+              name: data.name ?? "Untitled template",
+              status,
+              canActivate: data.ownerId === user?.uid,
+            });
+          }
+          return;
+        }
+        const isPublicTemplate = data.isPublic === true;
+        const isOwner = data.ownerId === user?.uid;
+        if (isPublicTemplate && !isOwner) {
+          setTemplateWarning(
+            "This is a public template owned by another user. Copy it before using if you need to customize it."
+          );
+          setTemplateWarningId(snapshot.id);
+        } else {
+          setTemplateWarning("");
+          setTemplateWarningId(null);
+        }
         if (isMounted) {
           const layout = data.layout;
           const isBuilderLayout =
             layout?.schemaVersion === BUILDER_SCHEMA_VERSION;
           setTemplateName(data.name ?? "Untitled template");
           setTemplate(isBuilderLayout ? hydrateTemplate(layout) : createEmptyTemplate());
+          setBlockedTemplate(null);
           if (!isBuilderLayout) {
             setToast({
               message: "This template isn't compatible with the builder format.",
@@ -277,6 +338,8 @@ export default function ResumeEditor() {
             message: "Unable to load template details.",
             variant: "error",
           });
+          setTemplateWarning("");
+          setTemplateWarningId(null);
         }
       }
     };
@@ -286,36 +349,48 @@ export default function ResumeEditor() {
     return () => {
       isMounted = false;
     };
-  }, [templateId]);
+  }, [templateId, user]);
 
   useEffect(() => {
     let isMounted = true;
     const loadTemplates = async () => {
       setTemplatesLoading(true);
       try {
+        const safeGetDocs = async (queryRef) => {
+          try {
+            return await getDocs(queryRef);
+          } catch (queryError) {
+            if (queryError?.code === "permission-denied") {
+              return null;
+            }
+            throw queryError;
+          }
+        };
         const templatesRef = collection(db, "templates");
-        const publicQuery = query(
+        const publicSharedQuery = query(
           templatesRef,
-          where("type", "==", "admin"),
-          where("status", "==", "active"),
-          where("layout.schemaVersion", "==", BUILDER_SCHEMA_VERSION)
+          where("isPublic", "==", true),
+          where("status", "==", "active")
         );
         const [publicSnapshot, userSnapshot] = await Promise.all([
-          getDocs(publicQuery),
+          safeGetDocs(publicSharedQuery),
           user
-            ? getDocs(
+            ? safeGetDocs(
                 query(
                   templatesRef,
                   where("ownerId", "==", user.uid),
+                  where("status", "==", "active"),
                   where("layout.schemaVersion", "==", BUILDER_SCHEMA_VERSION)
                 )
               )
             : Promise.resolve(null),
         ]);
-        const publicTemplates = publicSnapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data(),
-        }));
+        const sharedTemplates = publicSnapshot
+          ? publicSnapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            }))
+          : [];
         const userTemplates = userSnapshot
           ? userSnapshot.docs.map((docSnap) => ({
               id: docSnap.id,
@@ -323,9 +398,18 @@ export default function ResumeEditor() {
             }))
           : [];
         if (isMounted) {
-          setTemplates([...publicTemplates, ...userTemplates]);
+          const combined = [...sharedTemplates, ...userTemplates];
+          const templateMap = new Map(
+            combined.map((template) => [template.id, template])
+          );
+          const filtered = Array.from(templateMap.values()).filter(
+            (template) =>
+              template.layout?.schemaVersion === BUILDER_SCHEMA_VERSION
+          );
+          setTemplates(filtered);
         }
       } catch (error) {
+        console.error(error)
         if (isMounted) {
           setTemplates([]);
         }
@@ -344,6 +428,7 @@ export default function ResumeEditor() {
 
   useEffect(() => {
     if (!user || !resumeId || initialSave.current) return;
+    if (isNewDraftStep) return;
     setAutosaveStatus("saving");
     const timeout = setTimeout(async () => {
       try {
@@ -380,7 +465,52 @@ export default function ResumeEditor() {
     user,
     template?.schemaVersion,
     template,
+    isNewDraftStep,
   ]);
+
+  useEffect(() => {
+    if (!user || !resumeId) return;
+    const prevTemplateId = lastUsageTemplateId.current;
+    if (!templateId) {
+      if (!prevTemplateId) return;
+      lastUsageTemplateId.current = null;
+      setDoc(
+        doc(db, "templateUsage", prevTemplateId),
+        {
+          count: increment(-1),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      ).catch(() => {});
+      return;
+    }
+    if (prevTemplateId === templateId) return;
+    lastUsageTemplateId.current = templateId;
+    const updates = [];
+    updates.push(
+      setDoc(
+        doc(db, "templateUsage", templateId),
+        {
+          count: increment(1),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      )
+    );
+    if (prevTemplateId) {
+      updates.push(
+        setDoc(
+          doc(db, "templateUsage", prevTemplateId),
+          {
+            count: increment(-1),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        )
+      );
+    }
+    Promise.all(updates).catch(() => {});
+  }, [resumeId, templateId, user]);
 
 
   const handleNextStep = () => {
@@ -392,7 +522,7 @@ export default function ResumeEditor() {
         });
         return;
       }
-      setStepIndex((current) => current + 1);
+      moveToStep(stepIndex + 1);
     } else {
       navigate("/app");
     }
@@ -462,13 +592,35 @@ export default function ResumeEditor() {
   };
 
   const autosaveLabel = useMemo(() => {
+    if (isNewDraftStep) return "Autosave disabled";
     if (autosaveStatus === "saving") return "Saving...";
     if (autosaveStatus === "saved") return "All changes saved";
     if (autosaveStatus === "error") return "Autosave failed";
     return "Draft ready";
-  }, [autosaveStatus]);
+  }, [autosaveStatus, isNewDraftStep]);
 
   const canSelectStep = (index) => index === 0 || Boolean(templateId);
+
+  const moveToStep = (targetIndex) => {
+    if (targetIndex === stepIndex) return;
+    if (targetIndex > stepIndex && stepIndex === 0 && isNewResume && !resumeId) {
+      console.error("here")
+      createNewResume().then((nextId) => {
+        if (nextId) {
+          setStepIndex(targetIndex);
+        }
+      }).catch(err=>console.error(err));
+      return;
+    }
+    setStepIndex(targetIndex);
+  };
+
+  useEffect(() => {
+    const nextStep = location.state?.stepIndex;
+    if (typeof nextStep === "number" && nextStep >= 0) {
+      moveToStep(Math.min(nextStep, STEPS.length - 1));
+    }
+  }, [location.state, moveToStep]);
 
   useEffect(() => {
     if (autosaveStatus === lastAutosaveStatus.current) return;
@@ -505,7 +657,7 @@ export default function ResumeEditor() {
                   });
                   return;
                 }
-                setStepIndex(index);
+                moveToStep(index);
               }}
               disabled={isDisabled}
               className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
@@ -534,13 +686,65 @@ export default function ResumeEditor() {
                   description="Templates define the sections, styling, and layout for your resume."
                 />
                 <div className="mt-6 grid gap-4 rounded-2xl border border-slate-800 bg-slate-950/70 px-5 py-4 text-sm text-slate-200">
+                  {templateWarning ? (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
+                      <span>{templateWarning}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={async () => {
+                          if (!templateWarningId || !user) return;
+                          try {
+                            const snapshot = await getDoc(
+                              doc(db, "templates", templateWarningId)
+                            );
+                            if (!snapshot.exists()) {
+                              setToast({
+                                message: "Template no longer available.",
+                                variant: "error",
+                              });
+                              return;
+                            }
+                            const data = snapshot.data();
+                            const payload = {
+                              ...data,
+                              name: `Copy - ${data.name ?? "Untitled template"}`,
+                              status: "active",
+                              isPublic: false,
+                              ownerId: user.uid,
+                              type: "builder",
+                              updatedAt: serverTimestamp(),
+                              createdAt: serverTimestamp(),
+                            };
+                            delete payload.id;
+                            const docRef = await addDoc(
+                              collection(db, "templates"),
+                              payload
+                            );
+                            setToast({
+                              message: "Template copied to your account.",
+                              variant: "success",
+                            });
+                            setTemplateId(docRef.id);
+                          } catch (error) {
+                            setToast({
+                              message: "Unable to copy this template.",
+                              variant: "error",
+                            });
+                          }
+                        }}
+                      >
+                        Copy template
+                      </Button>
+                    </div>
+                  ) : null}
                   <Input
                     label="Resume title"
                     value={resumeTitle}
                     onChange={(event) => setResumeTitle(event.target.value)}
                     placeholder="e.g. Senior Product Designer Resume"
                   />
-                  <label className="flex flex-col gap-2 text-xs font-semibold uppercase  text-slate-400">
+                  <label className="flex flex-col gap-2 text-xs font-semibold text-slate-400">
                     Template
                     <select
                       value={templateId ?? ""}
@@ -570,7 +774,7 @@ export default function ResumeEditor() {
                   </label>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase  text-slate-400">
+                      <p className="text-xs text-slate-400">
                         Selected template
                       </p>
                       <p className="text-base font-semibold text-slate-100">
@@ -633,7 +837,7 @@ export default function ResumeEditor() {
                         <div className="flex flex-col gap-4">
                           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/70 px-4 py-3">
                             <div>
-                              <p className="text-xs uppercase text-slate-400">
+                              <p className="text-xs text-slate-400">
                                 Section {fieldGroupStep + 1} of{" "}
                                 {fieldGroups.length}
                               </p>
@@ -645,21 +849,29 @@ export default function ResumeEditor() {
                               <Button
                                 variant="ghost"
                                 type="button"
-                                disabled={!canGoBack}
-                                onClick={() =>
-                                  setFieldGroupStep((prev) => Math.max(prev - 1, 0))
-                                }
+                                onClick={() => {
+                                  if (canGoBack) {
+                                    setFieldGroupStep((prev) =>
+                                      Math.max(prev - 1, 0)
+                                    );
+                                  } else {
+                                    moveToStep(0);
+                                  }
+                                }}
                               >
                                 Previous
                               </Button>
                               <Button
                                 type="button"
-                                disabled={!canGoNext}
-                                onClick={() =>
-                                  setFieldGroupStep((prev) =>
-                                    Math.min(prev + 1, fieldGroups.length - 1)
-                                  )
-                                }
+                                onClick={() => {
+                                  if (canGoNext) {
+                                    setFieldGroupStep((prev) =>
+                                      Math.min(prev + 1, fieldGroups.length - 1)
+                                    );
+                                  } else {
+                                    moveToStep(2);
+                                  }
+                                }}
                               >
                                 Next
                               </Button>
@@ -742,21 +954,23 @@ export default function ResumeEditor() {
               <div className="text-xs text-slate-400">
                 Autosave: {autosaveLabel}
               </div>
-              <div className="flex gap-3">
-                {stepIndex > 0 ? (
-                  <Button
-                    variant="ghost"
-                    onClick={() => setStepIndex((current) => current - 1)}
-                  >
-                    Back
+              {stepIndex === 1 ? null : (
+                <div className="flex gap-3">
+                  {stepIndex > 0 ? (
+                    <Button
+                      variant="ghost"
+                      onClick={() => moveToStep(stepIndex - 1)}
+                    >
+                      Back
+                    </Button>
+                  ) : null}
+                  <Button onClick={handleNextStep}>
+                    {stepIndex === STEPS.length - 1
+                      ? "Back to dashboard"
+                      : "Next"}
                   </Button>
-                ) : null}
-                <Button onClick={handleNextStep}>
-                  {stepIndex === STEPS.length - 1
-                    ? "Back to dashboard"
-                    : "Next"}
-                </Button>
-              </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -766,6 +980,7 @@ export default function ResumeEditor() {
                 template={template}
                 resumeJson={resumeJson}
                 embedLinks
+                showPlaceholders={false}
                 className="border border-slate-200 bg-white shadow-md"
               />
             </div>
@@ -776,6 +991,51 @@ export default function ResumeEditor() {
         message={toast?.message}
         variant={toast?.variant}
         onDismiss={() => setToast(null)}
+      />
+      <PromptModal
+        open={Boolean(blockedTemplate)}
+        title="Template unavailable"
+        description={
+          blockedTemplate
+            ? `The template "${blockedTemplate.name}" is ${blockedTemplate.status}. Resumes using it cannot be viewed or edited.`
+            : ""
+        }
+        confirmLabel={
+          blockedTemplate?.canActivate ? "Set template active" : "Choose another"
+        }
+        cancelLabel={blockedTemplate?.canActivate ? "Choose another" : "Close"}
+        onConfirm={async () => {
+          if (!blockedTemplate) return;
+          if (!blockedTemplate.canActivate) {
+            setTemplateId(null);
+            setTemplateName("");
+            setTemplate(createEmptyTemplate());
+            setBlockedTemplate(null);
+            return;
+          }
+          try {
+            await updateDoc(doc(db, "templates", blockedTemplate.id), {
+              status: "active",
+              updatedAt: serverTimestamp(),
+            });
+            setToast({
+              message: "Template set to active.",
+              variant: "success",
+            });
+            setBlockedTemplate(null);
+          } catch (error) {
+            setToast({
+              message: "Unable to activate this template.",
+              variant: "error",
+            });
+          }
+        }}
+        onCancel={() => {
+          setTemplateId(null);
+          setTemplateName("");
+          setTemplate(createEmptyTemplate());
+          setBlockedTemplate(null);
+        }}
       />
     </AppShell>
   );

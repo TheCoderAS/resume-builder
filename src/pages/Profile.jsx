@@ -29,7 +29,7 @@ export default function Profile() {
 
         <section className="app-card flex flex-col gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase  text-emerald-200">
+            <p className="text-xs font-semibold text-emerald-200">
               Signed in as
             </p>
             <p className="mt-2 text-lg font-semibold text-slate-100">

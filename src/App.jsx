@@ -9,7 +9,6 @@ import Drafts from "./pages/Drafts.jsx";
 import TemplateGallery from "./pages/TemplateGallery.jsx";
 import TemplateBuilder from "./pages/TemplateBuilder.jsx";
 import PublicResume from "./pages/PublicResume.jsx";
-import AdminTemplates from "./pages/AdminTemplates.jsx";
 import Profile from "./pages/Profile.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import useAnalyticsPageView from "./hooks/useAnalyticsPageView.js";
@@ -32,7 +31,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/app/resume"
+        path="/app/resume/:resumeId"
         element={
           <ProtectedRoute>
             <ResumeEditor />
@@ -60,14 +59,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <TemplateBuilder />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/app/admin/templates"
-        element={
-          <ProtectedRoute requireAdmin>
-            <AdminTemplates />
           </ProtectedRoute>
         }
       />

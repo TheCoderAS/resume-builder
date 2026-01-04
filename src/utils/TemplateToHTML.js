@@ -1,6 +1,7 @@
 export function buildHTML(template, resumeJson = {}, options = {}) {
   const highlightId = options?.highlightId ?? null;
   const embedLinks = options?.embedLinks ?? false;
+  const showPlaceholders = options?.showPlaceholders !== false;
   const origin =
     options?.origin && options.origin !== "null" ? options.origin : "*";
   const dividerConfig = template?.theme?.sectionDivider ?? {};
@@ -139,6 +140,7 @@ body {
     resumeJson,
     highlightId,
     embedLinks,
+    showPlaceholders,
     {}
   )}
   <script>
@@ -174,6 +176,7 @@ export function renderNode(
   resumeJson,
   highlightId = null,
   embedLinks = false,
+  showPlaceholders = true,
   scope = {}
 ) {
   if (!node) return "";
@@ -298,7 +301,7 @@ export function renderNode(
     const resolvedItems =
       items.length > 0
         ? items
-        : fallbackItem
+        : fallbackItem && showPlaceholders
           ? [fallbackItem]
           : [];
     if (resolvedItems.length === 0) return "";
@@ -313,7 +316,13 @@ export function renderNode(
   };
 
   const renderValue = (node) => {
-    const value = resolveNodeValue(node, template, resumeJson, scope);
+    const value = resolveNodeValue(
+      node,
+      template,
+      resumeJson,
+      scope,
+      showPlaceholders
+    );
     const placeholder =
       template?.fields?.[node?.bindField]?.placeholder || "Sample item";
     const inlineList = renderInlineList(node, value, placeholder);
@@ -353,8 +362,38 @@ export function renderNode(
     return inlineNode;
   };
 
+  const hasBoundValue = (current, localScope) => {
+    if (!current) return false;
+    if (current.type === "repeat") {
+      const items = Array.isArray(localScope?.[current.id])
+        ? localScope[current.id]
+        : Array.isArray(resumeJson?.[current.id])
+          ? resumeJson[current.id]
+          : [];
+      if (items.length === 0) return false;
+      return items.some((item) =>
+        (current.children || []).some((child) =>
+          hasBoundValue(child, item && typeof item === "object" ? item : {})
+        )
+      );
+    }
+    if (current.bindField) {
+      const scopedValue = localScope?.[current.bindField];
+      if (scopedValue != null && scopedValue !== "") return true;
+      const resumeValue = resumeJson?.[current.bindField];
+      if (Array.isArray(resumeValue)) return resumeValue.length > 0;
+      return resumeValue != null && resumeValue !== "";
+    }
+    return Boolean(
+      current.children?.some((child) => hasBoundValue(child, localScope))
+    );
+  };
+
   switch (node.type) {
     case "section": {
+      if (!showPlaceholders && !hasBoundValue(node, scope)) {
+        return "";
+      }
       const title = (node.title || "Section").trim();
       const showTitle = node.showTitle !== false;
       const titleStyle = sectionTitleStyle();
@@ -396,12 +435,16 @@ export function renderNode(
           resumeJson,
           highlightId,
           embedLinks,
+          showPlaceholders,
           scope
         )}
       </div>`;
     }
 
     case "row":
+      if (!showPlaceholders && !hasBoundValue(node, scope)) {
+        return "";
+      }
       return `<div ${dataAttr} class="row${highlightClass}" style="${flexStyle(
         node
       )}">${renderChildren(
@@ -410,10 +453,14 @@ export function renderNode(
         resumeJson,
         highlightId,
         embedLinks,
+        showPlaceholders,
         scope
       )}</div>`;
 
     case "column":
+      if (!showPlaceholders && !hasBoundValue(node, scope)) {
+        return "";
+      }
       return `<div ${dataAttr} class="column${highlightClass}" style="${flexStyle(
         node
       )}">${renderChildren(
@@ -422,29 +469,39 @@ export function renderNode(
         resumeJson,
         highlightId,
         embedLinks,
+        showPlaceholders,
         scope
       )}</div>`;
 
-    case "text":
+    case "text": {
+      const value = renderValue(node);
+      if (!showPlaceholders && !value) return "";
       return `<div ${dataAttr} class="box rich-text${highlightClass}" style="${leafStyle(
         node
       )}${textAlignStyle(node.textAlign ?? "left")}">${
-        renderValue(node) || "Sample text"
+        value || "Sample text"
       }</div>`;
+    }
 
-    case "bullet-list":
+    case "bullet-list": {
+      const value = renderValue(node);
+      if (!showPlaceholders && !value) return "";
       return `<div ${dataAttr} class="box rich-text${highlightClass}" style="${leafStyle(
         node
       )}${textAlignStyle(node.textAlign ?? "left")}">${
-        renderValue(node) || "Sample bullet list"
+        value || "Sample bullet list"
       }</div>`;
+    }
 
-    case "chip-list":
+    case "chip-list": {
+      const value = renderValue(node);
+      if (!showPlaceholders && !value) return "";
       return `<div ${dataAttr} class="box rich-text${highlightClass}" style="${leafStyle(
         node
       )}${textAlignStyle(node.textAlign ?? "left")}">${
-        renderValue(node) || "Sample chip list"
+        value || "Sample chip list"
       }</div>`;
+    }
 
     case "repeat": {
       const items = Array.isArray(scope?.[node.id])
@@ -484,6 +541,7 @@ export function renderNode(
               resumeJson,
               highlightId,
               embedLinks,
+              showPlaceholders,
               item && typeof item === "object" ? item : {}
             )}</div>`
         )
@@ -501,16 +559,31 @@ function renderChildren(
   resumeJson,
   highlightId,
   embedLinks,
+  showPlaceholders,
   scope
 ) {
   return (node.children || [])
     .map((child) =>
-      renderNode(child, template, resumeJson, highlightId, embedLinks, scope)
+      renderNode(
+        child,
+        template,
+        resumeJson,
+        highlightId,
+        embedLinks,
+        showPlaceholders,
+        scope
+      )
     )
     .join("");
 }
 
-function resolveNodeValue(node, template, resumeJson, scope) {
+function resolveNodeValue(
+  node,
+  template,
+  resumeJson,
+  scope,
+  showPlaceholders = true
+) {
   const fieldId = node?.bindField;
   if (!fieldId) return "";
 
@@ -525,6 +598,10 @@ function resolveNodeValue(node, template, resumeJson, scope) {
   const value = resumeJson?.[fieldId];
   if (value != null && value !== "") {
     return String(value);
+  }
+
+  if (!showPlaceholders) {
+    return "";
   }
 
   const placeholder = def.placeholder || def.label;

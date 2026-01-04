@@ -33,7 +33,7 @@ service cloud.firestore {
     }
 
     match /templates/{templateId} {
-      allow read: if (resource.data.type == "admin"
+      allow read: if (resource.data.isPublic == true
           && resource.data.status == "active")
         || (isSignedIn() && resource.data.ownerId == request.auth.uid);
       allow create: if isSignedIn()

@@ -13,16 +13,18 @@ export default function BuilderTree({
   onDuplicate,
   siblingIndex,
   siblingCount,
+  readOnly = false,
 }) {
   const isSelected = selected === node.id;
-  const canDelete = node.id !== "root";
-  const canDuplicate = node.id !== "root";
+  const canDelete = !readOnly && node.id !== "root";
+  const canDuplicate = !readOnly && node.id !== "root";
   const hasChildren = Boolean(node.children?.length);
   const canReorder = Boolean(
     onMove &&
       typeof siblingIndex === "number" &&
       typeof siblingCount === "number" &&
-      siblingCount > 1
+      siblingCount > 1 &&
+      !readOnly
   );
   const canMoveUp = canReorder && siblingIndex > 0;
   const canMoveDown = canReorder && siblingIndex < siblingCount - 1;
@@ -61,7 +63,7 @@ export default function BuilderTree({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onMove?.(node.id, "up");
+              if (!readOnly) onMove?.(node.id, "up");
             }}
             disabled={!canMoveUp}
             className={`rounded-md p-1 text-slate-400 transition hover:bg-slate-800/80 hover:text-slate-100 disabled:cursor-not-allowed disabled:text-slate-600 ${
@@ -75,7 +77,7 @@ export default function BuilderTree({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onMove?.(node.id, "down");
+              if (!readOnly) onMove?.(node.id, "down");
             }}
             disabled={!canMoveDown}
             className={`rounded-md p-1 text-slate-400 transition hover:bg-slate-800/80 hover:text-slate-100 disabled:cursor-not-allowed disabled:text-slate-600 ${
@@ -90,7 +92,7 @@ export default function BuilderTree({
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                onDuplicate?.(node.id);
+                if (!readOnly) onDuplicate?.(node.id);
               }}
               className={`rounded-md p-1 text-slate-400 transition hover:bg-slate-800/80 hover:text-slate-100 ${
                 isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
@@ -105,7 +107,7 @@ export default function BuilderTree({
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                onDelete?.(node.id);
+                if (!readOnly) onDelete?.(node.id);
               }}
               className={`rounded-md p-1 text-slate-400 transition hover:bg-slate-800/80 hover:text-rose-300 ${
                 isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
@@ -132,6 +134,7 @@ export default function BuilderTree({
               expandedNodes={expandedNodes}
               onMove={onMove}
               onDuplicate={onDuplicate}
+              readOnly={readOnly}
               siblingIndex={index}
               siblingCount={node.children?.length ?? 0}
             />

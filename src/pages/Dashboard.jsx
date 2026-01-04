@@ -181,9 +181,9 @@ export default function Dashboard() {
   return (
     <AppShell>
       <div className="flex flex-col gap-6">
-        <header>
+        {/* <header>
           <h1 className="app-title">Dashboard</h1>
-        </header>
+        </header> */}
 
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="app-card">
@@ -199,7 +199,7 @@ export default function Dashboard() {
                   title="No active drafts yet"
                   description="Create a resume draft to see it listed here."
                   action={
-                    <Button onClick={() => navigate("/app/resume")}>
+                    <Button onClick={() => navigate("/app/resume/new")}>
                       Start a new resume
                     </Button>
                   }
@@ -256,7 +256,9 @@ export default function Dashboard() {
                     <Button
                       variant="ghost"
                       onClick={() =>
-                        navigate("/app/resume", { state: { stepIndex: 2 } })
+                        navigate(`/app/resume/${publishedResume.id}`, {
+                          state: { stepIndex: 2 },
+                        })
                       }
                     >
                       Manage visibility
@@ -270,7 +272,7 @@ export default function Dashboard() {
                   action={
                     <Button
                       onClick={() =>
-                        navigate("/app/resume", { state: { stepIndex: 2 } })
+                        navigate("/app/resume/new", { state: { stepIndex: 2 } })
                       }
                     >
                       Publish resume

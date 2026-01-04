@@ -70,9 +70,7 @@ export default function Drafts() {
   const draftCount = useMemo(() => drafts.length, [drafts]);
 
   const handleOpenDraft = (draftId) => {
-    window.localStorage.setItem("activeResumeId", draftId);
-    window.localStorage.setItem("activeResumeOwner", user.uid);
-    navigate("/app/resume");
+    navigate(`/app/resume/${draftId}`);
   };
 
   const handleDeleteDraft = async () => {
@@ -94,12 +92,12 @@ export default function Drafts() {
   return (
     <AppShell>
       <div className="flex w-full flex-col gap-6">
-        <header>
+        {/* <header>
           <h1 className="app-title">Resumes</h1>
           <p className="app-subtitle">
             {draftCount} saved resume{draftCount === 1 ? "" : "s"}
           </p>
-        </header>
+        </header> */}
 
         {error ? <ErrorBanner message={error} /> : null}
 
@@ -117,7 +115,11 @@ export default function Drafts() {
           <EmptyState
             title="No resumes yet"
             description="Start a new resume to see it here."
-            action={<Button onClick={() => navigate("/app/resume")}>Start now</Button>}
+            action={
+              <Button onClick={() => navigate("/app/resume/new")}>
+                Start now
+              </Button>
+            }
           />
         ) : null}
 
@@ -126,22 +128,26 @@ export default function Drafts() {
             {drafts.map((draft) => (
               <div
                 key={draft.id}
-                className="group relative flex h-full flex-col gap-4 rounded-[28px] border border-slate-800 bg-slate-900/60 p-5 text-left transition hover:-translate-y-0.5 hover:border-emerald-400/60 hover:shadow-[0_16px_32px_rgba(15,23,42,0.45)]"
+                className={`group relative flex h-full flex-col gap-4 rounded-[28px] border border-slate-800 p-5 text-left transition hover:-translate-y-0.5 hover:border-emerald-400/60 hover:shadow-[0_16px_32px_rgba(15,23,42,0.45)] ${
+                  draft.visibility?.isPublic
+                    ? "bg-emerald-500/10"
+                    : "bg-slate-900/60"
+                }`}
               >
                 <button
                   type="button"
                   onClick={() => handleOpenDraft(draft.id)}
-                  className="flex flex-1 flex-col gap-4 text-left"
+                  className="flex flex-1 flex-col gap-2 text-left"
                 >
-                  <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                    <p className="text-sm font-semibold text-slate-100">
+                  <div>
+                    <p className="text-base font-semibold text-slate-100">
                       {draft.resumeTitle ||
                         draft.profile?.fullName ||
                         "Untitled resume"}
                     </p>
-                    <p className="mt-1 text-xs text-slate-400">
+                    {/* <p className="mt-1 text-xs text-slate-400">
                       {draft.profile?.title || "No headline yet"}
-                    </p>
+                    </p> */}
                   </div>
                   <div className="mt-auto flex items-center gap-2 text-xs text-slate-400">
                     <FiClock className="h-4 w-4" />

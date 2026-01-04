@@ -30,7 +30,7 @@ const NAV_ITEMS = [
 ];
 
 const mobileLinkBase =
-  "group flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-[0.6rem] font-semibold uppercase tracking-wide transition";
+  "group flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-[0.6rem] font-semibold tracking-wide transition";
 const horizontalLinkBase =
   "group flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-semibold transition";
 
@@ -58,7 +58,7 @@ export default function AppShell({ children }) {
               <span className="hidden sm:inline">Browse templates</span>
             </Button>
             <Button
-              onClick={() => navigate("/app/resume")}
+              onClick={() => navigate("/app/resume/new")}
               className="whitespace-nowrap px-3 py-2 text-xs sm:px-5 sm:py-3 sm:text-sm"
             >
               <span className="sm:hidden">Resume</span>

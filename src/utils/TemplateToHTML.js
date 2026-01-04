@@ -68,6 +68,7 @@ body {
     "#e2e8f0"
   };
   --timeline-dot-size: ${template.theme.timelineDotSize ?? 8}px;
+  --timeline-dot-offset: 0.35em;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -77,7 +78,7 @@ body {
 .repeat-timeline::before {
   content: "";
   position: absolute;
-  top: 0;
+  top: calc(var(--timeline-dot-offset) + (var(--timeline-dot-size) / 2));
   bottom: 0;
   left: calc(var(--timeline-dot-size) / 2);
   width: 1px;
@@ -90,7 +91,7 @@ body {
 .repeat-timeline .repeat-item::before {
   content: "";
   position: absolute;
-  top: 0.35em;
+  top: var(--timeline-dot-offset);
   left: calc(-1 * (var(--timeline-dot-size) + 12px));
   width: var(--timeline-dot-size);
   height: var(--timeline-dot-size);

@@ -13,6 +13,7 @@ export function TemplatePreview({
   selectedNodeId = null,
   onSelectNode,
   embedLinks = false,
+  showPlaceholders = true,
   className,
 }) {
   const highlightId = selectedNodeId === "root" ? null : selectedNodeId;
@@ -34,10 +35,11 @@ export function TemplatePreview({
         highlightId,
         origin: window.location.origin,
         embedLinks,
+        showPlaceholders,
       })
     );
     doc.close();
-  }, [template, resumeJson, highlightId, embedLinks]);
+  }, [template, resumeJson, highlightId, embedLinks, showPlaceholders]);
 
   useEffect(() => {
     if (!onSelectNode) return;

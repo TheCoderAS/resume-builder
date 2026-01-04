@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { FiEdit2, FiExternalLink, FiSettings } from "react-icons/fi";
 import {
   collection,
   getDocs,
   limit,
-  orderBy,
   query,
   where,
+  orderBy,
 } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
@@ -20,59 +21,73 @@ export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [publishedLoading, setPublishedLoading] = useState(true);
-  const [publishedResume, setPublishedResume] = useState(null);
+  const [draftResumes, setDraftResumes] = useState([]);
+  const [publishedResumes, setPublishedResumes] = useState([]);
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
-  const drafts = [];
+  const publishedResume = useMemo(
+    () => publishedResumes[0] ?? null,
+    [publishedResumes]
+  );
+  const latestDrafts = useMemo(
+    () => draftResumes.slice(0, 5),
+    [draftResumes]
+  );
+  const latestPublished = useMemo(
+    () => publishedResumes.slice(0, 5),
+    [publishedResumes]
+  );
 
-  useEffect(() => {
-    const timeout = setTimeout(() => setLoading(false), 700);
-    return () => clearTimeout(timeout);
-  }, []);
+  const formatDate = (timestamp) => {
+    if (!timestamp?.toDate) return "Just now";
+    return timestamp.toDate().toLocaleString();
+  };
 
   useEffect(() => {
     let isMounted = true;
-    const loadPublishedResume = async () => {
+    const loadResumes = async () => {
       if (!user) {
-        setPublishedLoading(false);
+        setLoading(false);
         return;
       }
-      setPublishedLoading(true);
+      setLoading(true);
       try {
         const snapshot = await getDocs(
           query(
             collection(db, "resumes"),
             where("userId", "==", user.uid),
             orderBy("updatedAt", "desc"),
-            limit(10)
+            limit(50)
           )
         );
-        const docSnap = snapshot.docs.find(
-          (item) => item.data()?.visibility?.isPublic === true
+        const items = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        }));
+        const published = items.filter(
+          (item) => item.visibility?.isPublic === true
+        );
+        const drafts = items.filter(
+          (item) => item.visibility?.isPublic !== true
         );
         if (isMounted) {
-          setPublishedResume(
-            docSnap
-              ? {
-                  id: docSnap.id,
-                  ...docSnap.data(),
-                }
-              : null
-          );
+          setPublishedResumes(published);
+          setDraftResumes(drafts);
         }
       } catch (error) {
+        console.error(error)
         if (isMounted) {
-          setPublishedResume(null);
+          setPublishedResumes([]);
+          setDraftResumes([]);
         }
       } finally {
         if (isMounted) {
-          setPublishedLoading(false);
+          setLoading(false);
         }
       }
     };
 
-    loadPublishedResume();
+    loadResumes();
     return () => {
       isMounted = false;
     };
@@ -164,64 +179,12 @@ export default function Dashboard() {
     return slug ? `${window.location.origin}/r/${slug}` : "";
   }, [publishedResume]);
 
-  const visitCount =
-    publishedResume?.analytics?.visits ??
-    publishedResume?.analytics?.viewCount ??
-    publishedResume?.visitCount ??
-    0;
-  const uniqueVisitors =
-    publishedResume?.analytics?.uniqueVisitors ??
-    publishedResume?.analytics?.unique ??
-    0;
-  const topLocation = publishedResume?.analytics?.topLocation ?? "Collecting";
-  const topDevice = publishedResume?.analytics?.topDevice ?? "Collecting";
-  const showAnalyticsHint =
-    visitCount === 0 && topLocation === "Collecting" && topDevice === "Collecting";
-
   return (
     <AppShell>
       <div className="flex flex-col gap-6">
-        <header>
+        {/* <header>
           <h1 className="app-title">Dashboard</h1>
-        </header>
-
-        <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="app-card">
-            <h2 className="app-section-title">Drafts in progress</h2>
-            <p className="app-subtitle">
-              Pick up where you left off or start a new draft.
-            </p>
-            <div className="mt-6 grid gap-4">
-              {loading ? (
-                <LoadingSkeleton variant="panel" />
-              ) : drafts.length === 0 ? (
-                <EmptyState
-                  title="No active drafts yet"
-                  description="Create a resume draft to see it listed here."
-                  action={
-                    <Button onClick={() => navigate("/app/resume")}>
-                      Start a new resume
-                    </Button>
-                  }
-                />
-              ) : (
-                drafts.map((draft) => (
-                  <article
-                    key={draft.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-5 py-4"
-                  >
-                    <p className="text-sm font-semibold text-slate-100">
-                      {draft.title}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      Last edited {draft.updatedAt}
-                    </p>
-                  </article>
-                ))
-              )}
-            </div>
-          </div>
-        </section>
+        </header> */}
 
         <section className="grid gap-6 lg:grid-cols-2">
           <div className="app-card">
@@ -230,38 +193,62 @@ export default function Dashboard() {
               Share the latest version you have published.
             </p>
             <div className="mt-6">
-              {publishedLoading ? (
+              {loading ? (
                 <LoadingSkeleton variant="panel" />
-              ) : publishedResume ? (
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                  <p className="text-sm font-semibold text-slate-100">
-                    {publishedResume.resumeTitle ||
-                      publishedResume.profile?.fullName ||
-                      "Published resume"}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    {publishedResume.profile?.title || "Public link live"}
-                  </p>
-                  <div className="mt-4 flex flex-wrap items-center gap-3">
-                    {publishedLink ? (
-                      <a
-                        href={publishedLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-full border border-emerald-400/60 px-4 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-400/10"
+              ) : latestPublished.length > 0 ? (
+                <div className="grid gap-3">
+                  {latestPublished.map((item) => {
+                    const slug = item.publicSlug || item.id;
+                    const link = slug
+                      ? `${window.location.origin}/r/${slug}`
+                      : "";
+                    return (
+                      <div
+                        key={item.id}
+                        className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4"
                       >
-                        Visit published link
-                      </a>
-                    ) : null}
-                    <Button
-                      variant="ghost"
-                      onClick={() =>
-                        navigate("/app/resume", { state: { stepIndex: 2 } })
-                      }
-                    >
-                      Manage visibility
-                    </Button>
-                  </div>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-100">
+                              {item.resumeTitle ||
+                                item.profile?.fullName ||
+                                "Published resume"}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {item.profile?.title || "Public link live"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {link ? (
+                              <a
+                                href={link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-emerald-400/60 text-emerald-100 transition hover:bg-emerald-400/10"
+                                aria-label="Visit published link"
+                                title="Visit published link"
+                              >
+                                <FiExternalLink className="h-4 w-4" />
+                              </a>
+                            ) : null}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(`/app/resume/${item.id}`, {
+                                  state: { stepIndex: 2 },
+                                })
+                              }
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900/70 text-slate-100 transition hover:bg-slate-900"
+                              aria-label="Manage visibility"
+                              title="Manage visibility"
+                            >
+                              <FiSettings className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <EmptyState
@@ -270,7 +257,7 @@ export default function Dashboard() {
                   action={
                     <Button
                       onClick={() =>
-                        navigate("/app/resume", { state: { stepIndex: 2 } })
+                        navigate("/app/resume/new", { state: { stepIndex: 2 } })
                       }
                     >
                       Publish resume
@@ -282,44 +269,54 @@ export default function Dashboard() {
           </div>
 
           <div className="app-card">
-            <h2 className="app-section-title">Link analytics</h2>
+            <h2 className="app-section-title">Drafts in progress</h2>
             <p className="app-subtitle">
-              Track visits and audience insights for your public link.
+              Pick up where you left off or start a new draft.
             </p>
-            {publishedLoading ? (
-              <div className="mt-6">
+            <div className="mt-6 grid gap-4">
+              {loading ? (
                 <LoadingSkeleton variant="panel" />
-              </div>
-            ) : (
-              <div className="mt-6 grid gap-3 text-sm text-slate-200">
-                <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3">
-                  <span>Total visits</span>
-                  <span className="text-slate-100">
-                    {visitCount.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3">
-                  <span>Unique visitors</span>
-                  <span className="text-slate-100">
-                    {uniqueVisitors.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3">
-                  <span>Top location</span>
-                  <span className="text-slate-100">{topLocation}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3">
-                  <span>Top device</span>
-                  <span className="text-slate-100">{topDevice}</span>
-                </div>
-                {showAnalyticsHint ? (
-                  <p className="text-xs text-slate-500">
-                    Connect Google Analytics or enable server-side tracking for
-                    richer attribution, device, and referral insights.
-                  </p>
-                ) : null}
-              </div>
-            )}
+              ) : latestDrafts.length === 0 ? (
+                <EmptyState
+                  title="No active drafts yet"
+                  description="Create a resume draft to see it listed here."
+                  action={
+                    <Button onClick={() => navigate("/app/resume/new")}>
+                      Start a new resume
+                    </Button>
+                  }
+                />
+              ) : (
+                latestDrafts.map((draft) => (
+                  <article
+                    key={draft.id}
+                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-5 py-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-100">
+                          {draft.resumeTitle ||
+                            draft.profile?.fullName ||
+                            "Untitled resume"}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          Updated {formatDate(draft.updatedAt)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/app/resume/${draft.id}`)}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900/70 text-slate-100 transition hover:bg-slate-900"
+                        aria-label="Edit resume"
+                        title="Edit resume"
+                      >
+                        <FiEdit2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
           </div>
         </section>
 

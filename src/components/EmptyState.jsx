@@ -7,8 +7,8 @@ export default function EmptyState({
   icon: Icon = FiInbox,
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-[24px] border border-dashed border-slate-800 bg-slate-900/40 p-8 text-center">
-      <div className="rounded-full border border-slate-700 bg-slate-950/70 p-3 text-emerald-200">
+    <div className="empty-state flex flex-col items-center gap-3 rounded-[24px] border border-dashed border-slate-800 bg-slate-900/40 p-8 text-center">
+      <div className="empty-state__icon rounded-full border border-slate-700 bg-slate-950/70 p-3 text-emerald-200">
         <Icon className="h-5 w-5" />
       </div>
       <div>

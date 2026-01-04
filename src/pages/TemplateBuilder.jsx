@@ -62,6 +62,9 @@ export default function TemplateBuilder() {
   const [name, setName] = useState("Untitled template");
   const [category, setCategory] = useState("Professional");
   const [status, setStatus] = useState("draft");
+  const [isPublic, setIsPublic] = useState(false);
+  const [readOnly, setReadOnly] = useState(false);
+  const [statusConfirm, setStatusConfirm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [toast, setToast] = useState(null);
@@ -104,6 +107,8 @@ export default function TemplateBuilder() {
       setName("Untitled template");
       setCategory("Professional");
       setStatus("draft");
+      setIsPublic(false);
+      setReadOnly(false);
       setSaveError("");
       setExpandedNodes(new Set(["root"]));
       setIsFieldManagerOpen(false);
@@ -134,6 +139,8 @@ export default function TemplateBuilder() {
         setName(data.name ?? "Untitled template");
         setCategory(data.category ?? "Professional");
         setStatus(data.status ?? "draft");
+        setIsPublic(Boolean(data.isPublic));
+        setReadOnly(!user || data.ownerId !== user.uid);
 
         setTemplate(hydrateTemplate(layout));
         setSelectedNodeId("root");
@@ -312,6 +319,7 @@ export default function TemplateBuilder() {
   };
 
   const handleMoveNode = (nodeId, direction) => {
+    if (readOnly) return;
     setTemplate((prev) => ({
       ...prev,
       layout: {
@@ -322,6 +330,7 @@ export default function TemplateBuilder() {
   };
 
   const handleSave = async () => {
+    if (readOnly) return;
     if (!user) {
       setSaveError("Sign in to save templates.");
       return;
@@ -333,6 +342,7 @@ export default function TemplateBuilder() {
         name: name.trim() || "Untitled template",
         category: category.trim() || "Professional",
         status,
+        isPublic: Boolean(isPublic),
         layout: {
           ...template,
           schemaVersion: BUILDER_SCHEMA_VERSION,
@@ -378,6 +388,16 @@ export default function TemplateBuilder() {
     }));
   };
 
+  const handleStatusChange = (nextStatus) => {
+    if (readOnly) return;
+    if (nextStatus === status) return;
+    if (nextStatus === "draft" || nextStatus === "archived") {
+      setStatusConfirm(nextStatus);
+      return;
+    }
+    setStatus(nextStatus);
+  };
+
   const handleDeleteNode = (nodeId) => {
     if (nodeId === "root") return;
 
@@ -408,6 +428,7 @@ export default function TemplateBuilder() {
   };
 
   const handleRequestDeleteNode = (nodeId) => {
+    if (readOnly) return;
     if (nodeId === "root") return;
     setDeleteNodeId(nodeId);
   };
@@ -437,6 +458,7 @@ export default function TemplateBuilder() {
   };
 
   const handleDuplicateNode = (nodeId) => {
+    if (readOnly) return;
     if (nodeId === "root") return;
     let duplicatedNode = null;
     const duplicateInTree = (node) => {
@@ -525,7 +547,7 @@ export default function TemplateBuilder() {
   };
 
   useEffect(() => {
-    if (!user || !templateId || initialAutosave.current) return;
+    if (!user || !templateId || initialAutosave.current || readOnly) return;
     setAutosaveStatus("saving");
     const timeout = setTimeout(async () => {
       try {
@@ -533,6 +555,7 @@ export default function TemplateBuilder() {
           name: name.trim() || "Untitled template",
           category: category.trim() || "Professional",
           status,
+          isPublic: Boolean(isPublic),
           layout: {
             ...template,
             schemaVersion: BUILDER_SCHEMA_VERSION,
@@ -551,14 +574,15 @@ export default function TemplateBuilder() {
     }, 900);
 
     return () => clearTimeout(timeout);
-  }, [template, name, category, status, templateId, user]);
+  }, [template, name, category, status, isPublic, templateId, user, readOnly]);
 
   const autosaveLabel = useMemo(() => {
+    if (readOnly) return "Read-only";
     if (autosaveStatus === "saving") return "Saving...";
     if (autosaveStatus === "saved") return "All changes saved";
     if (autosaveStatus === "error") return "Autosave failed";
     return "Draft ready";
-  }, [autosaveStatus]);
+  }, [autosaveStatus, readOnly]);
 
   useEffect(() => {
     if (autosaveStatus === lastAutosaveStatus.current) return;
@@ -569,6 +593,7 @@ export default function TemplateBuilder() {
   }, [autosaveStatus]);
 
   const json = JSON.stringify(template, null, 2);
+  const showJsonPanel = import.meta.env.VITE_SHOW_TEMPLATE_JSON === "true";
 
   const parseNumberInput = (value) => {
     if (value === "") return undefined;
@@ -580,19 +605,24 @@ export default function TemplateBuilder() {
     <>
     <AppShell>
       <div className="flex flex-col gap-4">
+        {readOnly ? (
+          <div className="rounded-[24px] border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            Read-only mode. Only the template owner can make changes.
+          </div>
+        ) : null}
         <BuilderHeader
           name={name}
           onNameChange={setName}
           category={category}
           onCategoryChange={setCategory}
           status={status}
-          onStatusChange={setStatus}
+          onStatusChange={handleStatusChange}
+          isPublic={isPublic}
+          onPublicChange={setIsPublic}
+          readOnly={readOnly}
           categoryOptions={CATEGORY_OPTIONS}
           statusOptions={STATUS_OPTIONS}
-          saving={saving}
           saveError={saveError}
-          onSave={handleSave}
-          templateId={templateId}
           autosaveLabel={autosaveLabel}
         />
 
@@ -613,6 +643,7 @@ export default function TemplateBuilder() {
             canAddChild={canAddChild}
             onMoveNode={handleMoveNode}
             onDuplicateNode={handleDuplicateNode}
+            readOnly={readOnly}
           />
 
           <main className="min-h-[520px] flex-1 bg-slate-100 p-2 lg:mx-4 md:max-h-[65vh] md:overflow-auto lg:max-h-[65vh] lg:overflow-auto">
@@ -626,7 +657,11 @@ export default function TemplateBuilder() {
           </main>
 
           <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 lg:w-80 lg:border-l lg:rounded-l-none">
-          <div className="flex h-full flex-col gap-4 overflow-auto pr-1 md:max-h-[61.5vh] lg:max-h-[61.5vh]">
+          <div
+            className={`flex h-full flex-col gap-4 overflow-auto pr-1 md:max-h-[61.5vh] lg:max-h-[61.5vh] ${
+              readOnly ? "pointer-events-none opacity-60" : ""
+            }`}
+          >
             <div className="rounded-xl border border-slate-800/80 bg-slate-950/70">
               <button
                 type="button"
@@ -1083,23 +1118,381 @@ export default function TemplateBuilder() {
                               className="h-2 w-32 accent-indigo-400"
                             />
                           </label>
-                          <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
-                            Section Divider
-                            <input
-                              type="color"
-                              value={template.theme?.sectionDividerColor ?? "#e2e8f0"}
-                              onChange={(event) =>
-                                setTemplate((prev) => ({
-                                  ...prev,
-                                  theme: {
-                                    ...prev.theme,
-                                    sectionDividerColor: event.target.value,
-                                  },
-                                }))
-                              }
-                              className="h-8 w-16 cursor-pointer rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1"
-                            />
-                          </label>
+                          <div className="rounded-lg border border-slate-800/80 bg-slate-950/60 p-3">
+                            <h6 className="text-[11px] font-semibold tracking-wide text-slate-500">
+                              Section Title
+                            </h6>
+                            <div className="mt-3 grid gap-3">
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Size
+                                <select
+                                  value={
+                                    template.theme?.sectionTitleStyle
+                                      ?.fontSizeToken ?? "heading"
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        sectionTitleStyle: {
+                                          ...(prev.theme?.sectionTitleStyle ?? {}),
+                                          fontSizeToken: event.target.value,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                >
+                                  {FONT_SIZE_TOKENS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Color
+                                <select
+                                  value={
+                                    template.theme?.sectionTitleStyle?.colorToken ??
+                                    "primary"
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        sectionTitleStyle: {
+                                          ...(prev.theme?.sectionTitleStyle ?? {}),
+                                          colorToken: event.target.value,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                >
+                                  {COLOR_TOKENS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Weight
+                                <select
+                                  value={
+                                    template.theme?.sectionTitleStyle?.fontWeight ??
+                                    "600"
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        sectionTitleStyle: {
+                                          ...(prev.theme?.sectionTitleStyle ?? {}),
+                                          fontWeight: event.target.value,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                >
+                                  <option value="400">Regular</option>
+                                  <option value="600">Semi Bold</option>
+                                  <option value="700">Bold</option>
+                                </select>
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Style
+                                <select
+                                  value={
+                                    template.theme?.sectionTitleStyle?.fontStyle ??
+                                    "normal"
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        sectionTitleStyle: {
+                                          ...(prev.theme?.sectionTitleStyle ?? {}),
+                                          fontStyle: event.target.value,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                >
+                                  <option value="normal">Normal</option>
+                                  <option value="italic">Italic</option>
+                                </select>
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Transform
+                                <select
+                                  value={
+                                    template.theme?.sectionTitleStyle
+                                      ?.textTransform ?? "none"
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        sectionTitleStyle: {
+                                          ...(prev.theme?.sectionTitleStyle ?? {}),
+                                          textTransform: event.target.value,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                >
+                                  <option value="none">None</option>
+                                  <option value="capitalize">Capitalize</option>
+                                  <option value="uppercase">Uppercase</option>
+                                </select>
+                              </label>
+                            </div>
+                          </div>
+                          <div className="rounded-lg border border-slate-800/80 bg-slate-950/60 p-3">
+                            <h6 className="text-[11px] font-semibold tracking-wide text-slate-500">
+                              Section Divider
+                            </h6>
+                            <div className="mt-3 grid gap-3">
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Enabled
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    template.theme?.sectionDivider?.enabled !==
+                                    false
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        sectionDivider: {
+                                          ...(prev.theme?.sectionDivider ?? {}),
+                                          enabled: event.target.checked,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500/40"
+                                />
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Color
+                                <input
+                                  type="color"
+                                  value={
+                                    template.theme?.sectionDivider?.color ??
+                                    template.theme?.sectionDividerColor ??
+                                    "#e2e8f0"
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        sectionDividerColor: event.target.value,
+                                        sectionDivider: {
+                                          ...(prev.theme?.sectionDivider ?? {}),
+                                          color: event.target.value,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 w-16 cursor-pointer rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1"
+                                />
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Width
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="8"
+                                  step="1"
+                                  value={template.theme?.sectionDivider?.width ?? ""}
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        sectionDivider: {
+                                          ...(prev.theme?.sectionDivider ?? {}),
+                                          width: parseNumberInput(event.target.value),
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 w-16 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                />
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Style
+                                <select
+                                  value={
+                                    template.theme?.sectionDivider?.style ?? "solid"
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        sectionDivider: {
+                                          ...(prev.theme?.sectionDivider ?? {}),
+                                          style: event.target.value,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                >
+                                  <option value="solid">Solid</option>
+                                  <option value="dashed">Dashed</option>
+                                  <option value="dotted">Dotted</option>
+                                </select>
+                              </label>
+                            </div>
+                          </div>
+                          <div className="rounded-lg border border-slate-800/80 bg-slate-950/60 p-3">
+                            <h6 className="text-[11px] font-semibold tracking-wide text-slate-500">
+                              Title Divider
+                            </h6>
+                            <div className="mt-3 grid gap-3">
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Enabled
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    template.theme?.sectionTitleDivider?.enabled ??
+                                    false
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        sectionTitleDivider: {
+                                          ...(prev.theme?.sectionTitleDivider ?? {}),
+                                          enabled: event.target.checked,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500/40"
+                                />
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Color
+                                <input
+                                  type="color"
+                                  value={
+                                    template.theme?.sectionTitleDivider?.color ??
+                                    template.theme?.sectionDivider?.color ??
+                                    template.theme?.sectionDividerColor ??
+                                    "#e2e8f0"
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        sectionTitleDivider: {
+                                          ...(prev.theme?.sectionTitleDivider ?? {}),
+                                          color: event.target.value,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 w-16 cursor-pointer rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1"
+                                />
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Width
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="8"
+                                  step="1"
+                                  value={
+                                    template.theme?.sectionTitleDivider?.width ?? ""
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        sectionTitleDivider: {
+                                          ...(prev.theme?.sectionTitleDivider ?? {}),
+                                          width: parseNumberInput(event.target.value),
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 w-16 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                />
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Style
+                                <select
+                                  value={
+                                    template.theme?.sectionTitleDivider?.style ??
+                                    "solid"
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        sectionTitleDivider: {
+                                          ...(prev.theme?.sectionTitleDivider ?? {}),
+                                          style: event.target.value,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                >
+                                  <option value="solid">Solid</option>
+                                  <option value="dashed">Dashed</option>
+                                  <option value="dotted">Dotted</option>
+                                </select>
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Spacing
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="24"
+                                  step="1"
+                                  value={
+                                    template.theme?.sectionTitleDivider?.spacing ??
+                                    ""
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        sectionTitleDivider: {
+                                          ...(prev.theme?.sectionTitleDivider ?? {}),
+                                          spacing: parseNumberInput(event.target.value),
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 w-16 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                />
+                              </label>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1236,7 +1629,7 @@ export default function TemplateBuilder() {
                                 min="0.6"
                                 max="2"
                                 value={
-                                  template.theme?.fontScales?.[token.value] ?? 1
+                                  template.theme?.fontScales?.[token.value] ?? ""
                                 }
                                 onChange={(event) =>
                                   setTemplate((prev) => ({
@@ -1245,7 +1638,9 @@ export default function TemplateBuilder() {
                                       ...prev.theme,
                                       fontScales: {
                                         ...(prev.theme?.fontScales ?? {}),
-                                        [token.value]: Number(event.target.value),
+                                        [token.value]: parseNumberInput(
+                                          event.target.value
+                                        ),
                                       },
                                     },
                                   }))
@@ -1262,37 +1657,39 @@ export default function TemplateBuilder() {
                 </div>
               </div>
             </div>
-            <div className="rounded-xl border border-slate-800/80 bg-slate-950/70">
-              <button
-                type="button"
-                onClick={() => setIsJsonOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between px-4 py-3 text-left"
-                aria-expanded={isJsonOpen}
-              >
-                <h4 className="text-sm font-semibold text-slate-200">JSON</h4>
-                <span
-                  className={`text-sm text-slate-400 transition-transform duration-200 ${
-                    isJsonOpen ? "rotate-180" : ""
-                  }`}
-                  aria-hidden="true"
+            {showJsonPanel ? (
+              <div className="rounded-xl border border-slate-800/80 bg-slate-950/70">
+                <button
+                  type="button"
+                  onClick={() => setIsJsonOpen((prev) => !prev)}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left"
+                  aria-expanded={isJsonOpen}
                 >
-                  ▾
-                </span>
-              </button>
-              <div
-                className={`overflow-hidden border-t border-slate-800/80 transition-[max-height,opacity] duration-300 ease-in-out ${
-                  isJsonOpen ? "max-h-[900px] opacity-100" : "max-h-0 opacity-0"
-                }`}
-              >
-                <div className={`${isJsonOpen ? "" : "pointer-events-none"}`}>
-                  <textarea
-                    value={json}
-                    readOnly
-                    className="ui-scrollbar h-60 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs text-slate-200"
-                  />
+                  <h4 className="text-sm font-semibold text-slate-200">JSON</h4>
+                  <span
+                    className={`text-sm text-slate-400 transition-transform duration-200 ${
+                      isJsonOpen ? "rotate-180" : ""
+                    }`}
+                    aria-hidden="true"
+                  >
+                    ▾
+                  </span>
+                </button>
+                <div
+                  className={`overflow-hidden border-t border-slate-800/80 transition-[max-height,opacity] duration-300 ease-in-out ${
+                    isJsonOpen ? "max-h-[900px] opacity-100" : "max-h-0 opacity-0"
+                  }`}
+                >
+                  <div className={`${isJsonOpen ? "" : "pointer-events-none"}`}>
+                    <textarea
+                      value={json}
+                      readOnly
+                      className="ui-scrollbar h-60 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs text-slate-200"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : null}
           </div>
           </aside>
         </div>
@@ -1306,6 +1703,23 @@ export default function TemplateBuilder() {
         cancelLabel="Cancel"
         onConfirm={handleConfirmDeleteNode}
         onCancel={handleCancelDeleteNode}
+      />
+      <PromptModal
+        open={Boolean(statusConfirm)}
+        title={
+          statusConfirm === "archived"
+            ? "Archive this template?"
+            : "Set template to draft?"
+        }
+        description="Any resume using this template will no longer be viewable or editable."
+        confirmLabel={statusConfirm === "archived" ? "Archive" : "Set to draft"}
+        cancelLabel="Cancel"
+        onConfirm={() => {
+          if (!statusConfirm) return;
+          setStatus(statusConfirm);
+          setStatusConfirm(null);
+        }}
+        onCancel={() => setStatusConfirm(null)}
       />
       <Snackbar
         message={toast?.message}

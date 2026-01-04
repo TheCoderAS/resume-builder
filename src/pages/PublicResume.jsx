@@ -139,12 +139,6 @@ export default function PublicResume() {
   useEffect(() => {
     let isMounted = true;
     const loadTemplate = async () => {
-      if (resume.templateSnapshot) {
-        if (isMounted) {
-          setTemplate(hydrateTemplate(resume.templateSnapshot));
-        }
-        return;
-      }
       if (!resume.templateId) {
         setTemplate(createEmptyTemplate());
         return;
@@ -158,11 +152,27 @@ export default function PublicResume() {
           return;
         }
         const data = snapshot.data();
+        const statusValue = data.status ?? "active";
+        if (statusValue !== "active") {
+          if (isMounted) {
+            setTemplate(createEmptyTemplate());
+            setStatus("restricted");
+          }
+          return;
+        }
+        if (resume.templateSnapshot) {
+          if (isMounted) {
+            setTemplate(hydrateTemplate(resume.templateSnapshot));
+          }
+          return;
+        }
         const layout = data.layout;
         const isBuilderLayout =
           layout?.schemaVersion === BUILDER_SCHEMA_VERSION;
         if (isMounted) {
-          setTemplate(isBuilderLayout ? hydrateTemplate(layout) : createEmptyTemplate());
+          setTemplate(
+            isBuilderLayout ? hydrateTemplate(layout) : createEmptyTemplate()
+          );
           if (!isBuilderLayout) {
             setStatus("error");
           }
@@ -275,7 +285,7 @@ export default function PublicResume() {
         <header className="flex flex-wrap justify-center">
           <div className="flex w-full max-w-[794px] flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-xs uppercase  text-slate-400">
+              <p className="text-xs text-slate-400">
                 resume
               </p>
               <h1 className="text-lg font-semibold text-slate-100">
@@ -320,6 +330,12 @@ export default function PublicResume() {
           </div>
         ) : null}
 
+        {status === "restricted" ? (
+          <div className="rounded-[24px] border border-amber-500/40 bg-amber-500/10 p-6 text-sm text-amber-100">
+            This resume isn’t available because its template is inactive.
+          </div>
+        ) : null}
+
         {status === "error" ? (
           <div className="rounded-[24px] border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-100">
             We couldn&apos;t load this resume right now.
@@ -333,6 +349,7 @@ export default function PublicResume() {
                 template={template}
                 resumeJson={resumeJson}
                 embedLinks
+                showPlaceholders={false}
                 className="w-full border border-slate-200 bg-white shadow-md"
               />
             </div>
@@ -348,7 +365,7 @@ export default function PublicResume() {
         onConfirm={handleSubmitComment}
       >
         <div className="flex flex-col gap-4">
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase text-slate-400">
+          <label className="flex flex-col gap-2 text-xs font-semibold text-slate-400">
             Your name
             <input
               value={commenterName}
@@ -358,7 +375,7 @@ export default function PublicResume() {
               required
             />
           </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase text-slate-400">
+          <label className="flex flex-col gap-2 text-xs font-semibold text-slate-400">
             Comment
             <textarea
               value={commentText}

@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiEdit2, FiPlus, FiTrash2 } from "react-icons/fi";
+import RichTextEditor from "./RichTextEditor.jsx";
 import PromptModal from "./PromptModal.jsx";
 
-const INPUT_TYPES = ["text", "textarea", "email", "phone", "url", "date"];
+const INPUT_TYPES = [
+  "text",
+  "textarea",
+  "email",
+  "phone",
+  "url",
+  "date",
+  "inline-bullets",
+  "inline-chips",
+];
 
 const DEFAULT_FIELD = {
   label: "",
@@ -12,6 +22,10 @@ const DEFAULT_FIELD = {
   required: false,
   maxLength: "",
 };
+
+const formatInputTypeLabel = (type) =>
+  type.replace(/-/g, " ").toUpperCase();
+
 
 export default function FieldManager({
   template,
@@ -175,7 +189,7 @@ export default function FieldManager({
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="field-manager flex flex-col gap-4">
       {fieldEntries.length === 0 ? (
         <p className="text-xs text-slate-400">
           No fields yet. Create one to start binding nodes.
@@ -258,14 +272,22 @@ export default function FieldManager({
           </label>
           <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Placeholder
-            <input
-              value={formState.placeholder}
-              onChange={(event) =>
-                handleChange("placeholder", event.target.value)
-              }
-              className="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-              placeholder="e.g. Jane Doe"
-            />
+            {formState.inputType === "textarea" ? (
+              <RichTextEditor
+                value={formState.placeholder}
+                placeholder="Enter placeholder text"
+                onChange={(nextValue) => handleChange("placeholder", nextValue)}
+              />
+            ) : (
+              <input
+                value={formState.placeholder}
+                onChange={(event) =>
+                  handleChange("placeholder", event.target.value)
+                }
+                className="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                placeholder="e.g. Jane Doe"
+              />
+            )}
           </label>
           <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
             Input Type
@@ -278,7 +300,7 @@ export default function FieldManager({
             >
               {INPUT_TYPES.map((type) => (
                 <option key={type} value={type}>
-                  {type.toUpperCase()}
+                  {formatInputTypeLabel(type)}
                 </option>
               ))}
             </select>

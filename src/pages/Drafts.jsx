@@ -67,12 +67,22 @@ export default function Drafts() {
     };
   }, [user]);
 
+  useEffect(() => {
+    if (!menuOpenId) return;
+    const handleClick = (event) => {
+      if (event.target.closest("[data-context-menu='true']")) return;
+      setMenuOpenId(null);
+    };
+    document.addEventListener("click", handleClick);
+    return () => {
+      document.removeEventListener("click", handleClick);
+    };
+  }, [menuOpenId]);
+
   const draftCount = useMemo(() => drafts.length, [drafts]);
 
   const handleOpenDraft = (draftId) => {
-    window.localStorage.setItem("activeResumeId", draftId);
-    window.localStorage.setItem("activeResumeOwner", user.uid);
-    navigate("/app/resume");
+    navigate(`/app/resume/${draftId}`);
   };
 
   const handleDeleteDraft = async () => {
@@ -94,11 +104,16 @@ export default function Drafts() {
   return (
     <AppShell>
       <div className="flex w-full flex-col gap-6">
-        <header>
-          <h1 className="app-title">Resumes</h1>
-          <p className="app-subtitle">
-            {draftCount} saved resume{draftCount === 1 ? "" : "s"}
-          </p>
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="app-title">Resumes</h1>
+            <p className="app-subtitle">
+              {draftCount} saved resume{draftCount === 1 ? "" : "s"}
+            </p>
+          </div>
+          <Button onClick={() => navigate("/app/resume/new")}>
+            New resume
+          </Button>
         </header>
 
         {error ? <ErrorBanner message={error} /> : null}
@@ -117,7 +132,11 @@ export default function Drafts() {
           <EmptyState
             title="No resumes yet"
             description="Start a new resume to see it here."
-            action={<Button onClick={() => navigate("/app/resume")}>Start now</Button>}
+            action={
+              <Button onClick={() => navigate("/app/resume/new")}>
+                Start now
+              </Button>
+            }
           />
         ) : null}
 
@@ -126,22 +145,26 @@ export default function Drafts() {
             {drafts.map((draft) => (
               <div
                 key={draft.id}
-                className="group relative flex h-full flex-col gap-4 rounded-[28px] border border-slate-800 bg-slate-900/60 p-5 text-left transition hover:-translate-y-0.5 hover:border-emerald-400/60 hover:shadow-[0_16px_32px_rgba(15,23,42,0.45)]"
+                className={`group relative flex h-full flex-col gap-4 rounded-[28px] border border-slate-800 p-5 text-left transition hover:-translate-y-0.5 hover:border-emerald-400/60 hover:shadow-[0_16px_32px_rgba(15,23,42,0.45)] ${
+                  draft.visibility?.isPublic
+                    ? "bg-emerald-500/10"
+                    : "bg-slate-900/60"
+                }`}
               >
                 <button
                   type="button"
                   onClick={() => handleOpenDraft(draft.id)}
-                  className="flex flex-1 flex-col gap-4 text-left"
+                  className="flex flex-1 flex-col gap-2 text-left"
                 >
-                  <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                    <p className="text-sm font-semibold text-slate-100">
+                  <div>
+                    <p className="text-base font-semibold text-slate-100">
                       {draft.resumeTitle ||
                         draft.profile?.fullName ||
                         "Untitled resume"}
                     </p>
-                    <p className="mt-1 text-xs text-slate-400">
+                    {/* <p className="mt-1 text-xs text-slate-400">
                       {draft.profile?.title || "No headline yet"}
-                    </p>
+                    </p> */}
                   </div>
                   <div className="mt-auto flex items-center gap-2 text-xs text-slate-400">
                     <FiClock className="h-4 w-4" />
@@ -156,13 +179,17 @@ export default function Drafts() {
                       current === draft.id ? null : draft.id
                     );
                   }}
-                  className="absolute right-4 top-4 rounded-full p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
+                  className="context-menu-trigger absolute right-4 top-4 rounded-full p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
                   aria-label="Open draft menu"
+                  data-context-menu="true"
                 >
                   <FiMoreVertical className="h-4 w-4" />
                 </button>
                 {menuOpenId === draft.id ? (
-                  <div className="absolute right-4 top-14 z-10 w-40 rounded-2xl border border-slate-800 bg-slate-950/95 p-2 text-sm shadow-[0_18px_40px_rgba(15,23,42,0.6)]">
+                  <div
+                    className="context-menu absolute right-4 top-14 z-10 w-40 rounded-2xl border border-slate-800 bg-slate-950/95 p-2 text-sm shadow-[0_18px_40px_rgba(15,23,42,0.6)]"
+                    data-context-menu="true"
+                  >
                     <button
                       type="button"
                       onClick={(event) => {

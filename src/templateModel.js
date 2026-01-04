@@ -27,6 +27,26 @@ export const createEmptyTemplate = () => ({
     gap: 12,
     sectionGap: 12,
     sectionDividerColor: "#e2e8f0",
+    sectionDivider: {
+      enabled: true,
+      width: 1,
+      style: "solid",
+      color: "#e2e8f0",
+    },
+    sectionTitleStyle: {
+      fontSizeToken: "heading",
+      colorToken: "primary",
+      fontWeight: "600",
+      fontStyle: "normal",
+      textTransform: "none",
+    },
+    sectionTitleDivider: {
+      enabled: false,
+      color: "#e2e8f0",
+      width: 1,
+      style: "solid",
+      spacing: 6,
+    },
     fontScales: {
       display: 1.6,
       heading: 1.25,

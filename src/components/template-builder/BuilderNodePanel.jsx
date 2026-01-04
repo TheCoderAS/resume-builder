@@ -15,6 +15,7 @@ export default function BuilderNodePanel({
   selectedNode,
   canAddChild,
   onMoveNode,
+  onDuplicateNode,
 }) {
   return (
     <aside className="w-full shrink-0 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 lg:w-72 lg:border-r lg:rounded-r-none">
@@ -70,6 +71,7 @@ export default function BuilderNodePanel({
             onToggle={onToggleNode}
             expandedNodes={expandedNodes}
             onMove={onMoveNode}
+            onDuplicate={onDuplicateNode}
           />
         </div>
         {selectedNode && (

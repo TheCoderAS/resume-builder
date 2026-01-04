@@ -1,4 +1,4 @@
-import { FiChevronDown, FiChevronUp, FiTrash2 } from "react-icons/fi";
+import { FiChevronDown, FiChevronUp, FiCopy, FiTrash2 } from "react-icons/fi";
 
 export default function BuilderTree({
   node,
@@ -10,11 +10,13 @@ export default function BuilderTree({
   onToggle,
   expandedNodes,
   onMove,
+  onDuplicate,
   siblingIndex,
   siblingCount,
 }) {
   const isSelected = selected === node.id;
   const canDelete = node.id !== "root";
+  const canDuplicate = node.id !== "root";
   const hasChildren = Boolean(node.children?.length);
   const canReorder = Boolean(
     onMove &&
@@ -83,6 +85,21 @@ export default function BuilderTree({
           >
             <FiChevronDown className="h-4 w-4" />
           </button>
+          {canDuplicate ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDuplicate?.(node.id);
+              }}
+              className={`rounded-md p-1 text-slate-400 transition hover:bg-slate-800/80 hover:text-slate-100 ${
+                isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              }`}
+              aria-label={`Duplicate ${node.type}`}
+            >
+              <FiCopy className="h-4 w-4" />
+            </button>
+          ) : null}
           {canDelete ? (
             <button
               type="button"

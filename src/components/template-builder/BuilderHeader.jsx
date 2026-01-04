@@ -13,6 +13,7 @@ export default function BuilderHeader({
   saveError,
   onSave,
   templateId,
+  autosaveLabel,
 }) {
   return (
     <div className="rounded-2xl border border-slate-800/80 bg-slate-950/90 px-4 py-4 sm:px-6">
@@ -65,6 +66,11 @@ export default function BuilderHeader({
               ? "Save changes"
               : "Create template"}
         </Button>
+        {autosaveLabel ? (
+          <span className="text-xs font-semibold text-slate-400">
+            Autosave: {autosaveLabel}
+          </span>
+        ) : null}
         {saveError ? (
           <span className="text-xs font-semibold text-rose-400">
             {saveError}

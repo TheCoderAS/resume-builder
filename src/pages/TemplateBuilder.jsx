@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   addDoc,
   collection,
@@ -76,12 +76,17 @@ export default function TemplateBuilder() {
   const [isNodeInspectorOpen, setIsNodeInspectorOpen] = useState(false);
   const [pendingBindNodeId, setPendingBindNodeId] = useState(null);
   const [deleteNodeId, setDeleteNodeId] = useState(null);
+  const [autosaveStatus, setAutosaveStatus] = useState("idle");
+  const initialAutosave = useRef(true);
+  const lastAutosaveStatus = useRef("idle");
 
   const templateId = location.state?.templateId;
 
   useEffect(() => {
     let isMounted = true;
     const baseTemplate = createEmptyTemplate();
+    initialAutosave.current = true;
+    setAutosaveStatus("idle");
 
     const hydrateTemplate = (layout) => ({
       ...baseTemplate,
@@ -107,6 +112,9 @@ export default function TemplateBuilder() {
     const loadTemplate = async () => {
       if (!templateId) {
         resetState();
+        setTimeout(() => {
+          initialAutosave.current = false;
+        }, 0);
         return;
       }
 
@@ -132,9 +140,15 @@ export default function TemplateBuilder() {
         setLoadError("");
         setExpandedNodes(new Set(["root"]));
         setIsFieldManagerOpen(false);
+        setTimeout(() => {
+          initialAutosave.current = false;
+        }, 0);
       } catch (error) {
         if (isMounted) {
           setLoadError("Unable to load the template.");
+          setTimeout(() => {
+            initialAutosave.current = false;
+          }, 0);
         }
       }
     };
@@ -332,6 +346,7 @@ export default function TemplateBuilder() {
       if (templateId) {
         await updateDoc(doc(db, "templates", templateId), payload);
         setToast({ message: "Template saved.", variant: "success" });
+        setAutosaveStatus("saved");
       } else {
         const docRef = await addDoc(collection(db, "templates"), {
           ...payload,
@@ -342,6 +357,7 @@ export default function TemplateBuilder() {
           replace: true,
           state: { templateId: docRef.id },
         });
+        setAutosaveStatus("saved");
       }
     } catch (error) {
       console.error(error)
@@ -406,6 +422,61 @@ export default function TemplateBuilder() {
     setDeleteNodeId(null);
   };
 
+  const createNodeId = (type) =>
+    `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+  const cloneNodeWithNewIds = (node) => {
+    const cloned = {
+      ...node,
+      id: createNodeId(node.type),
+    };
+    if (node.children) {
+      cloned.children = node.children.map((child) => cloneNodeWithNewIds(child));
+    }
+    return cloned;
+  };
+
+  const handleDuplicateNode = (nodeId) => {
+    if (nodeId === "root") return;
+    let duplicatedNode = null;
+    const duplicateInTree = (node) => {
+      if (!node?.children) return node;
+      const index = node.children.findIndex((child) => child.id === nodeId);
+      if (index !== -1) {
+        const clone = cloneNodeWithNewIds(node.children[index]);
+        duplicatedNode = clone;
+        const nextChildren = [...node.children];
+        nextChildren.splice(index + 1, 0, clone);
+        return { ...node, children: nextChildren };
+      }
+      return {
+        ...node,
+        children: node.children.map((child) => duplicateInTree(child)),
+      };
+    };
+
+    const nextRoot = duplicateInTree(template.layout.root);
+    if (!duplicatedNode) return;
+
+    setTemplate((prev) => ({
+      ...prev,
+      layout: {
+        ...prev.layout,
+        root: nextRoot,
+      },
+    }));
+    setSelectedNodeId(duplicatedNode.id);
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      const path = findNodePath(nextRoot, duplicatedNode.id) || [];
+      path.forEach((id) => next.add(id));
+      const duplicatedIds = [];
+      collectIds(duplicatedNode, duplicatedIds);
+      duplicatedIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
   const handleRequestNewField = () => {
     setFieldCreateSignal((prev) => prev + 1);
     setPendingBindNodeId(selectedNodeId);
@@ -453,6 +524,50 @@ export default function TemplateBuilder() {
     setExpandedNodes(new Set());
   };
 
+  useEffect(() => {
+    if (!user || !templateId || initialAutosave.current) return;
+    setAutosaveStatus("saving");
+    const timeout = setTimeout(async () => {
+      try {
+        const payload = sanitizeForFirestore({
+          name: name.trim() || "Untitled template",
+          category: category.trim() || "Professional",
+          status,
+          layout: {
+            ...template,
+            schemaVersion: BUILDER_SCHEMA_VERSION,
+          },
+          ownerId: user.uid,
+          creatorName: user.displayName ?? user.email ?? "Resume Studio",
+          type: "builder",
+          updatedAt: serverTimestamp(),
+        });
+        await updateDoc(doc(db, "templates", templateId), payload);
+        setAutosaveStatus("saved");
+      } catch (error) {
+        console.error(error);
+        setAutosaveStatus("error");
+      }
+    }, 900);
+
+    return () => clearTimeout(timeout);
+  }, [template, name, category, status, templateId, user]);
+
+  const autosaveLabel = useMemo(() => {
+    if (autosaveStatus === "saving") return "Saving...";
+    if (autosaveStatus === "saved") return "All changes saved";
+    if (autosaveStatus === "error") return "Autosave failed";
+    return "Draft ready";
+  }, [autosaveStatus]);
+
+  useEffect(() => {
+    if (autosaveStatus === lastAutosaveStatus.current) return;
+    if (autosaveStatus === "error") {
+      setToast({ message: "Autosave failed. Try again soon.", variant: "error" });
+    }
+    lastAutosaveStatus.current = autosaveStatus;
+  }, [autosaveStatus]);
+
   const json = JSON.stringify(template, null, 2);
 
   const parseNumberInput = (value) => {
@@ -478,6 +593,7 @@ export default function TemplateBuilder() {
           saveError={saveError}
           onSave={handleSave}
           templateId={templateId}
+          autosaveLabel={autosaveLabel}
         />
 
         <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:gap-0">
@@ -496,6 +612,7 @@ export default function TemplateBuilder() {
             selectedNode={selectedNode}
             canAddChild={canAddChild}
             onMoveNode={handleMoveNode}
+            onDuplicateNode={handleDuplicateNode}
           />
 
           <main className="min-h-[520px] flex-1 bg-slate-100 p-2 lg:mx-4 md:max-h-[65vh] md:overflow-auto lg:max-h-[65vh] lg:overflow-auto">

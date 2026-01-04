@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { FiFileText, FiHome, FiLayout, FiUser } from "react-icons/fi";
+import { FiFileText, FiHelpCircle, FiHome, FiLayout, FiUser } from "react-icons/fi";
 import Button from "./Button.jsx";
 
 const NAV_ITEMS = [
@@ -26,6 +26,12 @@ const NAV_ITEMS = [
     description: "Account settings",
     to: "/app/profile",
     icon: FiUser,
+  },
+  {
+    label: "FAQs",
+    description: "Help and answers",
+    to: "/app/faqs",
+    icon: FiHelpCircle,
   },
 ];
 

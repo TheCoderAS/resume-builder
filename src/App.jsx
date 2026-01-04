@@ -10,6 +10,7 @@ import TemplateGallery from "./pages/TemplateGallery.jsx";
 import TemplateBuilder from "./pages/TemplateBuilder.jsx";
 import PublicResume from "./pages/PublicResume.jsx";
 import Profile from "./pages/Profile.jsx";
+import Faqs from "./pages/Faqs.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import useAnalyticsPageView from "./hooks/useAnalyticsPageView.js";
 
@@ -67,6 +68,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/faqs"
+        element={
+          <ProtectedRoute>
+            <Faqs />
           </ProtectedRoute>
         }
       />

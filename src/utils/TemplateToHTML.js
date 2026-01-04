@@ -3,6 +3,13 @@ export function buildHTML(template, resumeJson = {}, options = {}) {
   const embedLinks = options?.embedLinks ?? false;
   const origin =
     options?.origin && options.origin !== "null" ? options.origin : "*";
+  const dividerConfig = template?.theme?.sectionDivider ?? {};
+  const dividerColor =
+    dividerConfig.color ?? template?.theme?.sectionDividerColor ?? "#e2e8f0";
+  const dividerBaseStyle = `${dividerConfig.width ?? 1}px ${
+    dividerConfig.style ?? "solid"
+  } ${dividerColor}`;
+  const dividerEnabled = dividerConfig.enabled !== false;
   const page = template?.page ?? {};
   const marginX = page.marginX ?? page.margins?.left ?? 32;
   const marginY = page.marginY ?? page.margins?.top ?? 32;
@@ -31,7 +38,7 @@ body {
   };
 }
 .section {
-  border-bottom: 1px solid ${template.theme.sectionDividerColor ?? "#e2e8f0"};
+  border-bottom: ${dividerEnabled ? dividerBaseStyle : "none"};
   margin: ${template.theme.sectionGap ?? 12}px 0;
 }
 .row { display:flex; gap:${template.theme.gap ?? 12}px; }
@@ -43,10 +50,39 @@ body {
   background: transparent;
   margin-bottom: ${template.theme.gap ?? 12}px;
 }
+.repeat-item {
+  display: contents;
+}
+.repeat-item > * {
+  margin-bottom: 0;
+}
 .rich-text {
   --rich-text-gap: ${template.theme.gap ?? 12}px;
   --chip-padding-y: ${Math.max(3, Math.round((template.theme.gap ?? 12) / 4))}px;
   --chip-padding-x: ${Math.max(8, Math.round((template.theme.gap ?? 12) / 2))}px;
+}
+.rich-text .inline-bullet-list,
+.rich-text .inline-chip-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--rich-text-gap) 10px;
+  align-items: center;
+}
+.rich-text .inline-bullet-item,
+.rich-text .inline-chip-item {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.rich-text .inline-bullet-item::before {
+  content: "•";
+  margin-right: 0.35em;
+}
+.rich-text .inline-chip-item {
+  padding: var(--chip-padding-y) var(--chip-padding-x);
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  line-height: 1.2;
 }
 .rich-text :where(p, ul, ol, li) {
   margin: 0;
@@ -143,6 +179,12 @@ export function renderNode(
   if (!node) return "";
   const highlightClass = node.id === highlightId ? " node-highlight" : "";
   const dataAttr = `data-node-id="${node.id}"`;
+  const dividerConfig = template?.theme?.sectionDivider ?? {};
+  const dividerColor =
+    dividerConfig.color ?? template?.theme?.sectionDividerColor ?? "#e2e8f0";
+  const dividerBaseStyle = `${dividerConfig.width ?? 1}px ${
+    dividerConfig.style ?? "solid"
+  } ${dividerColor}`;
 
   const resolveFontSize = (token) => {
     const base = template?.theme?.baseFontSize ?? 14;
@@ -163,7 +205,7 @@ export function renderNode(
   };
 
   const sectionTitleStyle = () => {
-    const style = node.titleStyle || {};
+    const style = template?.theme?.sectionTitleStyle || {};
     const token = style.fontSizeToken ?? "heading";
     const fontSize = `font-size:${resolveFontSize(token)}px;`;
     const colorToken = style.colorToken ?? "primary";
@@ -171,7 +213,10 @@ export function renderNode(
     const color = colorValue ? `color:${colorValue};` : "";
     const fontWeight = style.fontWeight ? `font-weight:${style.fontWeight};` : "";
     const fontStyle = style.fontStyle ? `font-style:${style.fontStyle};` : "";
-    return `${fontSize}${color}${fontWeight}${fontStyle}`;
+    const textTransform = style.textTransform
+      ? `text-transform:${style.textTransform};`
+      : "";
+    return `${fontSize}${color}${fontWeight}${fontStyle}${textTransform}`;
   };
 
   const flexStyle = (node) => {
@@ -230,12 +275,82 @@ export function renderNode(
     return null;
   };
 
+  const parseInlineItems = (value) => {
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => String(item ?? "").trim())
+        .filter(Boolean);
+    }
+    if (value == null) return [];
+    return String(value)
+      .split(/\r?\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  };
+
+  const renderInlineList = (node, value, fallbackItem) => {
+    const def = template?.fields?.[node?.bindField];
+    const inputType = def?.inputType;
+    if (inputType !== "inline-bullets" && inputType !== "inline-chips") {
+      return null;
+    }
+    const items = parseInlineItems(value);
+    const resolvedItems =
+      items.length > 0
+        ? items
+        : fallbackItem
+          ? [fallbackItem]
+          : [];
+    if (resolvedItems.length === 0) return "";
+    const listClass =
+      inputType === "inline-bullets" ? "inline-bullet-list" : "inline-chip-list";
+    const itemClass =
+      inputType === "inline-bullets" ? "inline-bullet-item" : "inline-chip-item";
+    const listItems = resolvedItems
+      .map((item) => `<span class="${itemClass}">${item}</span>`)
+      .join("");
+    return `${renderIcon(node)}<span class="${listClass}">${listItems}</span>`;
+  };
+
   const renderValue = (node) => {
     const value = resolveNodeValue(node, template, resumeJson, scope);
+    const placeholder =
+      template?.fields?.[node?.bindField]?.placeholder || "Sample item";
+    const inlineList = renderInlineList(node, value, placeholder);
+    if (inlineList != null) return inlineList;
     const link = formatLinkValue(node?.bindField, value);
     const content = `${renderIcon(node)}${value || ""}`;
     if (!link) return content;
     return `<a href="${link.href}" style="color:inherit;text-decoration:none;">${content}</a>`;
+  };
+
+  const isInlineField = (fieldId) => {
+    const inputType = template?.fields?.[fieldId]?.inputType;
+    return inputType === "inline-bullets" || inputType === "inline-chips";
+  };
+
+  const findInlineLeaf = (node) => {
+    let inlineNode = null;
+    let hasOtherField = false;
+    const walk = (current) => {
+      if (!current || hasOtherField) return;
+      if (current.bindField) {
+        if (isInlineField(current.bindField)) {
+          if (inlineNode && inlineNode !== current) {
+            hasOtherField = true;
+            return;
+          }
+          inlineNode = current;
+        } else {
+          hasOtherField = true;
+          return;
+        }
+      }
+      current.children?.forEach(walk);
+    };
+    walk(node);
+    if (hasOtherField) return null;
+    return inlineNode;
   };
 
   switch (node.type) {
@@ -244,10 +359,14 @@ export function renderNode(
       const showTitle = node.showTitle !== false;
       const titleStyle = sectionTitleStyle();
       const dividerStyle =
-        node.showDivider === false ? "border-bottom:none;" : "";
+        node.showDivider === false
+          ? "border-bottom:none;"
+          : node.showDivider === true
+            ? `border-bottom:${dividerBaseStyle};`
+            : "";
       const sectionAlign = node.align ?? "left";
       const titleAlign = node.titleAlign ?? sectionAlign;
-      const titleDivider = node.titleDivider ?? {};
+      const titleDivider = template.theme.sectionTitleDivider ?? {};
       const showTitleDivider = titleDivider.enabled === true;
       const titleDividerColor =
         titleDivider.color ??
@@ -339,16 +458,34 @@ export function renderNode(
       if (items.length === 0) {
         return "";
       }
+      const inlineNode = findInlineLeaf(node.children?.[0]);
+      if (inlineNode) {
+        const values = items
+          .map((item) => item?.[inlineNode.bindField])
+          .filter((value) => value != null && value !== "");
+        const placeholder =
+          template?.fields?.[inlineNode.bindField]?.placeholder || "Sample item";
+        const inlineContent = renderInlineList(
+          inlineNode,
+          values,
+          values.length === 0 ? placeholder : null
+        );
+        if (!inlineContent) return "";
+        return `<div ${dataAttr} class="box rich-text${highlightClass}" style="${leafStyle(
+          inlineNode
+        )}${textAlignStyle(inlineNode.textAlign ?? "left")}">${inlineContent}</div>`;
+      }
       return items
-        .map((item) =>
-          renderChildren(
-            node,
-            template,
-            resumeJson,
-            highlightId,
-            embedLinks,
-            item && typeof item === "object" ? item : {}
-          )
+        .map(
+          (item) =>
+            `<div class="repeat-item">${renderChildren(
+              node,
+              template,
+              resumeJson,
+              highlightId,
+              embedLinks,
+              item && typeof item === "object" ? item : {}
+            )}</div>`
         )
         .join("");
     }

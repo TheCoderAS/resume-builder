@@ -1,5 +1,3 @@
-import Button from "../Button.jsx";
-
 export default function BuilderHeader({
   name,
   onNameChange,
@@ -9,10 +7,7 @@ export default function BuilderHeader({
   onStatusChange,
   categoryOptions,
   statusOptions,
-  saving,
   saveError,
-  onSave,
-  templateId,
   autosaveLabel,
 }) {
   return (
@@ -54,18 +49,6 @@ export default function BuilderHeader({
             ))}
           </select>
         </label>
-        <Button
-          type="button"
-          onClick={onSave}
-          disabled={saving}
-          className="h-10 w-full px-5 py-2 sm:w-auto"
-        >
-          {saving
-            ? "Saving..."
-            : templateId
-              ? "Save changes"
-              : "Create template"}
-        </Button>
         {autosaveLabel ? (
           <span className="text-xs font-semibold text-slate-400">
             Autosave: {autosaveLabel}

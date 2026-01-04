@@ -5,7 +5,6 @@ import {
   FaListOl,
   FaListUl,
   FaStrikethrough,
-  FaTags,
 } from "react-icons/fa6";
 
 const COMMANDS = [
@@ -32,12 +31,6 @@ const COMMANDS = [
     label: <FaListOl size={12} aria-hidden="true" />,
     command: "insertOrderedList",
     title: "Ordered list",
-  },
-  {
-    id: "chipList",
-    label: <FaTags size={12} aria-hidden="true" />,
-    command: "chipList",
-    title: "Chip list",
   },
   {
     id: "strikeThrough",
@@ -96,15 +89,6 @@ export default function RichTextEditor({
     setIsEmpty(isEmptyHtml(nextHtml));
   }, [value]);
 
-  const findClosestList = (node) => {
-    let current = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
-    while (current && current !== editorRef.current) {
-      if (current.tagName === "UL" || current.tagName === "OL") return current;
-      current = current.parentElement;
-    }
-    return null;
-  };
-
   const updateActiveCommands = () => {
     if (!editorRef.current) return;
     const selection = document.getSelection();
@@ -119,10 +103,6 @@ export default function RichTextEditor({
         nextActive.add(item.id);
       }
     });
-    const listNode = findClosestList(selection.anchorNode);
-    if (listNode?.classList?.contains("chip-list")) {
-      nextActive.add("chipList");
-    }
     setActiveCommands(nextActive);
   };
 
@@ -146,25 +126,7 @@ export default function RichTextEditor({
   const applyCommand = (command) => {
     if (!editorRef.current) return;
     editorRef.current.focus();
-    if (command === "chipList") {
-      const selection = document.getSelection();
-      const listNode = findClosestList(selection?.anchorNode);
-      const hasSelection =
-        selection && selection.rangeCount > 0 && !selection.isCollapsed;
-      if (listNode && listNode.tagName === "UL") {
-        listNode.classList.toggle("chip-list");
-      } else if (hasSelection) {
-        document.execCommand("insertUnorderedList", false, null);
-        const nextList = findClosestList(document.getSelection()?.anchorNode);
-        if (nextList) {
-          nextList.classList.add("chip-list");
-        }
-      } else {
-        return;
-      }
-    } else {
-      document.execCommand(command, false, null);
-    }
+    document.execCommand(command, false, null);
     handleInput();
     updateActiveCommands();
   };
@@ -217,7 +179,7 @@ export default function RichTextEditor({
           role="textbox"
           aria-multiline="true"
           aria-required={required}
-          className="min-h-[84px] outline-none [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:my-1 [&_ul.chip-list]:list-none [&_ul.chip-list]:pl-0 [&_ul.chip-list]:flex [&_ul.chip-list]:flex-wrap [&_ul.chip-list]:gap-2 [&_ul.chip-list>li]:rounded-full [&_ul.chip-list>li]:border [&_ul.chip-list>li]:border-slate-600 [&_ul.chip-list>li]:px-2 [&_ul.chip-list>li]:py-0.5"
+          className="min-h-[84px] outline-none [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:my-1"
           onInput={handleInput}
           onPaste={handlePaste}
           onKeyDown={handleKeyDown}

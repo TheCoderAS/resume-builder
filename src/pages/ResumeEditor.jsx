@@ -104,6 +104,7 @@ export default function ResumeEditor() {
   const [resumeTitle, setResumeTitle] = useState("Untitled resume");
   const [template, setTemplate] = useState(createEmptyTemplate());
   const [formValues, setFormValues] = useState({});
+  const [fieldGroupStep, setFieldGroupStep] = useState(0);
   const [visibility, setVisibility] = useState({ isPublic: false });
   const [templates, setTemplates] = useState([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
@@ -120,6 +121,16 @@ export default function ResumeEditor() {
     () => buildFieldGroups(template),
     [template]
   );
+
+  useEffect(() => {
+    if (!templateId || fieldGroups.length === 0) {
+      setFieldGroupStep(0);
+      return;
+    }
+    setFieldGroupStep((prev) =>
+      Math.min(prev, Math.max(0, fieldGroups.length - 1))
+    );
+  }, [templateId, fieldGroups]);
 
   const currentStep = useMemo(() => STEPS[stepIndex], [stepIndex]);
 
@@ -603,40 +614,67 @@ export default function ResumeEditor() {
                       onChange={setFormValues}
                     />
                   ) : (
-                    <div className="flex flex-col gap-6">
-                      {fieldGroups.map((group) => {
-                        const groupFields = Object.fromEntries(
-                          group.fieldIds
-                            .map((fieldId) => [
-                              fieldId,
-                              template?.fields?.[fieldId],
-                            ])
-                            .filter(([, field]) => Boolean(field))
-                        );
-                        const groupTemplate = {
-                          ...template,
-                          fields: groupFields,
-                        };
+                    (() => {
+                      const group = fieldGroups[fieldGroupStep];
+                      if (!group) return null;
+                      const groupFields = Object.fromEntries(
+                        group.fieldIds
+                          .map((fieldId) => [fieldId, template?.fields?.[fieldId]])
+                          .filter(([, field]) => Boolean(field))
+                      );
+                      const groupTemplate = {
+                        ...template,
+                        fields: groupFields,
+                      };
+                      const canGoBack = fieldGroupStep > 0;
+                      const canGoNext = fieldGroupStep < fieldGroups.length - 1;
 
-                        return (
-                          <div
-                            key={group.id}
-                            className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-4"
-                          >
-                            <h4 className="text-sm font-semibold text-slate-200">
-                              {group.title}
-                            </h4>
-                            <div className="mt-4">
-                              <ResumeForm
-                                template={groupTemplate}
-                                values={formValues}
-                                onChange={setFormValues}
-                              />
+                      return (
+                        <div className="flex flex-col gap-4">
+                          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/70 px-4 py-3">
+                            <div>
+                              <p className="text-xs uppercase text-slate-400">
+                                Section {fieldGroupStep + 1} of{" "}
+                                {fieldGroups.length}
+                              </p>
+                              <h4 className="text-sm font-semibold text-slate-200">
+                                {group.title}
+                              </h4>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                type="button"
+                                disabled={!canGoBack}
+                                onClick={() =>
+                                  setFieldGroupStep((prev) => Math.max(prev - 1, 0))
+                                }
+                              >
+                                Previous
+                              </Button>
+                              <Button
+                                type="button"
+                                disabled={!canGoNext}
+                                onClick={() =>
+                                  setFieldGroupStep((prev) =>
+                                    Math.min(prev + 1, fieldGroups.length - 1)
+                                  )
+                                }
+                              >
+                                Next
+                              </Button>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
+                          <div className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-4">
+                            <ResumeForm
+                              template={groupTemplate}
+                              values={formValues}
+                              onChange={setFormValues}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()
                   )}
                 </div>
               </section>

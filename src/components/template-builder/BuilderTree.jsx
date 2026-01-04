@@ -131,6 +131,7 @@ export default function BuilderTree({
               onToggle={onToggle}
               expandedNodes={expandedNodes}
               onMove={onMove}
+              onDuplicate={onDuplicate}
               siblingIndex={index}
               siblingCount={node.children?.length ?? 0}
             />

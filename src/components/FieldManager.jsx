@@ -2,7 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FiEdit2, FiPlus, FiTrash2 } from "react-icons/fi";
 import PromptModal from "./PromptModal.jsx";
 
-const INPUT_TYPES = ["text", "textarea", "email", "phone", "url", "date"];
+const INPUT_TYPES = [
+  "text",
+  "textarea",
+  "email",
+  "phone",
+  "url",
+  "date",
+  "inline-bullets",
+  "inline-chips",
+];
 
 const DEFAULT_FIELD = {
   label: "",
@@ -12,6 +21,9 @@ const DEFAULT_FIELD = {
   required: false,
   maxLength: "",
 };
+
+const formatInputTypeLabel = (type) =>
+  type.replace(/-/g, " ").toUpperCase();
 
 export default function FieldManager({
   template,
@@ -278,7 +290,7 @@ export default function FieldManager({
             >
               {INPUT_TYPES.map((type) => (
                 <option key={type} value={type}>
-                  {type.toUpperCase()}
+                  {formatInputTypeLabel(type)}
                 </option>
               ))}
             </select>

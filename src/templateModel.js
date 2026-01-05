@@ -60,6 +60,7 @@ export const createEmptyTemplate = () => ({
       style: "solid",
       spacing: 6,
     },
+    rowDividerSpacing: 6,
     fontScales: {
       display: 1.6,
       heading: 1.25,

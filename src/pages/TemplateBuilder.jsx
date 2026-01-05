@@ -1373,6 +1373,35 @@ export default function TemplateBuilder() {
                           </div>
                           <div className="rounded-lg border border-slate-800/80 bg-slate-950/60 p-3">
                             <h6 className="text-[11px] font-semibold tracking-wide text-slate-500">
+                              Vertical Divider
+                            </h6>
+                            <div className="mt-3 grid gap-3">
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Spacing (px)
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="24"
+                                  step="1"
+                                  value={template.theme?.rowDividerSpacing ?? ""}
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        rowDividerSpacing: parseNumberInput(
+                                          event.target.value
+                                        ),
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 w-16 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                />
+                              </label>
+                            </div>
+                          </div>
+                          <div className="rounded-lg border border-slate-800/80 bg-slate-950/60 p-3">
+                            <h6 className="text-[11px] font-semibold tracking-wide text-slate-500">
                               Title Divider
                             </h6>
                             <div className="mt-3 grid gap-3">

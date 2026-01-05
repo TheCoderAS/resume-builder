@@ -42,7 +42,7 @@ body {
   border-bottom: ${dividerEnabled ? dividerBaseStyle : "none"};
   margin: ${template.theme.sectionGap ?? 12}px 0;
 }
-.row { display:flex; gap:${template.theme.gap ?? 12}px; }
+.row { display:flex; gap:${template.theme.gap ?? 12}px; width:100% }
 .column { display:flex; flex-direction:column; gap:${template.theme.gap ?? 12}px; }
 .box {
   border: none;
@@ -504,6 +504,11 @@ export function renderNode(
       const rowDivider = node.rowDivider ?? {};
       const rowDividerEnabled = rowDivider.enabled === true;
       const gapSize = template?.theme?.gap ?? 12;
+      const dividerSpacing = template?.theme?.rowDividerSpacing;
+      const dividerGap = Number.isFinite(dividerSpacing)
+        ? Math.max(0, dividerSpacing)
+        : gapSize;
+      const dividerHalfGap = dividerGap / 2;
       const dividerWidth = rowDivider.width ?? 1;
       const dividerStyle = rowDivider.style ?? "solid";
       const dividerColor =
@@ -512,8 +517,9 @@ export function renderNode(
         "#e2e8f0";
       const dividerInset = rowDivider.inset ?? 0;
       const renderedChildren = (node.children || [])
-        .map((child) =>
-          renderNode(
+        .map((child) => ({
+          node: child,
+          html: renderNode(
             child,
             template,
             resumeJson,
@@ -521,26 +527,52 @@ export function renderNode(
             embedLinks,
             showPlaceholders,
             scope
-          )
-        )
-        .filter((child) => child);
+          ),
+        }))
+        .filter((child) => child.html);
       const shouldRenderDivider =
         rowDividerEnabled && renderedChildren.length > 1;
-      const dividerMarkup = shouldRenderDivider
-        ? `<div class="row-divider" style="align-self:stretch;width:0;border-left:${dividerWidth}px ${dividerStyle} ${dividerColor};margin-top:${dividerInset}px;margin-bottom:${dividerInset}px;margin-left:-${
-            gapSize / 2
-          }px;margin-right:-${gapSize / 2}px;"></div>`
-        : "";
+
+      const injectInlineStyles = (html, styles) => {
+        const marker = 'style="';
+        const index = html.indexOf(marker);
+        if (index === -1) return html;
+        return `${html.slice(0, index + marker.length)}${styles}${html.slice(
+          index + marker.length
+        )}`;
+      };
+
+      const dividerLineStyles = () => {
+        const lineSize = `calc(100% - ${dividerInset * 2}px)`;
+        if (dividerStyle === "dashed") {
+          return `background-image:repeating-linear-gradient(to bottom, ${dividerColor} 0, ${dividerColor} 6px, transparent 6px, transparent 12px);background-size:${dividerWidth}px ${lineSize};background-position:0 ${dividerInset}px;background-repeat:no-repeat;`;
+        }
+        if (dividerStyle === "dotted") {
+          return `background-image:repeating-linear-gradient(to bottom, ${dividerColor} 0, ${dividerColor} 2px, transparent 2px, transparent 6px);background-size:${dividerWidth}px ${lineSize};background-position:0 ${dividerInset}px;background-repeat:no-repeat;`;
+        }
+        return `background-image:linear-gradient(${dividerColor}, ${dividerColor});background-size:${dividerWidth}px ${lineSize};background-position:0 ${dividerInset}px;background-repeat:no-repeat;`;
+      };
+
+      const decorateColumn = (child, index, total) => {
+        if (!shouldRenderDivider || child.node?.type !== "column") {
+          return child.html;
+        }
+        const addLeft = index > 0;
+        const addRight = index < total - 1;
+        const paddingLeft = addLeft ? dividerHalfGap : 0;
+        const paddingRight = addRight ? dividerHalfGap : 0;
+        const dividerLine = addLeft ? dividerLineStyles() : "";
+        const styles = `box-sizing:border-box;padding-left:${paddingLeft}px;padding-right:${paddingRight}px;${dividerLine}`;
+        return injectInlineStyles(child.html, styles);
+      };
       const rowContent = shouldRenderDivider
         ? renderedChildren
-            .map((child, index) =>
-              index === 0 ? child : `${dividerMarkup}${child}`
-            )
+            .map((child, index, all) => decorateColumn(child, index, all.length))
             .join("")
-        : renderedChildren.join("");
+        : renderedChildren.map((child) => child.html).join("");
       return `<div ${dataAttr} class="row${highlightClass}" style="${flexStyle(
         node
-      )}">${rowContent}</div>`;
+      )}${shouldRenderDivider ? "gap:0;" : ""}">${rowContent}</div>`;
     }
 
     case "column":

@@ -30,7 +30,7 @@ export default function BuilderTree({
   const canMoveDown = canReorder && siblingIndex < siblingCount - 1;
 
   return (
-    <div className="builder-tree space-y-1 pr-2">
+    <div className="builder-tree space-y-1 pr-2" style={{width:'fit-content'}}>
       <div
         className={`group flex w-full items-center justify-between rounded-lg px-2 py-1 text-xs transition ${
           isSelected

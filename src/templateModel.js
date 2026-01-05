@@ -1,3 +1,16 @@
+export const DEFAULT_COLUMN_WIDTH = {
+  span: null,
+  widthPct: null,
+};
+
+export const DEFAULT_ROW_DIVIDER = {
+  enabled: false,
+  width: null,
+  style: null,
+  color: null,
+  inset: null,
+};
+
 export const createEmptyTemplate = () => ({
   templateId: "template-1",
   schemaVersion: "builder-v1",
@@ -67,6 +80,7 @@ export const createEmptyTemplate = () => ({
       id: "root",
       type: "column",
       style: { spacing: 12 },
+      ...DEFAULT_COLUMN_WIDTH,
       children: [],
     },
   },

@@ -71,6 +71,34 @@ export default function NodeInspector({
     }));
   };
 
+  const handleColumnWidthChange = (value) => {
+    onUpdateNode?.((current) => {
+      if (!value || value === "auto") {
+        const next = { ...current };
+        delete next.span;
+        delete next.widthPct;
+        return next;
+      }
+      const spanValue = Number.parseInt(value, 10);
+      if (Number.isNaN(spanValue)) {
+        return current;
+      }
+      const next = { ...current, span: spanValue };
+      delete next.widthPct;
+      return next;
+    });
+  };
+
+  const handleRowDividerChange = (key, value) => {
+    onUpdateNode?.((current) => ({
+      ...current,
+      rowDivider: {
+        ...(current.rowDivider || {}),
+        [key]: value,
+      },
+    }));
+  };
+
 
   const COLOR_OPTIONS = [
     { label: "Primary", value: "primary" },
@@ -106,6 +134,13 @@ export default function NodeInspector({
     { label: "Colon", value: ": " },
     { label: "None", value: "" },
   ];
+  const COLUMN_WIDTH_OPTIONS = [
+    { label: "Auto", value: "auto" },
+    ...Array.from({ length: 12 }, (_, index) => {
+      const value = index + 1;
+      return { label: `${value}/12`, value: String(value) };
+    }),
+  ];
 
   const handleNodeAlignChange = (key, value) => {
     onUpdateNode?.((current) => ({
@@ -131,6 +166,28 @@ export default function NodeInspector({
     }));
   };
 
+  const rowDividerConfig = node.rowDivider || {};
+  const rowDividerEnabled = rowDividerConfig.enabled === true;
+  const rowDividerWidth = rowDividerConfig.width ?? 1;
+  const rowDividerStyle = rowDividerConfig.style ?? "solid";
+  const rowDividerColor =
+    rowDividerConfig.color ??
+    template?.theme?.sectionDividerColor ??
+    "#e2e8f0";
+  const rowDividerInset = rowDividerConfig.inset ?? 0;
+  const resolveSpanFromPct = (pct) => {
+    if (pct == null) return null;
+    const numericPct = Number(pct);
+    if (!Number.isFinite(numericPct)) return null;
+    const match = Array.from({ length: 12 }, (_, index) => index + 1).find(
+      (value) => Math.abs((value / 12) * 100 - numericPct) < 0.5
+    );
+    return match ? String(match) : null;
+  };
+  const columnWidthValue =
+    node.span != null
+      ? String(node.span)
+      : resolveSpanFromPct(node.widthPct) ?? "auto";
 
   return (
     <div className="flex flex-col gap-3">
@@ -270,6 +327,99 @@ export default function NodeInspector({
               <option value="space-around">Space Around</option>
               <option value="space-evenly">Space Evenly</option>
             </select>
+          </label>
+        </div>
+      ) : null}
+
+      {isColumn ? (
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Column Width
+            <select
+              value={columnWidthValue}
+              onChange={(event) => handleColumnWidthChange(event.target.value)}
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              {COLUMN_WIDTH_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
+
+      {isRow ? (
+        <div className="flex flex-col gap-3 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Vertical Divider
+          </div>
+          <label className="flex items-center gap-3 text-xs font-semibold tracking-wide text-slate-400">
+            <input
+              type="checkbox"
+              checked={rowDividerEnabled}
+              onChange={(event) =>
+                handleRowDividerChange("enabled", event.target.checked)
+              }
+              className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500/40"
+            />
+            Show divider
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Width (px)
+            <input
+              type="number"
+              min="1"
+              value={rowDividerWidth}
+              onChange={(event) =>
+                handleRowDividerChange(
+                  "width",
+                  Number.parseFloat(event.target.value) || 1
+                )
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Style
+            <select
+              value={rowDividerStyle}
+              onChange={(event) =>
+                handleRowDividerChange("style", event.target.value)
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option value="solid">Solid</option>
+              <option value="dashed">Dashed</option>
+              <option value="dotted">Dotted</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Color
+            <input
+              type="color"
+              value={rowDividerColor}
+              onChange={(event) =>
+                handleRowDividerChange("color", event.target.value)
+              }
+              className="h-10 w-20 rounded-lg border border-slate-800 bg-slate-900/70 p-1"
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
+            Inset (top/bottom px)
+            <input
+              type="number"
+              min="0"
+              value={rowDividerInset}
+              onChange={(event) =>
+                handleRowDividerChange(
+                  "inset",
+                  Number.parseFloat(event.target.value) || 0
+                )
+              }
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
           </label>
         </div>
       ) : null}

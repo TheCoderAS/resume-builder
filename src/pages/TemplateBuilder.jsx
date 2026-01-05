@@ -18,7 +18,11 @@ import BuilderHeader from "../components/template-builder/BuilderHeader.jsx";
 import BuilderNodePanel from "../components/template-builder/BuilderNodePanel.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
-import { createEmptyTemplate } from "../templateModel.js";
+import {
+  createEmptyTemplate,
+  DEFAULT_COLUMN_WIDTH,
+  DEFAULT_ROW_DIVIDER,
+} from "../templateModel.js";
 import { buildPreviewResumeJson } from "../utils/resumeData.js";
 import {
   BASE_FONT_SIZE_OPTIONS,
@@ -278,6 +282,12 @@ export default function TemplateBuilder() {
           ? undefined
           : [],
     };
+    if (type === "column") {
+      Object.assign(newNode, DEFAULT_COLUMN_WIDTH);
+    }
+    if (type === "row") {
+      newNode.rowDivider = { ...DEFAULT_ROW_DIVIDER };
+    }
 
     setTemplate((prev) => ({
       ...prev,

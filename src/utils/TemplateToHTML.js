@@ -269,6 +269,21 @@ export function renderNode(
     return `align-items:${alignItems};justify-content:${justifyContent};`;
   };
 
+  const columnWidthStyle = (node) => {
+    const spanValue = node.span != null ? Number(node.span) : null;
+    const widthPctValue = node.widthPct != null ? Number(node.widthPct) : null;
+    const spanPct =
+      Number.isFinite(spanValue) && spanValue > 0
+        ? (spanValue / 12) * 100
+        : null;
+    const pct =
+      Number.isFinite(widthPctValue) && widthPctValue > 0
+        ? widthPctValue
+        : spanPct;
+    if (!pct) return "";
+    return `flex:0 0 ${pct}%;max-width:${pct}%;`;
+  };
+
   const textAlignStyle = (value) =>
     value ? `text-align:${value};` : "";
 
@@ -482,21 +497,51 @@ export function renderNode(
       </div>`;
     }
 
-    case "row":
+    case "row": {
       if (!showPlaceholders && !hasBoundValue(node, scope)) {
         return "";
       }
+      const rowDivider = node.rowDivider ?? {};
+      const rowDividerEnabled = rowDivider.enabled === true;
+      const gapSize = template?.theme?.gap ?? 12;
+      const dividerWidth = rowDivider.width ?? 1;
+      const dividerStyle = rowDivider.style ?? "solid";
+      const dividerColor =
+        rowDivider.color ??
+        template?.theme?.sectionDividerColor ??
+        "#e2e8f0";
+      const dividerInset = rowDivider.inset ?? 0;
+      const renderedChildren = (node.children || [])
+        .map((child) =>
+          renderNode(
+            child,
+            template,
+            resumeJson,
+            highlightId,
+            embedLinks,
+            showPlaceholders,
+            scope
+          )
+        )
+        .filter((child) => child);
+      const shouldRenderDivider =
+        rowDividerEnabled && renderedChildren.length > 1;
+      const dividerMarkup = shouldRenderDivider
+        ? `<div class="row-divider" style="align-self:stretch;width:0;border-left:${dividerWidth}px ${dividerStyle} ${dividerColor};margin-top:${dividerInset}px;margin-bottom:${dividerInset}px;margin-left:-${
+            gapSize / 2
+          }px;margin-right:-${gapSize / 2}px;"></div>`
+        : "";
+      const rowContent = shouldRenderDivider
+        ? renderedChildren
+            .map((child, index) =>
+              index === 0 ? child : `${dividerMarkup}${child}`
+            )
+            .join("")
+        : renderedChildren.join("");
       return `<div ${dataAttr} class="row${highlightClass}" style="${flexStyle(
         node
-      )}">${renderChildren(
-        node,
-        template,
-        resumeJson,
-        highlightId,
-        embedLinks,
-        showPlaceholders,
-        scope
-      )}</div>`;
+      )}">${rowContent}</div>`;
+    }
 
     case "column":
       if (!showPlaceholders && !hasBoundValue(node, scope)) {
@@ -504,7 +549,7 @@ export function renderNode(
       }
       return `<div ${dataAttr} class="column${highlightClass}" style="${flexStyle(
         node
-      )}">${renderChildren(
+      )}${columnWidthStyle(node)}">${renderChildren(
         node,
         template,
         resumeJson,

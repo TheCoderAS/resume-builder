@@ -545,38 +545,67 @@ export default function ResumeEditor() {
     }
   };
 
+  const isIOSDevice = () => {
+    const ua = navigator.userAgent;
+    return (
+      /iP(ad|hone|od)/.test(ua) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    );
+  };
+
   const handleDownload = async () => {
     setDownloadMessage("Opening print dialog...");
     setExporting(true);
     const originalTitle = document.title;
     try {
       document.title = resumeTitle || originalTitle;
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
-      iframe.style.border = "0";
-      iframe.setAttribute("aria-hidden", "true");
-      document.body.appendChild(iframe);
+      const printHtml = buildHTML(template, resumeJson, { embedLinks: true });
 
-      const doc = iframe.contentWindow?.document;
-      if (!doc) {
-        throw new Error("Print frame unavailable");
-      }
-      doc.open();
-      doc.write(buildHTML(template, resumeJson, { embedLinks: true }));
-      doc.close();
-
-      setTimeout(() => {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
+      if (isIOSDevice()) {
+        const printWindow = window.open("", "_blank", "noopener,noreferrer");
+        if (!printWindow) {
+          throw new Error("Print window unavailable");
+        }
+        printWindow.document.open();
+        printWindow.document.write(printHtml);
+        printWindow.document.close();
+        printWindow.document.title = document.title;
         setTimeout(() => {
-          iframe.remove();
-          document.title = originalTitle;
-        }, 1000);
-      }, 300);
+          printWindow.focus();
+          printWindow.print();
+          setTimeout(() => {
+            printWindow.close();
+            document.title = originalTitle;
+          }, 1000);
+        }, 300);
+      } else {
+        const iframe = document.createElement("iframe");
+        iframe.style.position = "fixed";
+        iframe.style.right = "0";
+        iframe.style.bottom = "0";
+        iframe.style.width = "0";
+        iframe.style.height = "0";
+        iframe.style.border = "0";
+        iframe.setAttribute("aria-hidden", "true");
+        document.body.appendChild(iframe);
+
+        const doc = iframe.contentWindow?.document;
+        if (!doc) {
+          throw new Error("Print frame unavailable");
+        }
+        doc.open();
+        doc.write(printHtml);
+        doc.close();
+
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          setTimeout(() => {
+            iframe.remove();
+            document.title = originalTitle;
+          }, 1000);
+        }, 300);
+      }
       setToast({
         message: "Print dialog opened. Save as PDF to download.",
         variant: "success",

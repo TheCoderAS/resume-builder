@@ -38,6 +38,18 @@ import {
 const BUILDER_SCHEMA_VERSION = "builder-v1";
 const LEAF_NODE_TYPES = new Set(["text", "bullet-list", "chip-list"]);
 
+const hydrateTemplate = (layout) => {
+  const baseTemplate = createEmptyTemplate();
+  return {
+    ...baseTemplate,
+    ...layout,
+    page: { ...baseTemplate.page, ...(layout?.page ?? {}) },
+    theme: { ...baseTemplate.theme, ...(layout?.theme ?? {}) },
+    fields: { ...baseTemplate.fields, ...(layout?.fields ?? {}) },
+    layout: layout?.layout?.root ? layout.layout : baseTemplate.layout,
+  };
+};
+
 const sanitizeForFirestore = (value) => {
   if (Array.isArray(value)) {
     return value
@@ -76,6 +88,11 @@ export default function TemplateBuilder() {
   const [fieldCreateSignal, setFieldCreateSignal] = useState(0);
   const [isFieldManagerOpen, setIsFieldManagerOpen] = useState(false);
   const [isJsonOpen, setIsJsonOpen] = useState(false);
+  const [jsonText, setJsonText] = useState(
+    JSON.stringify(createEmptyTemplate(), null, 2)
+  );
+  const [jsonError, setJsonError] = useState("");
+  const [isJsonDirty, setIsJsonDirty] = useState(false);
   const [isGlobalSettingsOpen, setIsGlobalSettingsOpen] = useState(false);
   const [isGlobalColorsOpen, setIsGlobalColorsOpen] = useState(false);
   const [isGlobalTypographyOpen, setIsGlobalTypographyOpen] = useState(false);
@@ -95,15 +112,6 @@ export default function TemplateBuilder() {
     initialAutosave.current = true;
     setAutosaveStatus("idle");
 
-    const hydrateTemplate = (layout) => ({
-      ...baseTemplate,
-      ...layout,
-      page: { ...baseTemplate.page, ...(layout?.page ?? {}) },
-      theme: { ...baseTemplate.theme, ...(layout?.theme ?? {}) },
-      fields: { ...baseTemplate.fields, ...(layout?.fields ?? {}) },
-      layout: layout?.layout?.root ? layout.layout : baseTemplate.layout,
-    });
-
     const resetState = () => {
       setTemplate(baseTemplate);
       setSelectedNodeId("root");
@@ -116,6 +124,9 @@ export default function TemplateBuilder() {
       setSaveError("");
       setExpandedNodes(new Set(["root"]));
       setIsFieldManagerOpen(false);
+      setJsonText(JSON.stringify(baseTemplate, null, 2));
+      setJsonError("");
+      setIsJsonDirty(false);
     };
 
     const loadTemplate = async () => {
@@ -137,6 +148,7 @@ export default function TemplateBuilder() {
         }
         const data = snapshot.data();
         const layout = data.layout;
+        const hydrated = hydrateTemplate(layout);
 
         if (!isMounted) return;
 
@@ -146,11 +158,14 @@ export default function TemplateBuilder() {
         setIsPublic(Boolean(data.isPublic));
         setReadOnly(!user || data.ownerId !== user.uid);
 
-        setTemplate(hydrateTemplate(layout));
+        setTemplate(hydrated);
         setSelectedNodeId("root");
         setLoadError("");
         setExpandedNodes(new Set(["root"]));
         setIsFieldManagerOpen(false);
+        setJsonText(JSON.stringify(hydrated, null, 2));
+        setJsonError("");
+        setIsJsonDirty(false);
         setTimeout(() => {
           initialAutosave.current = false;
         }, 0);
@@ -602,7 +617,37 @@ export default function TemplateBuilder() {
     lastAutosaveStatus.current = autosaveStatus;
   }, [autosaveStatus]);
 
-  const json = JSON.stringify(template, null, 2);
+  useEffect(() => {
+    if (isJsonDirty) return;
+    setJsonText(JSON.stringify(template, null, 2));
+    setJsonError("");
+  }, [template, isJsonDirty]);
+
+  const handleJsonChange = (event) => {
+    const nextText = event.target.value;
+    setJsonText(nextText);
+    setIsJsonDirty(true);
+    try {
+      const parsed = JSON.parse(nextText);
+      if (!parsed || typeof parsed !== "object") {
+        setJsonError("JSON must be an object.");
+        return;
+      }
+      setJsonError("");
+      setTemplate(hydrateTemplate(parsed));
+    } catch (error) {
+      setJsonError("Invalid JSON.");
+    }
+  };
+
+  const handleJsonBlur = () => {
+    setIsJsonDirty(false);
+    if (!jsonError) {
+      setJsonText(JSON.stringify(template, null, 2));
+    }
+  };
+
+  const json = jsonText;
   const showJsonPanel = import.meta.env.VITE_SHOW_TEMPLATE_JSON === "true";
 
   const parseNumberInput = (value) => {
@@ -1772,9 +1817,16 @@ export default function TemplateBuilder() {
                   <div className={`${isJsonOpen ? "" : "pointer-events-none"}`}>
                     <textarea
                       value={json}
-                      readOnly
+                      onChange={handleJsonChange}
+                      onBlur={handleJsonBlur}
+                      aria-invalid={jsonError ? "true" : "false"}
                       className="ui-scrollbar h-60 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs text-slate-200"
                     />
+                    {jsonError ? (
+                      <div className="px-3 pb-3 pt-1 text-xs text-rose-300">
+                        {jsonError}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>

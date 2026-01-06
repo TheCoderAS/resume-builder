@@ -787,7 +787,7 @@ export default function TemplateBuilder() {
                 }`}
               >
                 <div
-                  className={`p-4 ${
+                  className={`max-h-[520px] overflow-auto p-4 ${
                     isFieldManagerOpen ? "" : "pointer-events-none"
                   }`}
                 >

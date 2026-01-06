@@ -32,6 +32,8 @@ body {
   background: ${template.page?.backgroundColor ?? "#ffffff"};
   line-height: ${template.theme.lineHeight ?? 1.5};
   box-sizing: border-box;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
   border: ${
     template.page?.border?.enabled
       ? `${template.page.border.width ?? 1}px ${template.page.border.style ?? "solid"} ${template.page.border.color ?? "#e5e7eb"}`
@@ -74,6 +76,8 @@ body {
   flex-direction: column;
   gap: var(--timeline-gap);
   padding-left: calc(var(--timeline-dot-size) + 12px);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .repeat-timeline::before {
   content: "";
@@ -83,6 +87,8 @@ body {
   left: calc(var(--timeline-dot-size) / 2);
   width: 1px;
   background: var(--timeline-line-color);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .repeat-timeline .repeat-item {
   display: block;
@@ -97,6 +103,8 @@ body {
   height: var(--timeline-dot-size);
   border-radius: 999px;
   background: var(--timeline-line-color);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .rich-text {
   --rich-text-gap: ${template.theme.gap ?? 12}px;

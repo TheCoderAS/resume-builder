@@ -1153,6 +1153,31 @@ export default function TemplateBuilder() {
                             />
                           </label>
                           <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                            Repeat Item Gap
+                            <input
+                              type="range"
+                              min="0"
+                              max="32"
+                              step="1"
+                              value={
+                                template.theme?.repeatItemGap ??
+                                template.theme?.gap ??
+                                12
+                              }
+                              onChange={(event) =>
+                                setTemplate((prev) => ({
+                                  ...prev,
+                                  theme: {
+                                    ...prev.theme,
+                                    repeatItemGap: Number(event.target.value),
+                                  },
+                                }))
+                              }
+                              
+                              className="h-2 w-32 accent-indigo-400"
+                            />
+                          </label>
+                          <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
                             Section Gap
                             <input
                               type="range"
@@ -1437,6 +1462,99 @@ export default function TemplateBuilder() {
                                         rowDividerSpacing: parseNumberInput(
                                           event.target.value
                                         ),
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 w-16 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                />
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Width
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="8"
+                                  step="1"
+                                  value={template.theme?.rowDivider?.width ?? ""}
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        rowDivider: {
+                                          ...(prev.theme?.rowDivider ?? {}),
+                                          width: parseNumberInput(event.target.value),
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 w-16 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                />
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Style
+                                <select
+                                  value={template.theme?.rowDivider?.style ?? "solid"}
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        rowDivider: {
+                                          ...(prev.theme?.rowDivider ?? {}),
+                                          style: event.target.value,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                >
+                                  <option value="solid">Solid</option>
+                                  <option value="dashed">Dashed</option>
+                                  <option value="dotted">Dotted</option>
+                                </select>
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Color
+                                <input
+                                  type="color"
+                                  value={
+                                    template.theme?.rowDivider?.color ??
+                                    template.theme?.sectionDividerColor ??
+                                    "#e2e8f0"
+                                  }
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        rowDivider: {
+                                          ...(prev.theme?.rowDivider ?? {}),
+                                          color: event.target.value,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className="h-8 w-16 cursor-pointer rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1"
+                                />
+                              </label>
+                              <label className="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-400">
+                                Inset (px)
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="24"
+                                  step="1"
+                                  value={template.theme?.rowDivider?.inset ?? ""}
+                                  onChange={(event) =>
+                                    setTemplate((prev) => ({
+                                      ...prev,
+                                      theme: {
+                                        ...prev.theme,
+                                        rowDivider: {
+                                          ...(prev.theme?.rowDivider ?? {}),
+                                          inset: parseNumberInput(event.target.value),
+                                        },
                                       },
                                     }))
                                   }

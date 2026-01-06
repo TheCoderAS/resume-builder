@@ -54,16 +54,19 @@ body {
   margin-bottom: ${template.theme.gap ?? 12}px;
 }
 .repeat-item {
-  display: contents;
+  display: block;
 }
 .repeat-item > * {
   margin-bottom: 0;
 }
 .repeat-group {
-  display: contents;
+  --repeat-gap: ${template.theme.repeatItemGap ?? template.theme.gap ?? 12}px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--repeat-gap);
 }
 .repeat-timeline {
-  --timeline-gap: ${template.theme.gap ?? 12}px;
+  --timeline-gap: ${template.theme.repeatItemGap ?? template.theme.gap ?? 12}px;
   --timeline-line-color: ${
     template.theme.timelineLineColor ??
     template.theme.sectionDividerColor ??
@@ -511,19 +514,21 @@ export function renderNode(
       }
       const rowDivider = node.rowDivider ?? {};
       const rowDividerEnabled = rowDivider.enabled === true;
+      const rowDividerTheme = template?.theme?.rowDivider ?? {};
       const gapSize = template?.theme?.gap ?? 12;
       const dividerSpacing = template?.theme?.rowDividerSpacing;
       const dividerGap = Number.isFinite(dividerSpacing)
         ? Math.max(0, dividerSpacing)
         : gapSize;
       const dividerHalfGap = dividerGap / 2;
-      const dividerWidth = rowDivider.width ?? 1;
-      const dividerStyle = rowDivider.style ?? "solid";
+      const dividerWidth = rowDivider.width ?? rowDividerTheme.width ?? 1;
+      const dividerStyle = rowDivider.style ?? rowDividerTheme.style ?? "solid";
       const dividerColor =
         rowDivider.color ??
+        rowDividerTheme.color ??
         template?.theme?.sectionDividerColor ??
         "#e2e8f0";
-      const dividerInset = rowDivider.inset ?? 0;
+      const dividerInset = rowDivider.inset ?? rowDividerTheme.inset ?? 0;
       const renderedChildren = (node.children || [])
         .map((child) => ({
           node: child,

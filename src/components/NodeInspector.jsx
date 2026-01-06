@@ -168,13 +168,6 @@ export default function NodeInspector({
 
   const rowDividerConfig = node.rowDivider || {};
   const rowDividerEnabled = rowDividerConfig.enabled === true;
-  const rowDividerWidth = rowDividerConfig.width ?? 1;
-  const rowDividerStyle = rowDividerConfig.style ?? "solid";
-  const rowDividerColor =
-    rowDividerConfig.color ??
-    template?.theme?.sectionDividerColor ??
-    "#e2e8f0";
-  const rowDividerInset = rowDividerConfig.inset ?? 0;
   const resolveSpanFromPct = (pct) => {
     if (pct == null) return null;
     const numericPct = Number(pct);
@@ -365,61 +358,6 @@ export default function NodeInspector({
               className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500/40"
             />
             Show divider
-          </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
-            Width (px)
-            <input
-              type="number"
-              min="1"
-              value={rowDividerWidth}
-              onChange={(event) =>
-                handleRowDividerChange(
-                  "width",
-                  Number.parseFloat(event.target.value) || 1
-                )
-              }
-              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-            />
-          </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
-            Style
-            <select
-              value={rowDividerStyle}
-              onChange={(event) =>
-                handleRowDividerChange("style", event.target.value)
-              }
-              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-            >
-              <option value="solid">Solid</option>
-              <option value="dashed">Dashed</option>
-              <option value="dotted">Dotted</option>
-            </select>
-          </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
-            Color
-            <input
-              type="color"
-              value={rowDividerColor}
-              onChange={(event) =>
-                handleRowDividerChange("color", event.target.value)
-              }
-              className="h-10 w-20 rounded-lg border border-slate-800 bg-slate-900/70 p-1"
-            />
-          </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold tracking-wide text-slate-400">
-            Inset (top/bottom px)
-            <input
-              type="number"
-              min="0"
-              value={rowDividerInset}
-              onChange={(event) =>
-                handleRowDividerChange(
-                  "inset",
-                  Number.parseFloat(event.target.value) || 0
-                )
-              }
-              className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-            />
           </label>
         </div>
       ) : null}

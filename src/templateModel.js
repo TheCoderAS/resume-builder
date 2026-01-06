@@ -60,7 +60,14 @@ export const createEmptyTemplate = () => ({
       style: "solid",
       spacing: 6,
     },
+    rowDivider: {
+      width: 1,
+      style: "solid",
+      color: "#e2e8f0",
+      inset: 0,
+    },
     rowDividerSpacing: 6,
+    repeatItemGap: 12,
     fontScales: {
       display: 1.6,
       heading: 1.25,

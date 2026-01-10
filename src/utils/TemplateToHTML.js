@@ -44,8 +44,8 @@ body {
   border-bottom: ${dividerEnabled ? dividerBaseStyle : "none"};
   margin: ${template.theme.sectionGap ?? 12}px 0;
 }
-.row { display:flex; gap:${template.theme.gap ?? 12}px; width:100% }
-.column { display:flex; flex-direction:column; gap:${template.theme.gap ?? 12}px; }
+.row { display:flex; gap:${template.theme.gap ?? 12}px; width:100%; }
+.column { display:flex; flex-direction:column; gap:${template.theme.gap ?? 12}px; height:100%; }
 .box {
   border: none;
   border-radius: 0;

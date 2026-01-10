@@ -11,8 +11,11 @@ export const DEFAULT_ROW_DIVIDER = {
   inset: null,
 };
 
+const createTemplateId = () =>
+  `TMP_${Date.now()}`;
+
 export const createEmptyTemplate = () => ({
-  templateId: Date.now(),
+  id: createTemplateId(),
   schemaVersion: "builder-v1",
   version: "1.0",
   page: {

@@ -559,7 +559,10 @@ export default function ResumeEditor() {
     const originalTitle = document.title;
     try {
       document.title = resumeTitle || originalTitle;
-      const printHtml = buildHTML(template, resumeJson, { embedLinks: true });
+      const printHtml = buildHTML(template, resumeJson, {
+        embedLinks: true,
+        showPlaceholders: false,
+      });
 
       if (isIOSDevice()) {
         const printWindow = window.open("", "_blank", "noopener,noreferrer");

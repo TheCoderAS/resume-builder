@@ -64,6 +64,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/app/template-builder/:templateId"
+        element={
+          <ProtectedRoute>
+            <TemplateBuilder />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/app/profile"
         element={
           <ProtectedRoute>

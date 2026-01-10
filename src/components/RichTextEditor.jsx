@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   FaBold,
   FaItalic,
@@ -65,6 +65,14 @@ const isEmptyHtml = (value) => {
   return text.length === 0 && !hasList;
 };
 
+const toPlainText = (value) => {
+  if (!value) return "";
+  if (!isHtmlValue(value)) return value;
+  const container = document.createElement("div");
+  container.innerHTML = value;
+  return container.textContent ?? "";
+};
+
 export default function RichTextEditor({
   value = "",
   placeholder = "",
@@ -76,6 +84,10 @@ export default function RichTextEditor({
   const lastValueRef = useRef(null);
   const [isEmpty, setIsEmpty] = useState(isEmptyHtml(value));
   const [activeCommands, setActiveCommands] = useState(new Set());
+  const placeholderText = useMemo(
+    () => toPlainText(String(placeholder ?? "")),
+    [placeholder]
+  );
 
   useLayoutEffect(() => {
     const editor = editorRef.current;
@@ -168,9 +180,9 @@ export default function RichTextEditor({
         ))}
       </div>
       <div className="relative px-3 py-2 text-sm text-slate-100">
-        {isEmpty && placeholder ? (
+        {isEmpty && placeholderText ? (
           <span className="pointer-events-none absolute left-3 top-2 text-slate-500">
-            {placeholder}
+            {placeholderText}
           </span>
         ) : null}
         <div

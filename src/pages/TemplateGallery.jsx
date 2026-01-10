@@ -28,8 +28,10 @@ import Input from "../components/Input.jsx";
 import LoadingSkeleton from "../components/LoadingSkeleton.jsx";
 import PromptModal from "../components/PromptModal.jsx";
 import Snackbar from "../components/Snackbar.jsx";
+import { TemplatePreview } from "../components/TemplatePreview.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
+import { buildPreviewResumeJson } from "../utils/resumeData.js";
 
 const FILTER_OPTIONS = [
   { label: "All", value: "all" },
@@ -409,6 +411,10 @@ export default function TemplateGallery() {
                 const isPublicTemplate = template.isPublic === true;
                 const isDefaultTemplate =
                   defaultTemplateId && defaultTemplateId === template.id;
+                const canRenderPreview = Boolean(template?.layout && template?.page);
+                const previewResumeJson = canRenderPreview
+                  ? buildPreviewResumeJson(template, {})
+                  : null;
 
                 return (
                   <div
@@ -535,6 +541,27 @@ export default function TemplateGallery() {
                         )}
                       </div>
                     ) : null}
+                    <div
+                      className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-2 shadow-inner"
+                      onClick={(event) => event.stopPropagation()}
+                      onMouseDown={(event) => event.stopPropagation()}
+                    >
+                      <div className="h-48 overflow-hidden rounded-xl bg-slate-900/40">
+                        {canRenderPreview && previewResumeJson ? (
+                          <TemplatePreview
+                            template={template}
+                            resumeJson={previewResumeJson}
+                            embedLinks={false}
+                            showPlaceholders={true}
+                            className="pointer-events-auto select-text"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-xs text-slate-400">
+                            Preview unavailable
+                          </div>
+                        )}
+                      </div>
+                    </div>
                     <div className="flex flex-1 flex-col gap-3">
                       <div>
                         <p className="text-xs font-semibold tracking-wide text-emerald-200">

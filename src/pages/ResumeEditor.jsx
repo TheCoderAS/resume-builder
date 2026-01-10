@@ -565,22 +565,38 @@ export default function ResumeEditor() {
       });
 
       if (isIOSDevice()) {
-        const printWindow = window.open("", "_blank", "noopener,noreferrer");
-        if (!printWindow) {
-          throw new Error("Print window unavailable");
-        }
-        printWindow.document.open();
-        printWindow.document.write(printHtml);
-        printWindow.document.close();
-        printWindow.document.title = document.title;
-        setTimeout(() => {
-          printWindow.focus();
-          printWindow.print();
+        const blobUrl = URL.createObjectURL(
+          new Blob([printHtml], { type: "text/html" })
+        );
+        const printWindow = window.open("", "_blank");
+        const cleanup = () => {
+          URL.revokeObjectURL(blobUrl);
+          document.title = originalTitle;
+        };
+        const handlePrint = (targetWindow) => {
+          targetWindow.focus();
+          targetWindow.print();
           setTimeout(() => {
-            printWindow.close();
-            document.title = originalTitle;
+            try {
+              targetWindow.close();
+            } catch (closeError) {
+              console.error(closeError);
+            }
+            cleanup();
           }, 1000);
-        }, 300);
+        };
+
+        if (!printWindow) {
+          window.location.href = blobUrl;
+          setTimeout(() => {
+            window.print();
+            cleanup();
+          }, 800);
+        } else {
+          printWindow.location.href = blobUrl;
+          printWindow.onload = () => handlePrint(printWindow);
+          setTimeout(() => handlePrint(printWindow), 1200);
+        }
       } else {
         const iframe = document.createElement("iframe");
         iframe.style.position = "fixed";

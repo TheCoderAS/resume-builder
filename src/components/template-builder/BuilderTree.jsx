@@ -28,6 +28,10 @@ export default function BuilderTree({
   );
   const canMoveUp = canReorder && siblingIndex > 0;
   const canMoveDown = canReorder && siblingIndex < siblingCount - 1;
+  const displayId =
+    node.type === "section" && node.title?.trim()
+      ? node.title.trim().toLowerCase()
+      : null;
 
   return (
     <div className="builder-tree space-y-1 pr-2" style={{width:'fit-content'}}>
@@ -55,7 +59,7 @@ export default function BuilderTree({
           >
             {isOpen ? "▾" : "▸"}
           </button>
-          <span className="font-semibold text-slate-100">{node.type}</span>
+          <span className="font-semibold text-slate-100">{displayId?displayId:node.type}</span>
           <span className="text-[11px] text-slate-500">({node.id})</span>
         </div>
         <div className="flex items-center gap-1">

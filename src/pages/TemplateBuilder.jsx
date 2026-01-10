@@ -1,13 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  addDoc,
-  collection,
-  doc,
-  getDoc,
-  serverTimestamp,
-  updateDoc,
-} from "firebase/firestore";
-import { useLocation, useNavigate } from "react-router-dom";
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
 import FieldManager from "../components/FieldManager.jsx";
 import NodeInspector from "../components/NodeInspector.jsx";
@@ -71,7 +64,7 @@ const sanitizeForFirestore = (value) => {
 export default function TemplateBuilder() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const location = useLocation();
+  const { templateId: templateIdParam } = useParams();
   const [template, setTemplate] = useState(createEmptyTemplate());
   const [selectedNodeId, setSelectedNodeId] = useState("root");
   const [loadError, setLoadError] = useState("");
@@ -103,14 +96,16 @@ export default function TemplateBuilder() {
   const [autosaveStatus, setAutosaveStatus] = useState("idle");
   const initialAutosave = useRef(true);
   const lastAutosaveStatus = useRef("idle");
+  const hasCreatedRef = useRef(false);
 
-  const templateId = location.state?.templateId;
+  const [templateId, setTemplateId] = useState(templateIdParam ?? null);
 
   useEffect(() => {
     let isMounted = true;
     const baseTemplate = createEmptyTemplate();
     initialAutosave.current = true;
     setAutosaveStatus("idle");
+    hasCreatedRef.current = Boolean(templateIdParam);
 
     const resetState = () => {
       setTemplate(baseTemplate);
@@ -127,10 +122,12 @@ export default function TemplateBuilder() {
       setJsonText(JSON.stringify(baseTemplate, null, 2));
       setJsonError("");
       setIsJsonDirty(false);
+      setTemplateId(baseTemplate.id);
+      setReadOnly(false);
     };
 
     const loadTemplate = async () => {
-      if (!templateId) {
+      if (!templateIdParam) {
         resetState();
         setTimeout(() => {
           initialAutosave.current = false;
@@ -139,7 +136,7 @@ export default function TemplateBuilder() {
       }
 
       try {
-        const snapshot = await getDoc(doc(db, "templates", templateId));
+        const snapshot = await getDoc(doc(db, "templates", templateIdParam));
         if (!snapshot.exists()) {
           if (isMounted) {
             setLoadError("Template not found.");
@@ -157,6 +154,7 @@ export default function TemplateBuilder() {
         setStatus(data.status ?? "draft");
         setIsPublic(Boolean(data.isPublic));
         setReadOnly(!user || data.ownerId !== user.uid);
+        setTemplateId(templateIdParam);
 
         setTemplate(hydrated);
         setSelectedNodeId("root");
@@ -184,7 +182,7 @@ export default function TemplateBuilder() {
     return () => {
       isMounted = false;
     };
-  }, [templateId]);
+  }, [templateIdParam, user]);
 
   const selectedNode = useMemo(() => {
     function find(node) {
@@ -378,21 +376,23 @@ export default function TemplateBuilder() {
         updatedAt: serverTimestamp(),
       });
 
-      if (templateId) {
+      if (templateId && hasCreatedRef.current) {
         await updateDoc(doc(db, "templates", templateId), payload);
         setToast({ message: "Template saved.", variant: "success" });
         setAutosaveStatus("saved");
-      } else {
-        const docRef = await addDoc(collection(db, "templates"), {
+      } else if (templateId) {
+        await setDoc(doc(db, "templates", templateId), {
           ...payload,
           createdAt: serverTimestamp(),
         });
+        hasCreatedRef.current = true;
         setToast({ message: "Template created.", variant: "success" });
-        navigate("/app/template-builder", {
+        navigate(`/app/template-builder/${templateId}`, {
           replace: true,
-          state: { templateId: docRef.id },
         });
         setAutosaveStatus("saved");
+      } else {
+        throw new Error("Missing template id for save.");
       }
     } catch (error) {
       console.error(error)
@@ -590,7 +590,20 @@ export default function TemplateBuilder() {
           type: "builder",
           updatedAt: serverTimestamp(),
         });
-        await updateDoc(doc(db, "templates", templateId), payload);
+        if (hasCreatedRef.current) {
+          await updateDoc(doc(db, "templates", templateId), payload);
+        } else {
+          await setDoc(doc(db, "templates", templateId), {
+            ...payload,
+            createdAt: serverTimestamp(),
+          });
+          hasCreatedRef.current = true;
+          if (!templateIdParam) {
+            navigate(`/app/template-builder/${templateId}`, {
+              replace: true,
+            });
+          }
+        }
         setAutosaveStatus("saved");
       } catch (error) {
         console.error(error);
@@ -599,7 +612,18 @@ export default function TemplateBuilder() {
     }, 900);
 
     return () => clearTimeout(timeout);
-  }, [template, name, category, status, isPublic, templateId, user, readOnly]);
+  }, [
+    template,
+    name,
+    category,
+    status,
+    isPublic,
+    templateId,
+    user,
+    readOnly,
+    templateIdParam,
+    navigate,
+  ]);
 
   const autosaveLabel = useMemo(() => {
     if (readOnly) return "Read-only";

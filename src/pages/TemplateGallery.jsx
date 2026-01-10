@@ -419,9 +419,7 @@ export default function TemplateGallery() {
                         : "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
                     }`}
                     onClick={() =>
-                      navigate("/app/template-builder", {
-                        state: { templateId: template.id },
-                      })
+                      navigate(`/app/template-builder/${template.id}`)
                     }
                   >
                     {isUserTemplate || isPublicTemplate ? (

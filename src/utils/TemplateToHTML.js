@@ -19,6 +19,7 @@ export function buildHTML(template, resumeJson = {}, options = {}) {
   return `
 <html>
 <head>
+<meta charset="UTF-8">
 <style>
 @page {
   margin: 0;
@@ -44,8 +45,8 @@ body {
   border-bottom: ${dividerEnabled ? dividerBaseStyle : "none"};
   margin: ${template.theme.sectionGap ?? 12}px 0;
 }
-.row { display:flex; gap:${template.theme.gap ?? 12}px; width:100% }
-.column { display:flex; flex-direction:column; gap:${template.theme.gap ?? 12}px; }
+.row { display:flex; gap:${template.theme.gap ?? 12}px; width:100%; }
+.column { display:flex; flex-direction:column; gap:${template.theme.gap ?? 12}px; height:100%; }
 .box {
   border: none;
   border-radius: 0;
@@ -113,6 +114,9 @@ body {
   --rich-text-gap: ${template.theme.gap ?? 12}px;
   --chip-padding-y: ${Math.max(3, Math.round((template.theme.gap ?? 12) / 4))}px;
   --chip-padding-x: ${Math.max(8, Math.round((template.theme.gap ?? 12) / 2))}px;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
 }
 .rich-text .inline-bullet-list,
 .rich-text .inline-chip-list {
@@ -130,6 +134,10 @@ body {
 .rich-text .inline-bullet-item::before {
   content: "•";
   margin-right: 0.35em;
+  font-size: 15px;
+  line-height: inherit;
+  margin-left: 2px;
+
 }
 .rich-text .inline-chip-item {
   padding: var(--chip-padding-y) var(--chip-padding-x);
@@ -143,6 +151,13 @@ body {
 }
 .rich-text :where(ul, ol) {
   padding-left: 1.25em;
+  margin: 0;
+  list-style-position: outside;
+}
+.rich-text :where(ul, ol)::marker,
+.rich-text :where(li)::marker {
+  font-size: inherit;
+  color: currentColor;
 }
 .rich-text :where(ul.chip-list) {
   list-style: none;

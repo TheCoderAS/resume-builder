@@ -100,14 +100,14 @@ export default function Landing() {
             One workspace for every resume version.
           </h3>
           <p className="mt-3 text-sm text-slate-300">
-            Protected routes keep your drafts safe. Use the dashboard to track
-            edits, versions, and exports.
+            Keep templates, resumes, and exports organized in one secure
+            dashboard.
           </p>
         </div>
         <div className="rounded-[32px] border border-emerald-400/40 bg-emerald-500/10 p-8 text-emerald-100">
           <h3 className="text-2xl font-semibold">Start free today</h3>
           <p className="mt-3 text-sm text-emerald-100/80">
-            Add Firebase credentials and turn on authentication to go live.
+            Create an account to save templates, track versions, and export resumes.
           </p>
           <Link to="/signup" className="mt-5 inline-flex">
             <Button type="button">Create your account</Button>

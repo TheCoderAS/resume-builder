@@ -96,3 +96,15 @@ export const createEmptyTemplate = () => ({
     },
   },
 });
+
+export const hydrateTemplate = (layout) => {
+  const baseTemplate = createEmptyTemplate();
+  return {
+    ...baseTemplate,
+    ...layout,
+    page: { ...baseTemplate.page, ...(layout?.page ?? {}) },
+    theme: { ...baseTemplate.theme, ...(layout?.theme ?? {}) },
+    fields: { ...baseTemplate.fields, ...(layout?.fields ?? {}) },
+    layout: layout?.layout?.root ? layout.layout : baseTemplate.layout,
+  };
+};

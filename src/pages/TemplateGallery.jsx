@@ -31,6 +31,7 @@ import Snackbar from "../components/Snackbar.jsx";
 import { TemplatePreview } from "../components/TemplatePreview.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
+import { hydrateTemplate } from "../templateModel.js";
 import { buildPreviewResumeJson } from "../utils/resumeData.js";
 
 const FILTER_OPTIONS = [
@@ -411,9 +412,10 @@ export default function TemplateGallery() {
                 const isPublicTemplate = template.isPublic === true;
                 const isDefaultTemplate =
                   defaultTemplateId && defaultTemplateId === template.id;
-                const canRenderPreview = Boolean(template?.layout && template?.page);
+                const hydratedTemplate = hydrateTemplate(template);
+                const canRenderPreview = Boolean(hydratedTemplate?.layout?.root);
                 const previewResumeJson = canRenderPreview
-                  ? buildPreviewResumeJson(template, {})
+                  ? buildPreviewResumeJson(hydratedTemplate, {})
                   : null;
 
                 return (
@@ -549,7 +551,7 @@ export default function TemplateGallery() {
                       <div className="h-48 overflow-hidden rounded-xl bg-slate-900/40">
                         {canRenderPreview && previewResumeJson ? (
                           <TemplatePreview
-                            template={template}
+                            template={hydratedTemplate}
                             resumeJson={previewResumeJson}
                             embedLinks={false}
                             showPlaceholders={true}

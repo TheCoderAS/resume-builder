@@ -15,6 +15,7 @@ import {
   createEmptyTemplate,
   DEFAULT_COLUMN_WIDTH,
   DEFAULT_ROW_DIVIDER,
+  hydrateTemplate,
 } from "../templateModel.js";
 import { buildPreviewResumeJson } from "../utils/resumeData.js";
 import {
@@ -30,18 +31,6 @@ import {
 
 const BUILDER_SCHEMA_VERSION = "builder-v1";
 const LEAF_NODE_TYPES = new Set(["text", "bullet-list", "chip-list"]);
-
-const hydrateTemplate = (layout) => {
-  const baseTemplate = createEmptyTemplate();
-  return {
-    ...baseTemplate,
-    ...layout,
-    page: { ...baseTemplate.page, ...(layout?.page ?? {}) },
-    theme: { ...baseTemplate.theme, ...(layout?.theme ?? {}) },
-    fields: { ...baseTemplate.fields, ...(layout?.fields ?? {}) },
-    layout: layout?.layout?.root ? layout.layout : baseTemplate.layout,
-  };
-};
 
 const sanitizeForFirestore = (value) => {
   if (Array.isArray(value)) {

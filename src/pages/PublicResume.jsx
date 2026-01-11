@@ -17,7 +17,7 @@ import Button from "../components/Button.jsx";
 import PromptModal from "../components/PromptModal.jsx";
 import Snackbar from "../components/Snackbar.jsx";
 import { TemplatePreview } from "../components/TemplatePreview.jsx";
-import { createEmptyTemplate } from "../templateModel.js";
+import { applyTemplateOverrides, createEmptyTemplate } from "../templateModel.js";
 import { buildResumeJson } from "../utils/resumeData.js";
 import { buildHTML } from "../utils/TemplateToHTML.js";
 
@@ -73,6 +73,10 @@ export default function PublicResume() {
   const resumeJson = useMemo(
     () => buildResumeJson(template, resume.values ?? {}),
     [template, resume.values]
+  );
+  const effectiveTemplate = useMemo(
+    () => applyTemplateOverrides(template, resume.templateOverrides),
+    [template, resume.templateOverrides]
   );
 
   useEffect(() => {
@@ -214,7 +218,9 @@ export default function PublicResume() {
         resume.profile?.name ||
         "Resume";
       document.title = name;
-      const printHtml = buildHTML(template, resumeJson, { embedLinks: true });
+      const printHtml = buildHTML(effectiveTemplate, resumeJson, {
+        embedLinks: true,
+      });
 
       if (isIOSDevice()) {
         const blobUrl = URL.createObjectURL(
@@ -370,7 +376,7 @@ export default function PublicResume() {
           <div className="flex flex-col items-center gap-6">
             <div className="w-full max-w-[794px] overflow-hidden bg-white shadow-[0_20px_40px_rgba(15,23,42,0.3)] bg-slate-100 p-2">
               <TemplatePreview
-                template={template}
+                template={effectiveTemplate}
                 resumeJson={resumeJson}
                 embedLinks
                 showPlaceholders={false}

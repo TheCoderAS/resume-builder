@@ -27,6 +27,7 @@ export function TemplatePreview({
   }, [template?.page?.size]);
 
   useEffect(() => {
+    if (!isReady) return;
     const doc = iframeRef.current?.contentDocument;
     if (!doc) return;
     doc.open();
@@ -39,7 +40,7 @@ export function TemplatePreview({
       })
     );
     doc.close();
-  }, [template, resumeJson, highlightId, embedLinks, showPlaceholders]);
+  }, [template, resumeJson, highlightId, embedLinks, showPlaceholders, isReady]);
 
   useEffect(() => {
     if (!onSelectNode) return;

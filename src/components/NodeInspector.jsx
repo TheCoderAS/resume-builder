@@ -11,10 +11,12 @@ export default function NodeInspector({
   const fields = template?.fields || {};
   const fieldOptions = useMemo(
     () =>
-      Object.entries(fields).map(([fieldId, field]) => ({
-        id: fieldId,
-        label: field?.label || fieldId,
-      })),
+      Object.entries(fields)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([fieldId, field]) => ({
+          id: fieldId,
+          label: field?.label || fieldId,
+        })),
     [fields]
   );
   if (!node) {

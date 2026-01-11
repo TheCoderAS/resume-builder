@@ -24,12 +24,20 @@ import VisibilityToggle from "../components/VisibilityToggle.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
 import { TemplatePreview } from "../components/TemplatePreview.jsx";
-import { createEmptyTemplate } from "../templateModel.js";
+import { applyTemplateOverrides, createEmptyTemplate } from "../templateModel.js";
 import { buildResumeJson } from "../utils/resumeData.js";
 import { buildHTML } from "../utils/TemplateToHTML.js";
+import { FONT_OPTIONS, PAGE_OPTIONS } from "./templateBuilderOptions.js";
 
 const STEPS = ["Select template", "Fill fields", "Export & publish"];
 const BUILDER_SCHEMA_VERSION = "builder-v1";
+const COLOR_FIELDS = [
+  { key: "primary", label: "Primary", fallback: "#000000" },
+  { key: "secondary", label: "Secondary", fallback: "#1f2937" },
+  { key: "accent", label: "Accent", fallback: "#2563EB" },
+  { key: "muted", label: "Muted", fallback: "#666666" },
+  { key: "meta", label: "Meta", fallback: "#475569" },
+];
 
 const hydrateTemplate = (layout) => {
   const baseTemplate = createEmptyTemplate();
@@ -107,6 +115,7 @@ export default function ResumeEditor() {
   const [templateName, setTemplateName] = useState("");
   const [resumeTitle, setResumeTitle] = useState("Untitled resume");
   const [template, setTemplate] = useState(createEmptyTemplate());
+  const [templateOverrides, setTemplateOverrides] = useState(null);
   const [formValues, setFormValues] = useState({});
   const [fieldGroupStep, setFieldGroupStep] = useState(0);
   const [visibility, setVisibility] = useState({ isPublic: false });
@@ -118,6 +127,7 @@ export default function ResumeEditor() {
   const [copyMessage, setCopyMessage] = useState("Copy link");
   const [downloadMessage, setDownloadMessage] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [isQuickSettingsOpen, setIsQuickSettingsOpen] = useState(false);
   const lastAutosaveStatus = useRef("idle");
   const lastUsageTemplateId = useRef(null);
   const [blockedTemplate, setBlockedTemplate] = useState(null);
@@ -127,6 +137,41 @@ export default function ResumeEditor() {
     () => buildResumeJson(template, formValues),
     [template, formValues]
   );
+  const effectiveTemplate = useMemo(
+    () => applyTemplateOverrides(template, templateOverrides),
+    [template, templateOverrides]
+  );
+
+  const updateOverride = (path, value) => {
+    setTemplateOverrides((prev) => {
+      const next = prev ? { ...prev } : {};
+      let cursor = next;
+      for (let index = 0; index < path.length - 1; index += 1) {
+        const key = path[index];
+        cursor[key] = { ...(cursor[key] ?? {}) };
+        cursor = cursor[key];
+      }
+      const lastKey = path[path.length - 1];
+      if (value === "" || value == null) {
+        delete cursor[lastKey];
+      } else {
+        cursor[lastKey] = value;
+      }
+      if (next.theme?.fonts && Object.keys(next.theme.fonts).length === 0) {
+        delete next.theme.fonts;
+      }
+      if (next.theme?.colors && Object.keys(next.theme.colors).length === 0) {
+        delete next.theme.colors;
+      }
+      if (next.theme && Object.keys(next.theme).length === 0) {
+        delete next.theme;
+      }
+      if (next.page && Object.keys(next.page).length === 0) {
+        delete next.page;
+      }
+      return Object.keys(next).length === 0 ? null : next;
+    });
+  };
   const fieldGroups = useMemo(
     () => buildFieldGroups(template),
     [template]
@@ -164,6 +209,7 @@ export default function ResumeEditor() {
       setTemplateId(null);
       setTemplateName("");
       setTemplate(createEmptyTemplate());
+      setTemplateOverrides(null);
       setTemplateWarning("");
       setTemplateWarningId(null);
       setBlockedTemplate(null);
@@ -202,6 +248,7 @@ export default function ResumeEditor() {
                 setResumeTitle(data.resumeTitle ?? "Untitled resume");
                 setTemplateId(data.templateId ?? null);
                 setTemplateName(data.templateName ?? "");
+                setTemplateOverrides(data.templateOverrides ?? null);
                 lastUsageTemplateId.current = data.templateId ?? null;
                 setResumeId(activeId);
                 initialSave.current = false;
@@ -250,6 +297,7 @@ export default function ResumeEditor() {
       resumeTitle,
       templateId,
       templateName,
+      templateOverrides,
       templateSnapshot: template,
       templateSchemaVersion: template?.schemaVersion ?? BUILDER_SCHEMA_VERSION,
       createdAt: serverTimestamp(),
@@ -441,6 +489,7 @@ export default function ResumeEditor() {
             resumeTitle,
             templateId,
             templateName,
+            templateOverrides,
             templateSnapshot: template,
             templateSchemaVersion: template?.schemaVersion ?? BUILDER_SCHEMA_VERSION,
             updatedAt: serverTimestamp(),
@@ -460,6 +509,7 @@ export default function ResumeEditor() {
     resumeTitle,
     templateId,
     templateName,
+    templateOverrides,
     visibility,
     resumeId,
     user,
@@ -559,7 +609,7 @@ export default function ResumeEditor() {
     const originalTitle = document.title;
     try {
       document.title = resumeTitle || originalTitle;
-      const printHtml = buildHTML(template, resumeJson, {
+      const printHtml = buildHTML(effectiveTemplate, resumeJson, {
         embedLinks: true,
         showPlaceholders: false,
       });
@@ -1022,10 +1072,22 @@ export default function ResumeEditor() {
             </div>
           </div>
 
-          <aside className="flex flex-col gap-6 lg:sticky lg:top-24">
+          <aside className="flex flex-col gap-4 lg:sticky lg:top-24">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-slate-200">
+                Preview
+              </h3>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsQuickSettingsOpen(true)}
+              >
+                Quick settings
+              </Button>
+            </div>
             <div className="flex-1 bg-slate-100 p-2">
               <TemplatePreview
-                template={template}
+                template={effectiveTemplate}
                 resumeJson={resumeJson}
                 embedLinks
                 showPlaceholders={false}
@@ -1085,6 +1147,271 @@ export default function ResumeEditor() {
           setBlockedTemplate(null);
         }}
       />
+      <PromptModal
+        open={isQuickSettingsOpen}
+        title="Quick settings"
+        description="Override template defaults for this resume."
+        confirmLabel="Done"
+        onConfirm={() => setIsQuickSettingsOpen(false)}
+        onCancel={() => setIsQuickSettingsOpen(false)}
+      >
+        <div className="flex flex-col gap-4 text-xs text-slate-400">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="text-sm font-semibold text-slate-200">
+              Layout
+            </h4>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setTemplateOverrides(null)}
+              disabled={!templateOverrides}
+            >
+              Reset overrides
+            </Button>
+          </div>
+          <label className="flex flex-col gap-2 text-xs font-semibold text-slate-400">
+            Page size
+            <select
+              value={effectiveTemplate?.page?.size ?? "A4"}
+              onChange={(event) =>
+                updateOverride(["page", "size"], event.target.value)
+              }
+              className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm font-medium text-slate-100"
+            >
+              {PAGE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="Margin X"
+              type="number"
+              min="0"
+              value={effectiveTemplate?.page?.marginX ?? ""}
+              onChange={(event) => {
+                const raw = event.target.value;
+                const value = raw === "" ? "" : Number(raw);
+                updateOverride(
+                  ["page", "marginX"],
+                  Number.isFinite(value) ? value : ""
+                );
+              }}
+            />
+            <Input
+              label="Margin Y"
+              type="number"
+              min="0"
+              value={effectiveTemplate?.page?.marginY ?? ""}
+              onChange={(event) => {
+                const raw = event.target.value;
+                const value = raw === "" ? "" : Number(raw);
+                updateOverride(
+                  ["page", "marginY"],
+                  Number.isFinite(value) ? value : ""
+                );
+              }}
+            />
+          </div>
+          <div className="grid gap-3">
+            <label className="flex items-center justify-between gap-3 text-xs font-semibold text-slate-400">
+              Layout gap
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="0"
+                  max="32"
+                  step="1"
+                  value={effectiveTemplate?.theme?.gap ?? 12}
+                  onChange={(event) =>
+                    updateOverride(
+                      ["theme", "gap"],
+                      Number(event.target.value)
+                    )
+                  }
+                  className="h-2 w-32 accent-emerald-400"
+                />
+                <span className="w-7 text-right text-[11px] text-slate-400">
+                  {effectiveTemplate?.theme?.gap ?? 12}
+                </span>
+              </div>
+            </label>
+            <label className="flex items-center justify-between gap-3 text-xs font-semibold text-slate-400">
+              Repeat item gap
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="0"
+                  max="32"
+                  step="1"
+                  value={
+                    effectiveTemplate?.theme?.repeatItemGap ??
+                    effectiveTemplate?.theme?.gap ??
+                    12
+                  }
+                  onChange={(event) =>
+                    updateOverride(
+                      ["theme", "repeatItemGap"],
+                      Number(event.target.value)
+                    )
+                  }
+                  className="h-2 w-32 accent-emerald-400"
+                />
+                <span className="w-7 text-right text-[11px] text-slate-400">
+                  {effectiveTemplate?.theme?.repeatItemGap ??
+                    effectiveTemplate?.theme?.gap ??
+                    12}
+                </span>
+              </div>
+            </label>
+            <label className="flex items-center justify-between gap-3 text-xs font-semibold text-slate-400">
+              Section gap
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="0"
+                  max="32"
+                  step="1"
+                  value={effectiveTemplate?.theme?.sectionGap ?? 12}
+                  onChange={(event) =>
+                    updateOverride(
+                      ["theme", "sectionGap"],
+                      Number(event.target.value)
+                    )
+                  }
+                  className="h-2 w-32 accent-emerald-400"
+                />
+                <span className="w-7 text-right text-[11px] text-slate-400">
+                  {effectiveTemplate?.theme?.sectionGap ?? 12}
+                </span>
+              </div>
+            </label>
+            <label className="flex items-center justify-between gap-3 text-xs font-semibold text-slate-400">
+              Vertical divider spacing
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="0"
+                  max="24"
+                  step="1"
+                  value={effectiveTemplate?.theme?.rowDividerSpacing ?? 0}
+                  onChange={(event) =>
+                    updateOverride(
+                      ["theme", "rowDividerSpacing"],
+                      Number(event.target.value)
+                    )
+                  }
+                  className="h-2 w-32 accent-emerald-400"
+                />
+                <span className="w-7 text-right text-[11px] text-slate-400">
+                  {effectiveTemplate?.theme?.rowDividerSpacing ?? 0}
+                </span>
+              </div>
+            </label>
+            <label className="flex items-center justify-between gap-3 text-xs font-semibold text-slate-400">
+              Title divider spacing
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="0"
+                  max="24"
+                  step="1"
+                  value={effectiveTemplate?.theme?.sectionTitleDivider?.spacing ?? 0}
+                  onChange={(event) =>
+                    updateOverride(
+                      ["theme", "sectionTitleDivider", "spacing"],
+                      Number(event.target.value)
+                    )
+                  }
+                  className="h-2 w-32 accent-emerald-400"
+                />
+                <span className="w-7 text-right text-[11px] text-slate-400">
+                  {effectiveTemplate?.theme?.sectionTitleDivider?.spacing ?? 0}
+                </span>
+              </div>
+            </label>
+          </div>
+          <div className="border-t border-slate-800/80 pt-2" />
+          <h4 className="text-sm font-semibold text-slate-200">
+            Typography
+          </h4>
+          <label className="flex flex-col gap-2 text-xs font-semibold text-slate-400">
+            Font family
+            <select
+              value={effectiveTemplate?.theme?.fonts?.body ?? "Arial"}
+              onChange={(event) =>
+                updateOverride(["theme", "fonts", "body"], event.target.value)
+              }
+              className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm font-medium text-slate-100"
+            >
+              {FONT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Input
+            label="Base font size"
+            type="number"
+            min="8"
+            max="32"
+            value={effectiveTemplate?.theme?.baseFontSize ?? ""}
+            onChange={(event) => {
+              const raw = event.target.value;
+              const value = raw === "" ? "" : Number(raw);
+              updateOverride(
+                ["theme", "baseFontSize"],
+                Number.isFinite(value) ? value : ""
+              );
+            }}
+          />
+          <div className="border-t border-slate-800/80 pt-2" />
+          <h4 className="text-sm font-semibold text-slate-200">
+            Colors
+          </h4>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {COLOR_FIELDS.map((field) => {
+              const value =
+                effectiveTemplate?.theme?.colors?.[field.key] ?? field.fallback;
+              return (
+                <label
+                  key={field.key}
+                  className="flex flex-col gap-2 text-xs font-semibold text-slate-400"
+                >
+                  {field.label}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={value}
+                      onChange={(event) =>
+                        updateOverride(
+                          ["theme", "colors", field.key],
+                          event.target.value
+                        )
+                      }
+                      className="h-10 w-12 rounded-xl border border-slate-800 bg-slate-950/70 p-1"
+                    />
+                    <input
+                      type="text"
+                      value={value}
+                      onChange={(event) =>
+                        updateOverride(
+                          ["theme", "colors", field.key],
+                          event.target.value.trim()
+                        )
+                      }
+                      className="w-full rounded-2xl border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100"
+                    />
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      </PromptModal>
     </AppShell>
   );
 }

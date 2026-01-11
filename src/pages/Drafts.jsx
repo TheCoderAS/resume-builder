@@ -11,6 +11,9 @@ import PromptModal from "../components/PromptModal.jsx";
 import Snackbar from "../components/Snackbar.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
+import { TemplatePreview } from "../components/TemplatePreview.jsx";
+import { buildPreviewResumeJson } from "../utils/resumeData.js";
+import { hydrateTemplate } from "../templateModel.js";
 
 const formatDate = (timestamp) => {
   if (!timestamp?.toDate) return "Just now";
@@ -142,20 +145,48 @@ export default function Drafts() {
 
         {!loading && drafts.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {drafts.map((draft) => (
-              <div
-                key={draft.id}
-                className={`group relative flex h-full flex-col gap-4 rounded-[28px] border border-slate-800 p-5 text-left transition hover:-translate-y-0.5 hover:border-emerald-400/60 hover:shadow-[0_16px_32px_rgba(15,23,42,0.45)] ${
-                  draft.visibility?.isPublic
-                    ? "bg-emerald-500/10"
-                    : "bg-slate-900/60"
-                }`}
-              >
+            {drafts.map((draft) => {
+              const hydratedTemplate = draft.templateSnapshot
+                ? hydrateTemplate(draft.templateSnapshot)
+                : null;
+              const previewResumeJson = hydratedTemplate
+                ? buildPreviewResumeJson(
+                    hydratedTemplate,
+                    draft.values ?? draft.formValues ?? {}
+                  )
+                : null;
+
+              return (
+                <div
+                  key={draft.id}
+                  className={`group relative flex h-full flex-col gap-4 rounded-[28px] border border-slate-800 p-5 text-left transition hover:-translate-y-0.5 hover:border-emerald-400/60 hover:shadow-[0_16px_32px_rgba(15,23,42,0.45)] ${
+                    draft.visibility?.isPublic
+                      ? "bg-emerald-500/10"
+                      : "bg-slate-900/60"
+                  }`}
+                >
                 <button
                   type="button"
                   onClick={() => handleOpenDraft(draft.id)}
                   className="flex flex-1 flex-col gap-2 text-left"
                 >
+                  <div className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-2 shadow-inner">
+                    <div className="h-48 overflow-hidden rounded-xl bg-slate-900/40 pointer-events-none select-none">
+                      {hydratedTemplate?.layout?.root && previewResumeJson ? (
+                        <TemplatePreview
+                          template={hydratedTemplate}
+                          resumeJson={previewResumeJson}
+                          embedLinks={false}
+                          showPlaceholders={true}
+                          className="pointer-events-none select-none"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-xs text-slate-400">
+                          Preview unavailable
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div>
                     <p className="text-base font-semibold text-slate-100">
                       {draft.resumeTitle ||
@@ -203,8 +234,9 @@ export default function Drafts() {
                     </button>
                   </div>
                 ) : null}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         ) : null}
       </div>

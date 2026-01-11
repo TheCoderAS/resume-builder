@@ -412,7 +412,9 @@ export default function TemplateGallery() {
                 const isPublicTemplate = template.isPublic === true;
                 const isDefaultTemplate =
                   defaultTemplateId && defaultTemplateId === template.id;
-                const hydratedTemplate = hydrateTemplate(template);
+                const hydratedTemplate = hydrateTemplate(
+                  template?.layout ?? template
+                );
                 const canRenderPreview = Boolean(hydratedTemplate?.layout?.root);
                 const previewResumeJson = canRenderPreview
                   ? buildPreviewResumeJson(hydratedTemplate, {})
@@ -543,19 +545,15 @@ export default function TemplateGallery() {
                         )}
                       </div>
                     ) : null}
-                    <div
-                      className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-2 shadow-inner"
-                      onClick={(event) => event.stopPropagation()}
-                      onMouseDown={(event) => event.stopPropagation()}
-                    >
-                      <div className="h-48 overflow-hidden rounded-xl bg-slate-900/40">
+                    <div className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-2 shadow-inner">
+                      <div className="h-48 overflow-hidden rounded-xl bg-slate-900/40 pointer-events-none select-none">
                         {canRenderPreview && previewResumeJson ? (
                           <TemplatePreview
                             template={hydratedTemplate}
                             resumeJson={previewResumeJson}
                             embedLinks={false}
                             showPlaceholders={true}
-                            className="pointer-events-auto select-text"
+                            className="pointer-events-none select-none"
                           />
                         ) : (
                           <div className="flex h-full items-center justify-center text-xs text-slate-400">

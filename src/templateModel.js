@@ -108,3 +108,27 @@ export const hydrateTemplate = (layout) => {
     layout: layout?.layout?.root ? layout.layout : baseTemplate.layout,
   };
 };
+
+export const applyTemplateOverrides = (template, overrides) => {
+  if (!overrides) return template;
+  const nextPage = overrides.page
+    ? { ...template.page, ...overrides.page }
+    : template.page;
+  const nextTheme = overrides.theme
+    ? {
+        ...template.theme,
+        ...overrides.theme,
+        fonts: overrides.theme.fonts
+          ? { ...template.theme?.fonts, ...overrides.theme.fonts }
+          : template.theme?.fonts,
+        colors: overrides.theme.colors
+          ? { ...template.theme?.colors, ...overrides.theme.colors }
+          : template.theme?.colors,
+      }
+    : template.theme;
+  return {
+    ...template,
+    page: nextPage,
+    theme: nextTheme,
+  };
+};

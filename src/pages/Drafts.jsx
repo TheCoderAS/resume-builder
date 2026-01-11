@@ -13,7 +13,7 @@ import { useAuth } from "../contexts/AuthContext.jsx";
 import { db } from "../firebase.js";
 import { TemplatePreview } from "../components/TemplatePreview.jsx";
 import { buildPreviewResumeJson } from "../utils/resumeData.js";
-import { hydrateTemplate } from "../templateModel.js";
+import { applyTemplateOverrides, hydrateTemplate } from "../templateModel.js";
 
 const formatDate = (timestamp) => {
   if (!timestamp?.toDate) return "Just now";
@@ -149,9 +149,15 @@ export default function Drafts() {
               const hydratedTemplate = draft.templateSnapshot
                 ? hydrateTemplate(draft.templateSnapshot)
                 : null;
-              const previewResumeJson = hydratedTemplate
-                ? buildPreviewResumeJson(
+              const effectiveTemplate = hydratedTemplate
+                ? applyTemplateOverrides(
                     hydratedTemplate,
+                    draft.templateOverrides
+                  )
+                : null;
+              const previewResumeJson = effectiveTemplate
+                ? buildPreviewResumeJson(
+                    effectiveTemplate,
                     draft.values ?? draft.formValues ?? {}
                   )
                 : null;
@@ -172,9 +178,9 @@ export default function Drafts() {
                 >
                   <div className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-2 shadow-inner">
                     <div className="h-48 overflow-hidden rounded-xl bg-slate-900/40 pointer-events-none select-none">
-                      {hydratedTemplate?.layout?.root && previewResumeJson ? (
+                      {effectiveTemplate?.layout?.root && previewResumeJson ? (
                         <TemplatePreview
-                          template={hydratedTemplate}
+                          template={effectiveTemplate}
                           resumeJson={previewResumeJson}
                           embedLinks={false}
                           showPlaceholders={true}
